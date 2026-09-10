@@ -54,6 +54,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .sidebar .user-info .u-role { font-size: 11px; opacity: 0.6; }
 .sidebar .logout-btn { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 16px; padding: 4px; }
 .sidebar .logout-btn:hover { color: #fff; }
+.admin-only { display: none; }
 
 .main-content { margin-left: 220px; flex: 1; min-height: 100vh; }
 .topbar { background: #fff; padding: 14px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
@@ -196,14 +197,14 @@ table tr:last-child td { border-bottom: none; }
       <div class="nav-item active" onclick="navTo('dashboard', this)">
         <span class="n-icon">📊</span><span class="n-text">仪表盘</span>
       </div>
-      <div class="nav-section">系统管理</div>
-      <div class="nav-item" onclick="navTo('accounts', this)">
+      <div class="nav-section admin-only">系统管理</div>
+      <div class="nav-item admin-only" onclick="navTo('accounts', this)">
         <span class="n-icon">👥</span><span class="n-text">账号管理</span>
       </div>
-      <div class="nav-item" onclick="navTo('roles', this)">
+      <div class="nav-item admin-only" onclick="navTo('roles', this)">
         <span class="n-icon">🔐</span><span class="n-text">角色权限</span>
       </div>
-      <div class="nav-item" onclick="navTo('logs', this)">
+      <div class="nav-item admin-only" onclick="navTo('logs', this)">
         <span class="n-icon">📋</span><span class="n-text">登录日志</span>
       </div>
       <div class="nav-item" onclick="showChangePasswordModal()">
@@ -601,7 +602,12 @@ function enterAdmin() {
   document.getElementById('userName').textContent = session.realname;
   document.getElementById('userRole').textContent = ROLES[session.role]?.name || session.role;
   document.getElementById('userAvatar').textContent = session.realname.charAt(0);
-  navTo('dashboard', document.querySelectorAll('.sidebar .nav-item')[0]);
+  // 权限控制：只有超级管理员能看到系统管理菜单
+  const isAdmin = session.role === 'admin';
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
+  navTo('dashboard', document.querySelector('.sidebar .nav-item:not([style*="display: none"])'));
   updateStats();
 }
 
@@ -614,7 +620,14 @@ function enterWorkbench() {
 
 // ===== 导航 =====
 const PAGE_TITLES = { dashboard: '仪表盘', accounts: '账号管理', roles: '角色权限', logs: '登录日志' };
+const ADMIN_PAGES = ['accounts', 'roles', 'logs'];
 function navTo(page, el) {
+  // 权限校验：非管理员不能访问系统管理页面
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (ADMIN_PAGES.includes(page) && (!session || session.role !== 'admin')) {
+    showToast('您没有权限访问此页面', 'error');
+    return;
+  }
   document.querySelectorAll('.sidebar .nav-item').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
   document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
