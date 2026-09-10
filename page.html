@@ -14,10 +14,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .header .menu-btn { font-size: 24px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .header .menu-btn:active { background: rgba(255,255,255,0.15); }
 .header .title { font-size: 17px; font-weight: 600; flex: 1; text-align: center; margin: 0 10px; }
-.header .actions { display: flex; gap: 12px; }
-.header .action-btn { font-size: 18px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; position: relative; }
+.header .actions { display: flex; gap: 8px; }
+.header .action-btn { font-size: 18px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .header .action-btn:active { background: rgba(255,255,255,0.15); }
-.header .badge { position: absolute; top: 2px; right: 2px; background: #ff4d4f; color: #fff; font-size: 10px; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
 
 .sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: linear-gradient(180deg, #2d7a4f 0%, #1f5a38 100%); z-index: 200; transition: left 0.3s ease; overflow-y: auto; padding-top: env(safe-area-inset-top); }
 .sidebar.open { left: 0; }
@@ -32,26 +31,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .sidebar .nav-text { font-size: 15px; flex: 1; }
 .sidebar .nav-badge { background: #ff4d4f; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
 .sidebar .nav-section { padding: 16px 20px 8px; font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+.sidebar .user-info { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px; }
+.sidebar .user-name { color: #fff; font-size: 14px; font-weight: 600; }
+.sidebar .user-role { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 4px; }
+.sidebar .logout-btn { margin-top: 12px; padding: 10px; text-align: center; background: rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-size: 13px; cursor: pointer; }
 .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 150; display: none; }
 .overlay.show { display: block; }
 
-.main { padding: 16px; padding-bottom: 80px; min-height: 100vh; }
+.main { padding: 16px; padding-bottom: 100px; min-height: 100vh; }
 .page { display: none; }
 .page.active { display: block; animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-.stat-card { background: #fff; border-radius: 14px; padding: 16px 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; transition: transform 0.15s; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #fff; border-radius: 14px; padding: 14px 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; transition: transform 0.15s; }
 .stat-card:active { transform: scale(0.97); }
-.stat-card .stat-num { font-size: 24px; font-weight: 700; color: #2d7a4f; line-height: 1.2; }
+.stat-card .stat-num { font-size: 22px; font-weight: 700; color: #2d7a4f; line-height: 1.2; }
 .stat-card .stat-num.warn { color: #fa8c16; }
 .stat-card .stat-num.danger { color: #ff4d4f; }
-.stat-card .stat-label { font-size: 12px; color: #888; margin-top: 6px; }
+.stat-card .stat-num.blue { color: #1890ff; }
+.stat-card .stat-label { font-size: 11px; color: #888; margin-top: 6px; }
 
 .section-title { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 12px; }
 .section-title .title-text { font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center; }
 .section-title .title-icon { margin-right: 8px; font-size: 18px; }
-.section-title .more { font-size: 13px; color: #2d7a4f; cursor: pointer; }
+.section-title .add-btn { font-size: 13px; color: #2d7a4f; cursor: pointer; background: #e6f7ee; padding: 6px 12px; border-radius: 8px; font-weight: 500; }
+.section-title .add-btn:active { background: #d4f0e0; }
 
 .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 8px; }
 .quick-item { background: #fff; border-radius: 14px; padding: 14px 8px; text-align: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.15s; }
@@ -59,1081 +64,733 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .quick-item .quick-icon { font-size: 26px; margin-bottom: 6px; }
 .quick-item .quick-text { font-size: 12px; color: #555; font-weight: 500; }
 
-.flow-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 8px; }
-.flow-steps { display: flex; justify-content: space-between; position: relative; margin: 16px 0 8px; flex-wrap: wrap; gap: 8px; }
-.flow-step { position: relative; z-index: 1; text-align: center; flex: 1; min-width: 50px; cursor: pointer; }
-.flow-step .step-dot { width: 28px; height: 28px; border-radius: 50%; background: #e8e8e8; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #999; font-weight: 600; }
-.flow-step.done .step-dot { background: #2d7a4f; color: #fff; }
-.flow-step.current .step-dot { background: #fa8c16; color: #fff; box-shadow: 0 0 0 4px rgba(250,140,22,0.2); }
-.flow-step .step-label { font-size: 10px; color: #999; white-space: nowrap; }
-.flow-step.done .step-label, .flow-step.current .step-label { color: #333; font-weight: 500; }
-
-.pdca-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.pdca-tab { flex: 1; padding: 10px; text-align: center; background: #fff; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; color: #888; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.pdca-tab.active { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; }
-
 .list-card { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 8px; }
-.list-item { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid #f5f5f5; cursor: pointer; }
+.list-item { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid #f5f5f5; cursor: pointer; position: relative; }
 .list-item:last-child { border-bottom: none; }
 .list-item:active { background: #f9f9f9; }
-.list-item .item-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; flex-shrink: 0; }
+.list-item .item-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-right: 12px; flex-shrink: 0; }
 .list-item .item-icon.green { background: #e6f7ee; }
 .list-item .item-icon.orange { background: #fff7e6; }
 .list-item .item-icon.red { background: #fff1f0; }
 .list-item .item-icon.blue { background: #e6f7ff; }
 .list-item .item-icon.purple { background: #f9f0ff; }
 .list-item .item-content { flex: 1; min-width: 0; }
-.list-item .item-title { font-size: 14px; font-weight: 500; color: #333; margin-bottom: 4px; }
-.list-item .item-desc { font-size: 12px; color: #999; }
-.list-item .item-status { font-size: 11px; padding: 3px 10px; border-radius: 10px; flex-shrink: 0; margin-left: 8px; }
+.list-item .item-title { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item .item-desc { font-size: 12px; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item .item-status { font-size: 11px; padding: 4px 10px; border-radius: 10px; flex-shrink: 0; margin-left: 8px; font-weight: 500; }
 .list-item .item-status.pending { background: #fff7e6; color: #fa8c16; }
 .list-item .item-status.doing { background: #e6f7ff; color: #1890ff; }
 .list-item .item-status.done { background: #e6f7ee; color: #2d7a4f; }
 .list-item .item-status.urgent { background: #fff1f0; color: #ff4d4f; }
-.list-item .item-arrow { color: #ccc; margin-left: 8px; font-size: 14px; }
+.list-item .item-arrow { color: #ccc; margin-left: 8px; font-size: 14px; flex-shrink: 0; }
+.list-item .delete-btn { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #ff4d4f; font-size: 18px; cursor: pointer; padding: 8px; display: none; }
+.list-item.show-delete .delete-btn { display: block; }
+.list-item.show-delete .item-status, .list-item.show-delete .item-arrow { display: none; }
 
-.chart-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 8px; }
+.empty-state { text-align: center; padding: 60px 20px; color: #999; }
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+.empty-state .empty-text { font-size: 14px; margin-bottom: 16px; }
+.empty-state .empty-btn { display: inline-block; background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; padding: 10px 24px; border-radius: 20px; font-size: 14px; cursor: pointer; }
+
+/* 详情页 */
+.detail-page { background: #f5f6f8; min-height: 100vh; }
+.detail-header { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; padding: 20px; padding-top: calc(20px + env(safe-area-inset-top)); }
+.detail-header .detail-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.detail-header .detail-desc { font-size: 13px; opacity: 0.9; line-height: 1.6; }
+.detail-header .detail-meta { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.detail-header .meta-tag { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 11px; }
+
+.detail-section { background: #fff; margin: 12px 16px; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.detail-section:last-child { margin-bottom: 100px; }
+.detail-section .section-head { display: flex; align-items: center; margin-bottom: 12px; }
+.detail-section .section-head .icon { font-size: 18px; margin-right: 8px; }
+.detail-section .section-head .name { font-size: 15px; font-weight: 600; color: #333; }
+.detail-section .section-content { font-size: 13px; color: #555; line-height: 1.8; white-space: pre-wrap; word-break: break-all; }
+.detail-section .section-content.empty { color: #ccc; font-style: italic; }
+
+.detail-actions { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 12px; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); z-index: 100; }
+.detail-actions .btn { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; border: none; }
+.detail-actions .btn-edit { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; }
+.detail-actions .btn-delete { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+
+/* 表单模态框 */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 300; display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; width: 100%; max-width: 500px; max-height: 85vh; border-radius: 20px 20px 0 0; overflow: hidden; display: flex; flex-direction: column; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.modal-header .modal-title { font-size: 17px; font-weight: 600; color: #333; }
+.modal-header .modal-close { font-size: 24px; color: #999; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.modal-header .modal-close:active { background: #f5f5f5; }
+.modal-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+.modal-footer { padding: 12px 20px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #f0f0f0; display: flex; gap: 12px; }
+.modal-footer .btn { flex: 1; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; border: none; }
+.modal-footer .btn-cancel { background: #f5f5f5; color: #666; }
+.modal-footer .btn-save { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+.form-group label .required { color: #ff4d4f; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; color: #333; background: #fafafa; transition: all 0.2s; font-family: inherit; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #2d7a4f; background: #fff; box-shadow: 0 0 0 3px rgba(45,122,79,0.1); }
+.form-group textarea { min-height: 80px; resize: vertical; }
+.form-group .form-hint { font-size: 11px; color: #999; margin-top: 4px; }
+
+/* Toast */
+.toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 80%; text-align: center; }
+.toast.show { opacity: 1; }
+.toast.success { background: rgba(45,122,79,0.9); }
+.toast.error { background: rgba(255,77,79,0.9); }
+
+/* 看板图表 */
+.chart-card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 12px; }
 .chart-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
 .chart-title .tag { font-size: 11px; color: #2d7a4f; background: #e6f7ee; padding: 2px 8px; border-radius: 8px; }
-.chart-area { height: 180px; display: flex; align-items: flex-end; justify-content: space-around; padding: 10px 0; border-bottom: 1px solid #f0f0f0; position: relative; }
-.chart-bar { width: 24px; background: linear-gradient(180deg, #3a9d68 0%, #2d7a4f 100%); border-radius: 4px 4px 0 0; position: relative; transition: height 0.5s; cursor: pointer; }
-.chart-bar .bar-value { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #666; }
+.chart-area { height: 160px; display: flex; align-items: flex-end; justify-content: space-around; padding: 10px 0; border-bottom: 1px solid #f0f0f0; position: relative; }
+.chart-bar { width: 28px; background: linear-gradient(180deg, #3a9d68 0%, #2d7a4f 100%); border-radius: 4px 4px 0 0; position: relative; transition: height 0.5s; cursor: pointer; min-height: 4px; }
+.chart-bar .bar-value { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #666; font-weight: 600; }
 .chart-labels { display: flex; justify-content: space-around; padding-top: 8px; }
-.chart-labels span { font-size: 11px; color: #999; }
+.chart-label { font-size: 10px; color: #999; text-align: center; flex: 1; }
 
-.progress-bar { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin-top: 6px; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, #3a9d68 0%, #2d7a4f 100%); border-radius: 4px; transition: width 0.5s; }
-.progress-fill.warn { background: linear-gradient(90deg, #faad14 0%, #fa8c16 100%); }
-.progress-fill.danger { background: linear-gradient(90deg, #ff7875 0%, #ff4d4f 100%); }
+.pie-chart { display: flex; align-items: center; justify-content: center; padding: 20px 0; }
+.pie-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px; }
+.pie-legend-item { display: flex; align-items: center; font-size: 12px; color: #555; }
+.pie-legend-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 
-.tabbar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid #eee; padding-bottom: env(safe-area-inset-bottom); z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-.tab-item { flex: 1; text-align: center; padding: 8px 0 6px; cursor: pointer; color: #999; transition: color 0.2s; }
-.tab-item.active { color: #2d7a4f; }
-.tab-item .tab-icon { font-size: 22px; margin-bottom: 2px; }
-.tab-item .tab-label { font-size: 11px; }
+/* 搜索框 */
+.search-box { background: #fff; border-radius: 12px; padding: 10px 16px; display: flex; align-items: center; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.search-box .search-icon { font-size: 16px; color: #999; margin-right: 8px; }
+.search-box input { flex: 1; border: none; outline: none; font-size: 14px; background: transparent; color: #333; }
+.search-box input::placeholder { color: #ccc; }
 
-.module-header { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; padding: 20px; border-radius: 0 0 20px 20px; margin: -16px -16px 16px; }
-.module-header .mod-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-.module-header .mod-desc { font-size: 13px; opacity: 0.85; }
-.module-header .mod-stats { display: flex; gap: 20px; margin-top: 14px; flex-wrap: wrap; }
-.module-header .mod-stat .num { font-size: 22px; font-weight: 700; }
-.module-header .mod-stat .label { font-size: 11px; opacity: 0.7; }
+/* 筛选标签 */
+.filter-tabs { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 4px; }
+.filter-tab { padding: 6px 14px; background: #fff; border-radius: 16px; font-size: 12px; color: #666; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.04); transition: all 0.2s; }
+.filter-tab.active { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; }
 
-.form-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.form-item { margin-bottom: 14px; }
-.form-item:last-child { margin-bottom: 0; }
-.form-label { font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 500; }
-.form-label .required { color: #ff4d4f; margin-right: 2px; }
-.form-input { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; background: #fafafa; }
-.form-input:focus { outline: none; border-color: #2d7a4f; background: #fff; }
-.form-select { width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; background: #fafafa; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
-.submit-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-.submit-btn:active { opacity: 0.9; }
-.secondary-btn { width: 100%; padding: 12px; background: #fff; color: #2d7a4f; border: 1px solid #2d7a4f; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-
-.tool-category { margin-bottom: 20px; }
-.tool-category .cat-title { font-size: 14px; font-weight: 600; color: #2d7a4f; margin-bottom: 10px; padding-left: 10px; border-left: 3px solid #2d7a4f; display: flex; align-items: center; justify-content: space-between; }
-.tool-category .cat-count { font-size: 11px; color: #999; font-weight: normal; }
-
-.tool-detail-section { margin-bottom: 16px; }
-.tool-detail-section .section-label { font-size: 13px; font-weight: 600; color: #2d7a4f; margin-bottom: 8px; display: flex; align-items: center; }
-.tool-detail-section .section-label .icon { margin-right: 6px; }
-.tool-detail-section .section-content { font-size: 13px; color: #555; line-height: 1.8; background: #fafafa; padding: 12px; border-radius: 10px; }
-.tool-detail-section .step-item { display: flex; margin-bottom: 8px; }
-.tool-detail-section .step-num { width: 22px; height: 22px; background: #2d7a4f; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; margin-right: 10px; flex-shrink: 0; }
-.tool-detail-section .step-text { font-size: 13px; color: #555; line-height: 1.6; flex: 1; }
-
-.risk-level { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
-.risk-level.high { background: #fff1f0; color: #ff4d4f; }
-.risk-level.medium { background: #fff7e6; color: #fa8c16; }
-.risk-level.low { background: #e6f7ee; color: #2d7a4f; }
-
-.search-box { background: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-.search-box input { flex: 1; border: none; outline: none; font-size: 14px; background: transparent; margin-left: 8px; }
-
-@media (min-width: 768px) {
-  .main { max-width: 480px; margin: 0 auto; }
-  .sidebar { left: 0; }
-  .overlay { display: none !important; }
-  .header .menu-btn { display: none; }
-}
+/* 底部添加按钮 */
+.fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(45,122,79,0.4); z-index: 90; transition: transform 0.2s; }
+.fab:active { transform: scale(0.9); }
 </style>
 </head>
 <body>
 
+<!-- 顶部导航 -->
 <div class="header">
-  <div class="back-btn" id="backBtn" style="display:none;" onclick="goBack()">←</div>
-  <div class="menu-btn" id="menuBtn" onclick="toggleSidebar()">☰</div>
-  <div class="title" id="pageTitle">首页看板</div>
+  <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+  <div class="title" id="pageTitle">质量管理工作台</div>
   <div class="actions">
-    <div class="action-btn" onclick="showPage('notifications')">🔔<span class="badge">5</span></div>
-    <div class="action-btn" onclick="showPage('profile')">👤</div>
-    <div class="action-btn" onclick="logoutFromWorkbench()" title="退出登录，返回登录页">⏻</div>
+    <div class="action-btn" onclick="showSearch()" id="searchBtn">🔍</div>
   </div>
 </div>
 
-<div class="overlay" onclick="toggleSidebar()"></div>
+<!-- 侧边栏 -->
 <div class="sidebar" id="sidebar">
   <div class="brand">
     <div class="brand-icon">🏭</div>
-    <div class="brand-name">格丽思质量管理</div>
-    <div class="brand-sub">一体化管理体系工作台</div>
+    <div class="brand-name">格丽思质量</div>
+    <div class="brand-sub">全流程质量管理系统</div>
   </div>
-  <div class="nav">
-    <div class="nav-section">核心功能</div>
-    <div class="nav-item active" onclick="navTo('home', this)"><span class="nav-icon">🏠</span><span class="nav-text">首页看板</span></div>
-    <div class="nav-item" onclick="navTo('lifecycle', this)"><span class="nav-icon">🔄</span><span class="nav-text">全生命周期</span></div>
-    <div class="nav-item" onclick="navTo('supplier', this)"><span class="nav-icon">👥</span><span class="nav-text">供应商管理</span></div>
-    <div class="nav-item" onclick="navTo('arrival', this)"><span class="nav-icon">📦</span><span class="nav-text">到货管理</span><span class="nav-badge">3</span></div>
-    <div class="nav-item" onclick="navTo('production', this)"><span class="nav-icon">🏭</span><span class="nav-text">生产过程</span></div>
-    <div class="nav-item" onclick="navTo('inspection', this)"><span class="nav-icon">✅</span><span class="nav-text">成品检验</span></div>
-    <div class="nav-item" onclick="navTo('shipping', this)"><span class="nav-icon">🚚</span><span class="nav-text">出货管理</span></div>
-    <div class="nav-section">质量体系</div>
-    <div class="nav-item" onclick="navTo('exception', this)"><span class="nav-icon">⚠️</span><span class="nav-text">异常与改进</span><span class="nav-badge">2</span></div>
-    <div class="nav-item" onclick="navTo('risk', this)"><span class="nav-icon">🎯</span><span class="nav-text">风险与机遇</span></div>
-    <div class="nav-item" onclick="navTo('system', this)"><span class="nav-icon">📋</span><span class="nav-text">体系程序文件</span></div>
-    <div class="nav-item" onclick="navTo('tools', this)"><span class="nav-icon">🛠️</span><span class="nav-text">质量工具库(49)</span></div>
-    <div class="nav-section">数据中心</div>
-    <div class="nav-item" onclick="navTo('dashboard', this)"><span class="nav-icon">📊</span><span class="nav-text">数据看板</span></div>
-    <div class="nav-item" onclick="navTo('records', this)"><span class="nav-icon">📝</span><span class="nav-text">台账记录</span></div>
-    <div class="nav-item" onclick="openWPS()"><span class="nav-icon">📊</span><span class="nav-text">WPS多维表格</span></div>
+  <div class="nav" id="sidebarNav"></div>
+  <div class="user-info">
+    <div class="user-name" id="sidebarUserName">管理员</div>
+    <div class="user-role" id="sidebarUserRole">系统管理员</div>
+    <div class="logout-btn" onclick="logout()">退出登录</div>
   </div>
 </div>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
-<div class="main">
-
-  <!-- 首页看板 -->
+<!-- 主内容区 -->
+<div class="main" id="mainContent">
+  <!-- 首页 -->
   <div class="page active" id="page-home">
-    <div class="stats-row">
-      <div class="stat-card" onclick="navTo('arrival')"><div class="stat-num">3</div><div class="stat-label">今日待检</div></div>
-      <div class="stat-card" onclick="navTo('arrival')"><div class="stat-num">5</div><div class="stat-label">已入库批次</div></div>
-      <div class="stat-card" onclick="navTo('production')"><div class="stat-num warn">2</div><div class="stat-label">生产中工单</div></div>
+    <div class="stats-row" id="homeStats"></div>
+    <div class="section-title">
+      <div class="title-text"><span class="title-icon">⚡</span>快捷入口</div>
     </div>
-    <div class="stats-row">
-      <div class="stat-card" onclick="navTo('shipping')"><div class="stat-num">4</div><div class="stat-label">待出货订单</div></div>
-      <div class="stat-card" onclick="navTo('exception')"><div class="stat-num danger">1</div><div class="stat-label">不合格品</div></div>
-      <div class="stat-card" onclick="navTo('exception')"><div class="stat-num warn">2</div><div class="stat-label">CAPA待验证</div></div>
+    <div class="quick-grid" id="quickGrid"></div>
+    <div class="section-title">
+      <div class="title-text"><span class="title-icon">📋</span>最近更新</div>
     </div>
-
-    <div class="section-title"><div class="title-text"><span class="title-icon">⚡</span>快捷功能入口</div></div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('送货登记')"><div class="quick-icon">📦</div><div class="quick-text">送货登记</div></div>
-      <div class="quick-item" onclick="showForm('IQC检验')"><div class="quick-icon">🔍</div><div class="quick-text">来料检验</div></div>
-      <div class="quick-item" onclick="showForm('入库登记')"><div class="quick-icon">📥</div><div class="quick-text">仓库入库</div></div>
-      <div class="quick-item" onclick="showForm('发料登记')"><div class="quick-icon">📤</div><div class="quick-text">发料到线</div></div>
-      <div class="quick-item" onclick="showForm('首检记录')"><div class="quick-icon">🎯</div><div class="quick-text">生产首检</div></div>
-      <div class="quick-item" onclick="showForm('巡检记录')"><div class="quick-icon">🔄</div><div class="quick-text">巡检IPQC</div></div>
-      <div class="quick-item" onclick="showForm('OQC检验')"><div class="quick-icon">✅</div><div class="quick-text">成品检验</div></div>
-      <div class="quick-item" onclick="navTo('shipping')"><div class="quick-icon">🚚</div><div class="quick-text">出货管理</div></div>
-    </div>
-
-    <div class="section-title"><div class="title-text"><span class="title-icon">📈</span>全流程进度</div><span class="more" onclick="navTo('lifecycle')">详情 ›</span></div>
-    <div class="flow-card">
-      <div class="flow-steps">
-        <div class="flow-step done" onclick="showLifecycleDetail('设计')"><div class="step-dot">✓</div><div class="step-label">设计</div></div>
-        <div class="flow-step done" onclick="showLifecycleDetail('供应商')"><div class="step-dot">✓</div><div class="step-label">供应商</div></div>
-        <div class="flow-step done" onclick="showLifecycleDetail('试产')"><div class="step-dot">✓</div><div class="step-label">试产</div></div>
-        <div class="flow-step current" onclick="showLifecycleDetail('量产')"><div class="step-dot">4</div><div class="step-label">量产</div></div>
-        <div class="flow-step" onclick="showLifecycleDetail('检验')"><div class="step-dot">5</div><div class="step-label">检验</div></div>
-        <div class="flow-step" onclick="showLifecycleDetail('出货')"><div class="step-dot">6</div><div class="step-label">出货</div></div>
-        <div class="flow-step" onclick="showLifecycleDetail('售后')"><div class="step-dot">7</div><div class="step-label">售后</div></div>
-        <div class="flow-step" onclick="showLifecycleDetail('改进')"><div class="step-dot">8</div><div class="step-label">改进</div></div>
-      </div>
-    </div>
-
-    <div class="section-title"><div class="title-text"><span class="title-icon">🛠️</span>常用质量工具</div><span class="more" onclick="navTo('tools')">全部49个 ›</span></div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showToolDetail('鱼骨图')"><div class="quick-icon">🐟</div><div class="quick-text">鱼骨图</div></div>
-      <div class="quick-item" onclick="showToolDetail('柏拉图')"><div class="quick-icon">📊</div><div class="quick-text">柏拉图</div></div>
-      <div class="quick-item" onclick="showToolDetail('控制图')"><div class="quick-icon">📈</div><div class="quick-text">控制图</div></div>
-      <div class="quick-item" onclick="showToolDetail('5Why')"><div class="quick-icon">📝</div><div class="quick-text">5Why</div></div>
-      <div class="quick-item" onclick="showToolDetail('8D报告')"><div class="quick-icon">🎯</div><div class="quick-text">8D报告</div></div>
-      <div class="quick-item" onclick="showToolDetail('FMEA')"><div class="quick-icon">⚠️</div><div class="quick-text">FMEA</div></div>
-      <div class="quick-item" onclick="showToolDetail('SPC')"><div class="quick-icon">📊</div><div class="quick-text">SPC</div></div>
-      <div class="quick-item" onclick="showToolDetail('PDCA')"><div class="quick-icon">🔄</div><div class="quick-text">PDCA</div></div>
-    </div>
-
-    <div class="section-title"><div class="title-text"><span class="title-icon">📋</span>待办事项</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="navTo('arrival')"><div class="item-icon orange">📦</div><div class="item-content"><div class="item-title">今日待检批次</div><div class="item-desc">3批物料等待IQC检验 · 今日截止</div></div><span class="item-status urgent">紧急</span></div>
-      <div class="list-item" onclick="navTo('shipping')"><div class="item-icon blue">🚚</div><div class="item-content"><div class="item-title">待出货订单</div><div class="item-desc">4单待发货 · 今日截止</div></div><span class="item-status pending">待处理</span></div>
-      <div class="list-item" onclick="navTo('exception')"><div class="item-icon green">🔧</div><div class="item-content"><div class="item-title">CAPA待验证</div><div class="item-desc">2项纠正措施待验证 · 9月12日截止</div></div><span class="item-status doing">进行中</span></div>
-      <div class="list-item" onclick="navTo('exception')"><div class="item-icon red">📞</div><div class="item-content"><div class="item-title">客诉待回复</div><div class="item-desc">1起客户投诉待回复 · 9月10日截止</div></div><span class="item-status urgent">紧急</span></div>
-    </div>
+    <div class="list-card" id="recentList"></div>
   </div>
 
-  <!-- 全生命周期 -->
-  <div class="page" id="page-lifecycle">
-    <div class="module-header">
-      <div class="mod-title">🔄 产品全生命周期</div>
-      <div class="mod-desc">8大阶段 · PDCA循环 · 全流程追溯</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">8</div><div class="label">生命周期阶段</div></div>
-        <div class="mod-stat"><div class="num">72</div><div class="label">PDCA工作项</div></div>
-        <div class="mod-stat"><div class="num">49</div><div class="label">质量工具</div></div>
-      </div>
+  <!-- 模块列表页（动态生成） -->
+  <div class="page" id="page-module">
+    <div class="search-box" id="moduleSearchBox" style="display:none">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="moduleSearchInput" placeholder="搜索..." oninput="renderModuleList()">
     </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🔄</span>生命周期阶段（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showLifecycleDetail('设计')"><div class="item-icon blue">📐</div><div class="item-content"><div class="item-title">设计与开发阶段</div><div class="item-desc">需求分析→方案设计→DFMEA→DVT验证→设计改进</div></div><span class="item-status doing">进行中</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('供应商')"><div class="item-icon green">👥</div><div class="item-content"><div class="item-title">供应商管理阶段</div><div class="item-desc">供应商开发→选择评估→样品确认→IQC检验→绩效考核</div></div><span class="item-status doing">进行中</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('试产')"><div class="item-icon orange">🧪</div><div class="item-content"><div class="item-title">试产验证阶段</div><div class="item-desc">试产策划→工艺调试→首件检验→Cpk研究→PPAP批准</div></div><span class="item-status doing">进行中</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('量产')"><div class="item-icon purple">🏭</div><div class="item-content"><div class="item-title">批量生产阶段</div><div class="item-desc">生产计划→首件检验→IPQC巡检→SPC监控→异常处理</div></div><span class="item-status doing">进行中</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('检验')"><div class="item-icon blue">✅</div><div class="item-content"><div class="item-title">成品检验阶段</div><div class="item-desc">成品入库→FQC检验→OQC抽检→MRB评审→合格放行</div></div><span class="item-status pending">待开始</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('出货')"><div class="item-icon green">🚚</div><div class="item-content"><div class="item-title">出货交付阶段</div><div class="item-desc">出货计划→包装规范→电商/入仓→物流跟踪→交付确认</div></div><span class="item-status pending">待开始</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('售后')"><div class="item-icon orange">📞</div><div class="item-content"><div class="item-title">售后服务阶段</div><div class="item-desc">客诉受理→8D分析→退货处理→满意度调查→CAPA预防</div></div><span class="item-status pending">待开始</span></div>
-      <div class="list-item" onclick="showLifecycleDetail('改进')"><div class="item-icon purple">📈</div><div class="item-content"><div class="item-title">持续改进阶段</div><div class="item-desc">质量目标→QCC活动→内审→管理评审→标准化推广</div></div><span class="item-status doing">进行中</span></div>
-    </div>
+    <div class="filter-tabs" id="moduleFilters"></div>
+    <div id="moduleListContainer"></div>
   </div>
 
-  <!-- 生命周期详情 -->
-  <div class="page" id="page-lifecycle-detail">
-    <div class="module-header">
-      <div class="mod-title" id="lifecycleDetailTitle">阶段详情</div>
-      <div class="mod-desc" id="lifecycleDetailDesc">PDCA工作项 · 质量工具 · KPI指标</div>
+  <!-- 详情页 -->
+  <div class="page" id="page-detail">
+    <div class="detail-header">
+      <div class="detail-title" id="detailTitle"></div>
+      <div class="detail-desc" id="detailDesc"></div>
+      <div class="detail-meta" id="detailMeta"></div>
     </div>
-    <div class="pdca-tabs">
-      <div class="pdca-tab active" onclick="switchPDCA('P', this)">P-计划</div>
-      <div class="pdca-tab" onclick="switchPDCA('D', this)">D-执行</div>
-      <div class="pdca-tab" onclick="switchPDCA('C', this)">C-检查</div>
-      <div class="pdca-tab" onclick="switchPDCA('A', this)">A-处理</div>
-    </div>
-    <div id="lifecyclePDCAContent"></div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🛠️</span>本阶段推荐工具</div></div>
-    <div id="lifecycleTools"></div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">📊</span>本阶段KPI指标</div></div>
-    <div id="lifecycleKPIs"></div>
-  </div>
-
-  <!-- 供应商管理 -->
-  <div class="page" id="page-supplier">
-    <div class="module-header">
-      <div class="mod-title">👥 供应商管理</div>
-      <div class="mod-desc">供应商档案、评估、绩效考核</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">12</div><div class="label">合格供应商</div></div>
-        <div class="mod-stat"><div class="num">3</div><div class="label">待评估</div></div>
-        <div class="mod-stat"><div class="num">1</div><div class="label">预警</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('供应商评估')"><div class="quick-icon">📋</div><div class="quick-text">供应商评估</div></div>
-      <div class="quick-item" onclick="showForm('供应商审核')"><div class="quick-icon">🔍</div><div class="quick-text">现场审核</div></div>
-      <div class="quick-item" onclick="showToolDetail('VDA6.3')"><div class="quick-icon">📊</div><div class="quick-text">VDA6.3</div></div>
-      <div class="quick-item" onclick="showForm('SCAR')"><div class="quick-icon">⚠️</div><div class="quick-text">SCAR</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">📋</span>供应商列表（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showSupplierDetail('A')"><div class="item-icon green">🏭</div><div class="item-content"><div class="item-title">供应商A - 密封圈</div><div class="item-desc">评分92分 · A级 · 合作3年</div></div><span class="item-status done">合格</span></div>
-      <div class="list-item" onclick="showSupplierDetail('B')"><div class="item-icon green">🏭</div><div class="item-content"><div class="item-title">供应商B - 发热盘</div><div class="item-desc">评分88分 · A级 · 合作2年</div></div><span class="item-status done">合格</span></div>
-      <div class="list-item" onclick="showSupplierDetail('C')"><div class="item-icon orange">🏭</div><div class="item-content"><div class="item-title">供应商C - 电路板</div><div class="item-desc">评分75分 · B级 · 待年度评估</div></div><span class="item-status pending">待评估</span></div>
-      <div class="list-item" onclick="showSupplierDetail('D')"><div class="item-icon red">🏭</div><div class="item-content"><div class="item-title">供应商D - 塑料件</div><div class="item-desc">评分62分 · C级 · 连续2批不合格</div></div><span class="item-status urgent">预警</span></div>
-    </div>
-  </div>
-
-  <!-- 到货管理 -->
-  <div class="page" id="page-arrival">
-    <div class="module-header">
-      <div class="mod-title">📦 到货管理</div>
-      <div class="mod-desc">供应商送货 → IQC检验 → 仓库入库</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">3</div><div class="label">待检</div></div>
-        <div class="mod-stat"><div class="num">5</div><div class="label">已入库</div></div>
-        <div class="mod-stat"><div class="num">1</div><div class="label">不合格</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('送货登记')"><div class="quick-icon">📝</div><div class="quick-text">送货登记</div></div>
-      <div class="quick-item" onclick="showForm('IQC检验')"><div class="quick-icon">🔍</div><div class="quick-text">IQC检验</div></div>
-      <div class="quick-item" onclick="showForm('入库登记')"><div class="quick-icon">📥</div><div class="quick-text">入库登记</div></div>
-      <div class="quick-item" onclick="showToolDetail('GB2828抽样')"><div class="quick-icon">📊</div><div class="quick-text">抽样方案</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">⏳</span>待检批次（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showBatchDetail('LOT-2026-0909')"><div class="item-icon orange">📦</div><div class="item-content"><div class="item-title">密封圈 - LOT-2026-0909</div><div class="item-desc">供应商A · 10000PCS · 今日09:30到货</div></div><span class="item-status pending">待检</span></div>
-      <div class="list-item" onclick="showBatchDetail('LOT-2026-0908')"><div class="item-icon orange">📦</div><div class="item-content"><div class="item-title">发热盘 - LOT-2026-0908</div><div class="item-desc">供应商B · 5000PCS · 昨日到货</div></div><span class="item-status pending">待检</span></div>
-      <div class="list-item" onclick="showBatchDetail('LOT-2026-0907')"><div class="item-icon red">📦</div><div class="item-content"><div class="item-title">塑料件 - LOT-2026-0907</div><div class="item-desc">供应商D · 8000PCS · 尺寸不合格</div></div><span class="item-status urgent">不合格</span></div>
-    </div>
-  </div>
-
-  <!-- 生产过程 -->
-  <div class="page" id="page-production">
-    <div class="module-header">
-      <div class="mod-title">🏭 生产过程</div>
-      <div class="mod-desc">发料 → 首检 → 巡检 → 生产完成</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">2</div><div class="label">生产中</div></div>
-        <div class="mod-stat"><div class="num">1.0%</div><div class="label">平均不良率</div></div>
-        <div class="mod-stat"><div class="num">98%</div><div class="label">首检通过率</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('发料登记')"><div class="quick-icon">📤</div><div class="quick-text">发料到线</div></div>
-      <div class="quick-item" onclick="showForm('首检记录')"><div class="quick-icon">🎯</div><div class="quick-text">首件检验</div></div>
-      <div class="quick-item" onclick="showForm('巡检记录')"><div class="quick-icon">🔄</div><div class="quick-text">IPQC巡检</div></div>
-      <div class="quick-item" onclick="showToolDetail('SPC')"><div class="quick-icon">📊</div><div class="quick-text">SPC监控</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">⚙️</span>生产中工单（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showOrderDetail('WO-2026-001')"><div class="item-icon blue">🏭</div><div class="item-content"><div class="item-title">WO-2026-001 烧水杯标准版</div><div class="item-desc">1号线 · 早班 · 已完成3200/5000</div><div class="progress-bar"><div class="progress-fill" style="width:64%"></div></div></div><span class="item-status doing">64%</span></div>
-      <div class="list-item" onclick="showOrderDetail('WO-2026-002')"><div class="item-icon blue">🏭</div><div class="item-content"><div class="item-title">WO-2026-002 烧水杯Pro版</div><div class="item-desc">2号线 · 早班 · 已完成1500/3000</div><div class="progress-bar"><div class="progress-fill warn" style="width:50%"></div></div></div><span class="item-status doing">50%</span></div>
-    </div>
-  </div>
-
-  <!-- 成品检验 -->
-  <div class="page" id="page-inspection">
-    <div class="module-header">
-      <div class="mod-title">✅ 成品检验</div>
-      <div class="mod-desc">成品入库 → OQC检验 → 合格可出货</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">2</div><div class="label">待检</div></div>
-        <div class="mod-stat"><div class="num">99.2%</div><div class="label">合格率</div></div>
-        <div class="mod-stat"><div class="num">650</div><div class="label">不良PPM</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('成品入库')"><div class="quick-icon">📥</div><div class="quick-text">成品入库</div></div>
-      <div class="quick-item" onclick="showForm('OQC检验')"><div class="quick-icon">🔍</div><div class="quick-text">OQC检验</div></div>
-      <div class="quick-item" onclick="showForm('MRB评审')"><div class="quick-icon">⚖️</div><div class="quick-text">MRB评审</div></div>
-      <div class="quick-item" onclick="showToolDetail('GB2828抽样')"><div class="quick-icon">📊</div><div class="quick-text">抽样方案</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">📦</span>待检成品（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showProductDetail('WO-2026-001')"><div class="item-icon orange">📦</div><div class="item-content"><div class="item-title">烧水杯标准版 - WO-2026-001</div><div class="item-desc">4950PCS · 成品仓A区 · 待OQC抽检</div></div><span class="item-status pending">待检</span></div>
-      <div class="list-item" onclick="showProductDetail('WO-2026-002')"><div class="item-icon orange">📦</div><div class="item-content"><div class="item-title">烧水杯Pro版 - WO-2026-002</div><div class="item-desc">2960PCS · 成品仓B区 · 待OQC抽检</div></div><span class="item-status pending">待检</span></div>
-    </div>
-  </div>
-
-  <!-- 出货管理 -->
-  <div class="page" id="page-shipping">
-    <div class="module-header">
-      <div class="mod-title">🚚 出货管理</div>
-      <div class="mod-desc">电商模式 / 入仓模式</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">4</div><div class="label">待出货</div></div>
-        <div class="mod-stat"><div class="num">96%</div><div class="label">准时率</div></div>
-        <div class="mod-stat"><div class="num">2</div><div class="label">出货模式</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('电商出货')"><div class="quick-icon">🛒</div><div class="quick-text">电商出货</div></div>
-      <div class="quick-item" onclick="showForm('入仓出货')"><div class="quick-icon">🏢</div><div class="quick-text">入仓出货</div></div>
-      <div class="quick-item" onclick="showForm('包装检查')"><div class="quick-icon">📦</div><div class="quick-text">包装检查</div></div>
-      <div class="quick-item" onclick="showForm('物流跟踪')"><div class="quick-icon">📍</div><div class="quick-text">物流跟踪</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🛒</span>电商订单（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showShippingDetail('EC-2026-0909-001')"><div class="item-icon blue">📦</div><div class="item-content"><div class="item-title">天猫订单 - EC-2026-0909-001</div><div class="item-desc">烧水杯标准版×1 · 待拣货打包</div></div><span class="item-status pending">待发货</span></div>
-      <div class="list-item" onclick="showShippingDetail('EC-2026-0909-002')"><div class="item-icon green">📦</div><div class="item-content"><div class="item-title">京东订单 - EC-2026-0909-002</div><div class="item-desc">烧水杯Pro版×2 · 顺丰已揽收</div></div><span class="item-status done">已发货</span></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🏢</span>入仓订单（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showShippingDetail('SO-2026-0910')"><div class="item-icon orange">📦</div><div class="item-content"><div class="item-title">沃尔玛入仓 - SO-2026-0910</div><div class="item-desc">烧水杯标准版×1000 · 待备货装车</div></div><span class="item-status pending">待发货</span></div>
-      <div class="list-item" onclick="showShippingDetail('SO-2026-0908')"><div class="item-icon blue">📦</div><div class="item-content"><div class="item-title">亚马逊入仓 - SO-2026-0908</div><div class="item-desc">烧水杯Pro版×500 · 德邦运输中</div></div><span class="item-status doing">运输中</span></div>
-    </div>
-  </div>
-
-  <!-- 异常与改进 -->
-  <div class="page" id="page-exception">
-    <div class="module-header">
-      <div class="mod-title">⚠️ 异常与改进</div>
-      <div class="mod-desc">不合格品 / CAPA / 客诉 / 8D</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">1</div><div class="label">不合格品</div></div>
-        <div class="mod-stat"><div class="num">2</div><div class="label">CAPA待验证</div></div>
-        <div class="mod-stat"><div class="num">1</div><div class="label">客诉</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('不合格品')"><div class="quick-icon">🚫</div><div class="quick-text">不合格品</div></div>
-      <div class="quick-item" onclick="showForm('CAPA')"><div class="quick-icon">🔧</div><div class="quick-text">纠正预防</div></div>
-      <div class="quick-item" onclick="showForm('客诉')"><div class="quick-icon">📞</div><div class="quick-text">客户投诉</div></div>
-      <div class="quick-item" onclick="showToolDetail('8D报告')"><div class="quick-icon">🎯</div><div class="quick-text">8D报告</div></div>
-      <div class="quick-item" onclick="showToolDetail('5Why')"><div class="quick-icon">📝</div><div class="quick-text">5Why分析</div></div>
-      <div class="quick-item" onclick="showToolDetail('鱼骨图')"><div class="quick-icon">🐟</div><div class="quick-text">鱼骨图</div></div>
-      <div class="quick-item" onclick="showToolDetail('防错法')"><div class="quick-icon">⚡</div><div class="quick-text">防错法</div></div>
-      <div class="quick-item" onclick="showToolDetail('QCC')"><div class="quick-icon">👥</div><div class="quick-text">QCC活动</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🚫</span>不合格品（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showExceptionDetail('8D-2026-001')"><div class="item-icon red">⚠️</div><div class="item-content"><div class="item-title">试产密封圈装配异常</div><div class="item-desc">8D-2026-001 · 品质主管判定中 · 待总经理批准</div></div><span class="item-status urgent">处理中</span></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🔧</span>CAPA待验证（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showExceptionDetail('CAPA-2026-003')"><div class="item-icon orange">📋</div><div class="item-content"><div class="item-title">CAPA-2026-003 外观不良</div><div class="item-desc">责任部门已回复 · 待品质部验证有效性</div></div><span class="item-status doing">待验证</span></div>
-    </div>
-  </div>
-
-  <!-- 风险与机遇 -->
-  <div class="page" id="page-risk">
-    <div class="module-header">
-      <div class="mod-title">🎯 风险与机遇管理</div>
-      <div class="mod-desc">风险识别 · 评估 · 应对 · 机遇把握</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">58</div><div class="label">风险项</div></div>
-        <div class="mod-stat"><div class="num">8</div><div class="label">高风险</div></div>
-        <div class="mod-stat"><div class="num">15</div><div class="label">中风险</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="showForm('风险识别')"><div class="quick-icon">🔍</div><div class="quick-text">风险识别</div></div>
-      <div class="quick-item" onclick="showForm('风险评估')"><div class="quick-icon">📊</div><div class="quick-text">风险评估</div></div>
-      <div class="quick-item" onclick="showToolDetail('FMEA')"><div class="quick-icon">⚠️</div><div class="quick-text">FMEA</div></div>
-      <div class="quick-item" onclick="showToolDetail('风险矩阵')"><div class="quick-icon">🎯</div><div class="quick-text">风险矩阵</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🔴</span>高风险项（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showRiskDetail('R001')"><div class="item-icon red">⚠️</div><div class="item-content"><div class="item-title">供应商D质量不稳定风险</div><div class="item-desc">可能性:高 · 影响:高 · 应对:开发备选供应商+加强IQC</div></div><span class="risk-level high">高风险</span></div>
-      <div class="list-item" onclick="showRiskDetail('R002')"><div class="item-icon red">⚠️</div><div class="item-content"><div class="item-title">新产品设计验证不充分风险</div><div class="item-desc">可能性:中 · 影响:高 · 应对:增加DVT测试项目+第三方验证</div></div><span class="risk-level high">高风险</span></div>
-      <div class="list-item" onclick="showRiskDetail('R003')"><div class="item-icon red">⚠️</div><div class="item-content"><div class="item-title">关键物料涨价风险</div><div class="item-desc">可能性:高 · 影响:中 · 应对:签订长期协议+开发替代物料</div></div><span class="risk-level high">高风险</span></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🟡</span>中风险项（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showRiskDetail('R004')"><div class="item-icon orange">⚠️</div><div class="item-content"><div class="item-title">生产设备故障停机风险</div><div class="item-desc">可能性:中 · 影响:中 · 应对:预防性维护+备件储备</div></div><span class="risk-level medium">中风险</span></div>
-      <div class="list-item" onclick="showRiskDetail('R005')"><div class="item-icon orange">⚠️</div><div class="item-content"><div class="item-title">客户投诉上升风险</div><div class="item-desc">可能性:中 · 影响:中 · 应对:加强OQC+主动客户回访</div></div><span class="risk-level medium">中风险</span></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🟢</span>机遇项（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showRiskDetail('O001')"><div class="item-icon green">💡</div><div class="item-content"><div class="item-title">新产品市场拓展机遇</div><div class="item-desc">烧水杯Pro版市场反馈良好 · 可加大推广力度</div></div><span class="risk-level low">机遇</span></div>
-      <div class="list-item" onclick="showRiskDetail('O002')"><div class="item-icon green">💡</div><div class="item-content"><div class="item-title">自动化改造降本机遇</div><div class="item-desc">装配工序自动化可降低人工成本30%</div></div><span class="risk-level low">机遇</span></div>
-    </div>
-  </div>
-
-  <!-- 体系程序文件 -->
-  <div class="page" id="page-system">
-    <div class="module-header">
-      <div class="mod-title">📋 体系程序文件</div>
-      <div class="mod-desc">格丽思一体化管理体系 · 71个程序文件</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">71</div><div class="label">程序文件</div></div>
-        <div class="mod-stat"><div class="num">18</div><div class="label">核心程序</div></div>
-        <div class="mod-stat"><div class="num">4</div><div class="label">体系整合</div></div>
-      </div>
-    </div>
-    <div class="search-box">
-      <span>🔍</span>
-      <input type="text" placeholder="搜索程序文件..." oninput="filterSystemFiles(this.value)">
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">⭐</span>核心程序文件（点击查看详情）</div></div>
-    <div class="list-card" id="systemFileList">
-      <div class="list-item" onclick="showSystemFileDetail('P-020')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-020 设计开发控制程序</div><div class="item-desc">设计与开发阶段 · 研发部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-004')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-004 采购控制程序</div><div class="item-desc">供应商管理阶段 · 采购部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-007')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-007 生产过程控制程序</div><div class="item-desc">批量生产阶段 · 生产部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-011')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-011 监视与测量控制程序</div><div class="item-desc">全流程检验 · 品质部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-016')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-016 不合格品控制程序</div><div class="item-desc">异常处理 · 品质部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-013')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-013 纠正与预防措施控制程序</div><div class="item-desc">持续改进 · 品质部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-021')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-021 工程变更ECN控制程序</div><div class="item-desc">设计变更 · 研发部</div></div><span class="item-status done">核心</span></div>
-      <div class="list-item" onclick="showSystemFileDetail('P-035')"><div class="item-icon green">📄</div><div class="item-content"><div class="item-title">P-035 仓储控制程序</div><div class="item-desc">仓库管理 · 仓储部</div></div><span class="item-status done">核心</span></div>
-    </div>
-  </div>
-
-  <!-- 体系文件详情 -->
-  <div class="page" id="page-system-detail">
-    <div class="module-header">
-      <div class="mod-title" id="systemDetailTitle">程序文件详情</div>
-      <div class="mod-desc" id="systemDetailDesc">格丽思一体化管理体系</div>
-    </div>
-    <div id="systemDetailContent"></div>
-  </div>
-
-  <!-- 质量工具库 -->
-  <div class="page" id="page-tools">
-    <div class="module-header">
-      <div class="mod-title">🛠️ 质量工具库</div>
-      <div class="mod-desc">49个专业质量工具 · 点击查看使用指南</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">49</div><div class="label">质量工具</div></div>
-        <div class="mod-stat"><div class="num">7</div><div class="label">工具分类</div></div>
-        <div class="mod-stat"><div class="num">99</div><div class="label">触发规则</div></div>
-      </div>
-    </div>
-    <div class="search-box">
-      <span>🔍</span>
-      <input type="text" placeholder="搜索质量工具..." oninput="filterTools(this.value)">
-    </div>
-    <div id="toolsContainer"></div>
-  </div>
-
-  <!-- 工具详情 -->
-  <div class="page" id="page-tool-detail">
-    <div class="module-header">
-      <div class="mod-title" id="toolDetailTitle">工具详情</div>
-      <div class="mod-desc" id="toolDetailCategory">质量工具使用指南</div>
-    </div>
-    <div id="toolDetailContent"></div>
-    <div style="margin-top:16px;">
-      <button class="submit-btn" onclick="openWPS()">📊 在WPS多维表格中使用此工具</button>
-      <button class="secondary-btn" onclick="showPage('tools')">← 返回工具列表</button>
+    <div id="detailSections"></div>
+    <div class="detail-actions">
+      <button class="btn btn-delete" onclick="deleteCurrentItem()">🗑 删除</button>
+      <button class="btn btn-edit" onclick="editCurrentItem()">✏️ 编辑</button>
     </div>
   </div>
 
   <!-- 数据看板 -->
   <div class="page" id="page-dashboard">
-    <div class="module-header">
-      <div class="mod-title">📊 数据看板</div>
-      <div class="mod-desc">质量KPI · 趋势分析 · 实时监控</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">42</div><div class="label">KPI指标</div></div>
-        <div class="mod-stat"><div class="num">8</div><div class="label">覆盖阶段</div></div>
-        <div class="mod-stat"><div class="num">99</div><div class="label">触发规则</div></div>
-      </div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-card" onclick="showKPIDetail('来料合格率')"><div class="stat-num">96.5%</div><div class="stat-label">来料合格率</div></div>
-      <div class="stat-card" onclick="showKPIDetail('成品合格率')"><div class="stat-num">98.3%</div><div class="stat-label">成品合格率</div></div>
-      <div class="stat-card" onclick="showKPIDetail('制程不良率')"><div class="stat-num warn">1.0%</div><div class="stat-label">制程不良率</div></div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-card" onclick="showKPIDetail('出货准时率')"><div class="stat-num">96%</div><div class="stat-label">出货准时率</div></div>
-      <div class="stat-card" onclick="showKPIDetail('客诉率')"><div class="stat-num danger">0.8%</div><div class="stat-label">客诉率</div></div>
-      <div class="stat-card" onclick="showKPIDetail('满意度')"><div class="stat-num">87</div><div class="stat-label">满意度分</div></div>
-    </div>
-
-    <div class="section-title"><div class="title-text"><span class="title-icon">📈</span>月度不良率趋势</div><span class="tag">实时</span></div>
+    <div class="stats-row" id="dashboardStats"></div>
     <div class="chart-card">
-      <div class="chart-area">
-        <div class="chart-bar" style="height:60%"><span class="bar-value">1.5</span></div>
-        <div class="chart-bar" style="height:50%"><span class="bar-value">1.2</span></div>
-        <div class="chart-bar" style="height:70%"><span class="bar-value">1.8</span></div>
-        <div class="chart-bar" style="height:40%"><span class="bar-value">1.0</span></div>
-        <div class="chart-bar" style="height:45%"><span class="bar-value">1.1</span></div>
-        <div class="chart-bar" style="height:35%"><span class="bar-value">0.9</span></div>
-        <div class="chart-bar" style="height:42%"><span class="bar-value">1.0</span></div>
-      </div>
-      <div class="chart-labels"><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span><span>8月</span><span>9月</span></div>
+      <div class="chart-title">各模块数据量 <span class="tag">实时统计</span></div>
+      <div class="chart-area" id="dashboardChart"></div>
+      <div class="chart-labels" id="dashboardChartLabels"></div>
     </div>
-
-    <div class="section-title"><div class="title-text"><span class="title-icon">🏭</span>各阶段KPI达成率（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showKPIDetail('设计与开发')"><div class="item-icon blue">📐</div><div class="item-content"><div class="item-title">设计与开发</div><div class="item-desc">DVT通过率92% · 目标95%</div><div class="progress-bar"><div class="progress-fill warn" style="width:92%"></div></div></div><span class="item-status doing">92%</span></div>
-      <div class="list-item" onclick="showKPIDetail('供应商管理')"><div class="item-icon green">👥</div><div class="item-content"><div class="item-title">供应商管理</div><div class="item-desc">来料合格率96.5% · 目标98%</div><div class="progress-bar"><div class="progress-fill warn" style="width:96.5%"></div></div></div><span class="item-status doing">96.5%</span></div>
-      <div class="list-item" onclick="showKPIDetail('试产验证')"><div class="item-icon orange">🧪</div><div class="item-content"><div class="item-title">试产验证</div><div class="item-desc">Cpk达标率88% · 目标95%</div><div class="progress-bar"><div class="progress-fill danger" style="width:88%"></div></div></div><span class="item-status urgent">88%</span></div>
-      <div class="list-item" onclick="showKPIDetail('批量生产')"><div class="item-icon purple">🏭</div><div class="item-content"><div class="item-title">批量生产</div><div class="item-desc">首检合格率98.5% · 目标99%</div><div class="progress-bar"><div class="progress-fill" style="width:98.5%"></div></div></div><span class="item-status done">98.5%</span></div>
-      <div class="list-item" onclick="showKPIDetail('成品检验')"><div class="item-icon blue">✅</div><div class="item-content"><div class="item-title">成品检验</div><div class="item-desc">合格率98.3% · 目标99%</div><div class="progress-bar"><div class="progress-fill warn" style="width:98.3%"></div></div></div><span class="item-status doing">98.3%</span></div>
-      <div class="list-item" onclick="showKPIDetail('出货交付')"><div class="item-icon green">🚚</div><div class="item-content"><div class="item-title">出货交付</div><div class="item-desc">准时率96% · 目标98%</div><div class="progress-bar"><div class="progress-fill warn" style="width:96%"></div></div></div><span class="item-status doing">96%</span></div>
-      <div class="list-item" onclick="showKPIDetail('售后服务')"><div class="item-icon orange">📞</div><div class="item-content"><div class="item-title">售后服务</div><div class="item-desc">8D关闭率85% · 目标90%</div><div class="progress-bar"><div class="progress-fill danger" style="width:85%"></div></div></div><span class="item-status urgent">85%</span></div>
-      <div class="list-item" onclick="showKPIDetail('持续改进')"><div class="item-icon purple">📈</div><div class="item-content"><div class="item-title">持续改进</div><div class="item-desc">目标达成率92% · 目标95%</div><div class="progress-bar"><div class="progress-fill warn" style="width:92%"></div></div></div><span class="item-status doing">92%</span></div>
+    <div class="chart-card">
+      <div class="chart-title">状态分布</div>
+      <div class="pie-legend" id="statusLegend"></div>
     </div>
   </div>
-
-  <!-- 台账记录 -->
-  <div class="page" id="page-records">
-    <div class="module-header">
-      <div class="mod-title">📝 台账记录</div>
-      <div class="mod-desc">全生命周期数据记录与审批流转</div>
-      <div class="mod-stats">
-        <div class="mod-stat"><div class="num">62</div><div class="label">质量活动</div></div>
-        <div class="mod-stat"><div class="num">42</div><div class="label">KPI数据</div></div>
-        <div class="mod-stat"><div class="num">9</div><div class="label">审批流转</div></div>
-      </div>
-    </div>
-    <div class="quick-grid">
-      <div class="quick-item" onclick="openWPS()"><div class="quick-icon">📊</div><div class="quick-text">WPS多维表格</div></div>
-      <div class="quick-item" onclick="showForm('数据录入')"><div class="quick-icon">📝</div><div class="quick-text">数据录入</div></div>
-      <div class="quick-item" onclick="showPage('dashboard')"><div class="quick-icon">📊</div><div class="quick-text">数据看板</div></div>
-      <div class="quick-item" onclick="showPage('tools')"><div class="quick-icon">🛠️</div><div class="quick-text">工具库</div></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">📋</span>最近审批记录（点击查看详情）</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showRecordDetail('000001')"><div class="item-icon green">✅</div><div class="item-content"><div class="item-title">000001 设计质量策划方案</div><div class="item-desc">设计P阶段 · 已通过 · 可流转</div></div><span class="item-status done">已通过</span></div>
-      <div class="list-item" onclick="showRecordDetail('000003')"><div class="item-icon blue">🔍</div><div class="item-content"><div class="item-title">000003 设计验证DVT报告</div><div class="item-desc">设计C阶段 · 审批中 · 待品质会签</div></div><span class="item-status doing">审批中</span></div>
-      <div class="list-item" onclick="showRecordDetail('000004')"><div class="item-icon orange">📝</div><div class="item-content"><div class="item-title">000004 设计改进与标准化</div><div class="item-desc">设计A阶段 · 待审批</div></div><span class="item-status pending">待审批</span></div>
-      <div class="list-item" onclick="showRecordDetail('000006')"><div class="item-icon red">⚠️</div><div class="item-content"><div class="item-title">000006 试产密封圈装配异常</div><div class="item-desc">试产C阶段 · 已驳回 · 需修改重提</div></div><span class="item-status urgent">已驳回</span></div>
-    </div>
-    <div class="section-title"><div class="title-text"><span class="title-icon">🔗</span>全流程追溯链</div></div>
-    <div class="flow-card">
-      <div class="flow-steps">
-        <div class="flow-step done" onclick="showRecordDetail('000001')"><div class="step-dot">✓</div><div class="step-label">设计策划</div></div>
-        <div class="flow-step done" onclick="showRecordDetail('000002')"><div class="step-dot">✓</div><div class="step-label">DFMEA</div></div>
-        <div class="flow-step current" onclick="showRecordDetail('000003')"><div class="step-dot">3</div><div class="step-label">DVT</div></div>
-        <div class="flow-step" onclick="showRecordDetail('000004')"><div class="step-dot">4</div><div class="step-label">设计改进</div></div>
-      </div>
-      <div style="font-size:12px;color:#999;margin-top:8px;">点击关联记录可直接跳转到上下游记录查看详情</div>
-    </div>
-  </div>
-
-  <!-- 表单页面 -->
-  <div class="page" id="page-form">
-    <div class="module-header">
-      <div class="mod-title" id="formTitle">数据录入</div>
-      <div class="mod-desc">填写以下信息，提交后自动流转</div>
-    </div>
-    <div class="form-card">
-      <div class="form-item"><div class="form-label"><span class="required">*</span>流程环节</div><select class="form-select"><option>供应商送货</option><option>来料检验IQC</option><option>仓库入库</option><option>发料到产线</option><option>生产首检</option><option>生产巡检IPQC</option><option>生产完成</option><option>成品入库</option><option>成品检验OQC</option><option>电商出货</option><option>入仓出货</option></select></div>
-      <div class="form-item"><div class="form-label"><span class="required">*</span>关联产品/物料</div><select class="form-select"><option>烧水杯标准版</option><option>烧水杯Pro版</option><option>密封圈</option><option>发热盘</option><option>电路板</option><option>外壳塑料件</option></select></div>
-      <div class="form-item"><div class="form-label">关联批次/单号</div><input class="form-input" placeholder="请输入或选择批次号"></div>
-      <div class="form-item"><div class="form-label"><span class="required">*</span>数量</div><input class="form-input" type="number" placeholder="请输入数量"></div>
-      <div class="form-item"><div class="form-label">单位</div><select class="form-select"><option>PCS</option><option>套</option><option>箱</option><option>KG</option></select></div>
-      <div class="form-item"><div class="form-label">检验结果（检验环节填写）</div><select class="form-select"><option>合格</option><option>不合格</option><option>特采</option><option>待判定</option></select></div>
-      <div class="form-item"><div class="form-label">负责人</div><select class="form-select"><option>张工(研发)</option><option>陈工(质量)</option><option>刘工(测试)</option><option>吴工(采购)</option><option>赵工(工艺)</option><option>孙工(检验)</option></select></div>
-      <div class="form-item"><div class="form-label">关联体系程序文件</div><select class="form-select"><option>P-004采购控制程序</option><option>P-007生产过程控制程序</option><option>P-011监视与测量控制程序</option><option>P-016不合格品控制程序</option><option>P-035仓储控制程序</option></select></div>
-      <div class="form-item"><div class="form-label">备注</div><input class="form-input" placeholder="选填"></div>
-    </div>
-    <button class="submit-btn" onclick="submitForm()">提交并自动流转</button>
-    <button class="secondary-btn" onclick="goBack()">← 返回</button>
-  </div>
-
-  <!-- 通知页面 -->
-  <div class="page" id="page-notifications">
-    <div class="module-header"><div class="mod-title">🔔 消息通知</div><div class="mod-desc">5条未读消息</div></div>
-    <div class="list-card">
-      <div class="list-item" onclick="showPage('exception')"><div class="item-icon red">⚠️</div><div class="item-content"><div class="item-title">不合格品预警</div><div class="item-desc">试产密封圈装配异常，请及时处理 · 10分钟前</div></div></div>
-      <div class="list-item" onclick="showPage('records')"><div class="item-icon orange">📋</div><div class="item-content"><div class="item-title">待审批提醒</div><div class="item-desc">设计改进与标准化待您审批 · 30分钟前</div></div></div>
-      <div class="list-item" onclick="showPage('records')"><div class="item-icon blue">✅</div><div class="item-content"><div class="item-title">审批通过通知</div><div class="item-desc">DFMEA分析报告已通过审批，可流转 · 1小时前</div></div></div>
-    </div>
-  </div>
-
-  <!-- 个人中心 -->
-  <div class="page" id="page-profile">
-    <div class="module-header">
-      <div class="mod-title">👤 个人中心</div>
-      <div class="mod-desc">格丽思质量管理工作台</div>
-    </div>
-    <div class="list-card">
-      <div class="list-item" onclick="showPage('home')"><div class="item-icon green">📊</div><div class="item-content"><div class="item-title">我的待办</div><div class="item-desc">5项待处理</div></div><span class="item-arrow">›</span></div>
-      <div class="list-item" onclick="showPage('records')"><div class="item-icon blue">📝</div><div class="item-content"><div class="item-title">我的提交</div><div class="item-desc">12条记录</div></div><span class="item-arrow">›</span></div>
-      <div class="list-item" onclick="openWPS()"><div class="item-icon orange">📊</div><div class="item-content"><div class="item-title">WPS多维表格</div><div class="item-desc">打开完整数据表格</div></div><span class="item-arrow">›</span></div>
-      <div class="list-item" onclick="showPage('system')"><div class="item-icon green">📖</div><div class="item-content"><div class="item-title">体系文件</div><div class="item-desc">71个程序文件</div></div><span class="item-arrow">›</span></div>
-      <div class="list-item" onclick="showPage('tools')"><div class="item-icon blue">🛠️</div><div class="item-content"><div class="item-title">质量工具库</div><div class="item-desc">49个专业工具</div></div><span class="item-arrow">›</span></div>
-      <div class="list-item"><div class="item-icon blue">ℹ️</div><div class="item-content"><div class="item-title">关于</div><div class="item-desc">版本 v3.0.0 · 全工具跳转版</div></div><span class="item-arrow">›</span></div>
-      <div class="list-item" onclick="logoutFromWorkbench()"><div class="item-icon red">⏻</div><div class="item-content"><div class="item-title" style="color:#ff4d4f;">退出登录</div><div class="item-desc">返回登录页，使用其他账号登录</div></div><span class="item-arrow">›</span></div>
-    </div>
-  </div>
-
 </div>
 
-<!-- 底部导航 -->
-<div class="tabbar">
-  <div class="tab-item active" onclick="tabTo('home', this)"><div class="tab-icon">🏠</div><div class="tab-label">首页</div></div>
-  <div class="tab-item" onclick="tabTo('lifecycle', this)"><div class="tab-icon">🔄</div><div class="tab-label">生命周期</div></div>
-  <div class="tab-item" onclick="tabTo('tools', this)"><div class="tab-icon">🛠️</div><div class="tab-label">工具</div></div>
-  <div class="tab-item" onclick="tabTo('dashboard', this)"><div class="tab-icon">📊</div><div class="tab-label">数据</div></div>
-  <div class="tab-item" onclick="tabTo('profile', this)"><div class="tab-icon">👤</div><div class="tab-label">我的</div></div>
+<!-- 浮动添加按钮 -->
+<div class="fab" id="fabAdd" onclick="openAddForm()" style="display:none">+</div>
+
+<!-- 表单模态框 -->
+<div class="modal-overlay" id="formModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="formModalTitle">添加</div>
+      <div class="modal-close" onclick="closeForm()">✕</div>
+    </div>
+    <div class="modal-body" id="formModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeForm()">取消</button>
+      <button class="btn btn-save" onclick="saveForm()">保存</button>
+    </div>
+  </div>
 </div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
 <script>
-const WPS_URL = 'https://www.kdocs.cn/l/chVRsCNqUsbU';
-const LOGIN_URL = 'index.html';
+// ==================== 数据管理 ====================
+const STORAGE_KEY = 'gls_quality_data_v2';
 const SESSION_KEY = 'gls_current_user';
-let pageHistory = ['home'];
-let currentPage = 'home';
 
-// ===== 登录态校验 =====
-function checkLogin() {
-  const session = localStorage.getItem(SESSION_KEY);
-  if (!session) {
-    alert('请先登录后再访问工作台');
-    window.location.href = LOGIN_URL;
-    return false;
-  }
+// 模块定义
+const MODULES = [
+  { id: 'suppliers', name: '供应商管理', icon: '🏭', color: 'blue', desc: '供应商资质、评估、绩效管理' },
+  { id: 'incoming', name: '到货检验', icon: '📦', color: 'orange', desc: '来料检验、抽样、判定' },
+  { id: 'production', name: '生产过程', icon: '⚙️', color: 'purple', desc: '首件、巡检、制程管控' },
+  { id: 'inspection', name: '成品检验', icon: '✅', color: 'green', desc: '成品全检、抽检、入库' },
+  { id: 'shipping', name: '出货管理', icon: '🚚', color: 'blue', desc: '出货检验、包装、交付' },
+  { id: 'abnormal', name: '异常处理', icon: '⚠️', color: 'red', desc: '异常报告、原因分析、纠正措施' },
+  { id: 'risk', name: '风险预警', icon: '🔔', color: 'orange', desc: '质量风险识别、评估、预防' },
+  { id: 'documents', name: '体系文件', icon: '📁', color: 'green', desc: '质量手册、程序文件、作业指导书' },
+];
+
+// 状态定义
+const STATUSES = [
+  { id: 'pending', name: '待处理', color: 'pending' },
+  { id: 'doing', name: '进行中', color: 'doing' },
+  { id: 'done', name: '已完成', color: 'done' },
+  { id: 'urgent', name: '紧急', color: 'urgent' },
+];
+
+// 默认数据
+function getDefaultData() {
+  return {
+    suppliers: [
+      { id: genId(), name: '供应商A - 密封圈', description: '硅胶密封圈供应商，资质齐全', status: 'done', template: '供应商评估表\n1. 基本信息\n2. 质量体系审核\n3. 样品测试\n4. 批量验证\n5. 绩效评分', knowledge: '供应商管理的核心是"选、育、用、留"：\n- 选：资质审核、样品测试\n- 育：技术支持、质量培训\n- 用：订单分配、绩效评估\n- 留：战略合作、持续改善', logic: '供应商质量直接影响产品质量。通过分级管理（A/B/C级），对关键供应商进行重点管控，定期评估质量、交付、价格、服务四个维度。', operation: '1. 收集供应商资质文件（营业执照、ISO证书等）\n2. 进行样品测试和小批量验证\n3. 建立供应商档案，记录每次来料检验结果\n4. 每季度进行供应商绩效评估\n5. 对C级供应商发出整改通知，限期改善' },
+      { id: genId(), name: '供应商B - 发热盘', description: '发热盘核心部件供应商', status: 'doing', template: '', knowledge: '', logic: '', operation: '' },
+    ],
+    incoming: [
+      { id: genId(), name: '密封圈来料检验', description: 'GB/T 2828.1 抽样检验', status: 'done', template: '来料检验报告\n产品名称：\n规格型号：\n供应商：\n到货数量：\n抽样数量：\n检验项目：\n检验结果：\n判定：□合格 □不合格\n检验员：\n日期：', knowledge: '抽样检验标准 GB/T 2828.1：\n- 检验水平：一般检验水平II\n- AQL：致命缺陷0.065，重缺陷0.65，轻缺陷2.5\n- 抽样方案：正常检验一次抽样', logic: '来料检验是质量管控的第一道关口。通过抽样检验，以最小的检验成本判断批次质量。关键部件执行加严检验，一般部件执行正常检验。', operation: '1. 核对送货单与采购订单\n2. 检查外包装完整性\n3. 按抽样标准抽取样品\n4. 按检验指导书进行尺寸、外观、功能测试\n5. 记录检验结果，做出判定\n6. 合格贴绿标签入库，不合格贴红标签隔离' },
+    ],
+    production: [
+      { id: genId(), name: '烧水杯首件检验', description: '每班开机首件确认', status: 'doing', template: '', knowledge: '', logic: '', operation: '' },
+    ],
+    inspection: [
+      { id: genId(), name: '成品外观检验', description: '100%全检', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+    ],
+    shipping: [
+      { id: genId(), name: '出货OQC检验', description: '出货前抽样检验', status: 'pending', template: '', knowledge: '', logic: '', operation: '' },
+    ],
+    abnormal: [
+      { id: genId(), name: '密封圈尺寸超差', description: '2026-09批次来料异常', status: 'urgent', template: '异常处理单\n异常编号：\n发生日期：\n产品/物料：\n异常描述：\n原因分析（5Why）：\n临时措施：\n根本原因：\n纠正措施：\n责任人：\n完成日期：\n验证结果：', knowledge: '8D问题解决法：\nD1：成立小组\nD2：描述问题\nD3：临时措施\nD4：根本原因\nD5：纠正措施\nD6：验证措施\nD7：预防再发\nD8：总结表彰', logic: '异常处理的核心是"快速响应、根因分析、闭环管理"。通过5Why分析法找到根本原因，制定纠正措施并验证有效性，防止问题再次发生。', operation: '1. 发现异常立即停机/停线，隔离可疑品\n2. 填写异常报告，描述问题现象\n3. 成立处理小组，分析原因（5Why/鱼骨图）\n4. 制定临时措施，控制影响范围\n5. 制定纠正措施，消除根本原因\n6. 跟踪措施执行，验证效果\n7. 更新相关文件，防止再发\n8. 关闭异常，总结经验' },
+    ],
+    risk: [
+      { id: genId(), name: '发热盘供应商集中风险', description: '单一供应商，存在断供风险', status: 'doing', template: '', knowledge: '', logic: '', operation: '' },
+    ],
+    documents: [
+      { id: genId(), name: '质量手册', description: '质量管理体系纲领性文件', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: '不合格品控制程序', description: 'QP-001', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+    ],
+  };
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// 数据加载与保存
+let appData = null;
+function loadData() {
   try {
-    const data = JSON.parse(session);
-    if (!data || !data.username) {
-      localStorage.removeItem(SESSION_KEY);
-      window.location.href = LOGIN_URL;
-      return false;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      appData = JSON.parse(saved);
+    } else {
+      appData = getDefaultData();
+      saveData();
     }
-  } catch(e) {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.href = LOGIN_URL;
+  } catch (e) {
+    appData = getDefaultData();
+  }
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+}
+
+// 登录检查
+function checkLogin() {
+  const user = localStorage.getItem(SESSION_KEY);
+  if (!user) {
+    window.location.href = 'index.html';
     return false;
   }
+  const userData = JSON.parse(user);
+  document.getElementById('sidebarUserName').textContent = userData.username || '用户';
+  document.getElementById('sidebarUserRole').textContent = userData.role || '普通用户';
   return true;
 }
 
-// ===== 退出登录，返回登录页 =====
-function logoutFromWorkbench() {
-  if (confirm('确定要退出登录并返回登录页吗？')) {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.href = LOGIN_URL;
-  }
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  window.location.href = 'index.html';
 }
 
-const pageTitles = {
-  'home': '首页看板', 'lifecycle': '全生命周期', 'lifecycle-detail': '阶段详情',
-  'supplier': '供应商管理', 'arrival': '到货管理', 'production': '生产过程',
-  'inspection': '成品检验', 'shipping': '出货管理', 'exception': '异常与改进',
-  'risk': '风险与机遇', 'system': '体系程序文件', 'system-detail': '文件详情',
-  'tools': '质量工具库', 'tool-detail': '工具详情', 'dashboard': '数据看板',
-  'records': '台账记录', 'form': '数据录入', 'notifications': '消息通知', 'profile': '个人中心'
-};
+// ==================== 页面路由 ====================
+let currentPage = 'home';
+let currentModule = null;
+let currentItem = null;
+let currentFilter = 'all';
+let isEditing = false;
+let editingId = null;
 
-// 49个质量工具完整数据
-const toolsData = {
-  'QC七大手法': [
-    {name:'鱼骨图', icon:'🐟', desc:'因果分析，从人/机/料/法/环/测分析根本原因', use:'问题原因分析、异常调查、8D分析', steps:['明确问题','绘制主骨和大骨','头脑风暴各因素','筛选根本原因','制定对策']},
-    {name:'柏拉图', icon:'📊', desc:'80/20法则，识别关键少数问题', use:'不良分析、问题排序、重点改进', steps:['收集数据','分类统计','按降序排列','计算累计百分比','绘制柏拉图','确定关键少数']},
-    {name:'控制图', icon:'📈', desc:'统计过程控制，识别过程异常波动', use:'SPC监控、过程稳定性判断、异常预警', steps:['确定控制特性','收集数据','计算控制限','绘制控制图','判断过程状态','异常处理']},
-    {name:'检查表', icon:'📋', desc:'系统收集数据，防止遗漏', use:'检验记录、点检表、数据收集', steps:['确定检查项目','设计检查表','按表检查记录','统计分析结果']},
-    {name:'直方图', icon:'📊', desc:'数据分布可视化，观察过程能力', use:'过程能力分析、数据分布观察、Cpk计算', steps:['收集数据','确定组数和组距','编制频数表','绘制直方图','分析分布形态']},
-    {name:'分层法', icon:'🔀', desc:'按不同维度分层，发现差异规律', use:'不良原因分析、过程对比、差异识别', steps:['确定分层维度','按层分类数据','各层对比分析','发现差异规律']},
-    {name:'散点图', icon:'🔗', desc:'两个变量相关性分析', use:'因果关系验证、相关性分析、回归分析', steps:['确定两个变量','收集成对数据','绘制散点图','判断相关类型']}
-  ],
-  '新QC七大手法': [
-    {name:'亲和图', icon:'🗂️', desc:'语言资料分类归纳，发现问题本质', use:'复杂问题梳理、创意整理、需求归纳', steps:['收集语言资料','制作卡片','分组归类','命名亲和组','绘制亲和图']},
-    {name:'关联图', icon:'🔗', desc:'复杂因素因果关系梳理', use:'多因素问题分析、原因链梳理、根因识别', steps:['列出所有因素','分析因果关系','绘制关联箭头','识别核心因素','制定对策']},
-    {name:'系统图', icon:'📊', desc:'目的手段展开，系统寻找实现手段', use:'目标分解、措施展开、方案设计', steps:['确定最终目的','展开一级手段','逐级展开手段','评价可行性','确定实施方案']},
-    {name:'矩阵图', icon:'📈', desc:'多组因素关系强度分析', use:'因素关联分析、重要度评价、方案对比', steps:['确定分析维度','列出各维度因素','评价关系强度','绘制矩阵图','识别关键关系']},
-    {name:'矩阵数据分析法', icon:'🔢', desc:'矩阵数据量化分析，主成分分析', use:'多变量数据分析、复杂数据简化、关键因子提取', steps:['收集矩阵数据','标准化处理','计算相关矩阵','主成分分析','解释结果']},
-    {name:'PDPC法', icon:'📋', desc:'过程决策程序图，预测风险并制定预案', use:'项目风险预测、应急方案制定、过程优化', steps:['确定起点和目标','预测可能问题','制定对策方案','绘制PDPC图','动态调整']},
-    {name:'箭线图', icon:'🎯', desc:'网络计划技术，优化工期和资源', use:'项目进度管理、关键路径识别、资源优化', steps:['分解任务','确定先后关系','估算工期','绘制网络图','计算关键路径','优化调度']}
-  ],
-  '五大核心工具': [
-    {name:'APQP', icon:'📋', desc:'产品质量先期策划，确保新产品顺利投产', use:'新产品开发、项目策划、阶段评审', steps:['计划和确定项目','产品设计开发','过程设计开发','产品和过程确认','反馈评定和纠正措施']},
-    {name:'PPAP', icon:'📦', desc:'生产件批准程序，证明产品满足客户要求', use:'量产批准、样品提交、客户认可', steps:['设计记录','工程更改文件','客户工程批准','DFMEA','过程流程图','PFMEA','控制计划','MSA','Cpk','尺寸检验','材料试验','外观批准','PSW']},
-    {name:'FMEA', icon:'⚠️', desc:'失效模式与影响分析，预防潜在失效', use:'设计DFMEA、过程PFMEA、风险识别', steps:['确定分析对象','列出功能要求','识别失效模式','分析失效影响','评估严重度','识别失效原因','评估频度','识别现行控制','评估探测度','计算RPN','制定改进措施','更新RPN']},
-    {name:'MSA', icon:'📏', desc:'测量系统分析，确保测量数据可信', use:'测量系统评估、GRR分析、量具校准', steps:['确定测量系统','选择分析方法','GRR重复性和再现性','偏倚分析','线性分析','稳定性分析','判定可接受性','改进测量系统']},
-    {name:'SPC', icon:'📊', desc:'统计过程控制，实时监控过程稳定性', use:'过程监控、异常预警、过程能力分析', steps:['确定控制特性','选择控制图类型','收集数据','计算控制限','绘制控制图','判断过程状态','异常处理','计算Cpk','持续改进']}
-  ],
-  '问题分析与改进工具': [
-    {name:'5Why', icon:'📝', desc:'连续追问5个为什么，找到根本原因', use:'根因分析、异常调查、问题深挖', steps:['明确问题','问第一个为什么','连续追问直到根因','验证根因','制定对策']},
-    {name:'8D报告', icon:'🎯', desc:'8步法系统解决问题，防止再发', use:'客诉处理、重大异常、质量问题闭环', steps:['D1组建团队','D2描述问题','D3临时措施','D4根本原因','D5永久措施','D6验证效果','D7预防再发','D8关闭表彰']},
-    {name:'CAPA', icon:'🔧', desc:'纠正与预防措施，消除不合格原因', use:'异常处理、不符合整改、体系改进', steps:['识别不合格','评估影响','纠正措施','原因分析','预防措施','实施验证','标准化','记录保存']},
-    {name:'PDCA', icon:'🔄', desc:'计划-执行-检查-处理，持续改进循环', use:'质量管理、项目管理、持续改进', steps:['P计划：明确目标制定计划','D执行：按计划实施','C检查：对比目标检查效果','A处理：标准化和持续改进']},
-    {name:'QCC', icon:'👥', desc:'质量控制圈，基层员工自主改善', use:'现场改善、员工参与、团队改进', steps:['组圈','选题','现状把握','目标设定','原因分析','对策制定','对策实施','效果确认','标准化','总结发表']},
-    {name:'六西格玛', icon:'📊', desc:'DMAIC方法论，数据驱动改进', use:'重大改进项目、流程优化、降本增效', steps:['D定义项目','M测量现状','A分析原因','I改进实施','C控制固化']},
-    {name:'防错法', icon:'⚡', desc:'Poka-Yoke，设计防止错误发生的装置', use:'过程防错、质量预防、零缺陷', steps:['识别错误类型','分析错误原因','设计防错装置','验证防错效果','标准化推广']},
-    {name:'5W2H', icon:'🔍', desc:'What/Why/Who/When/Where/How/How much，全面分析', use:'问题分析、方案设计、需求梳理', steps:['What做什么','Why为什么做','Who谁做','When何时做','Where在哪做','How怎么做','How much成本多少']}
-  ],
-  '设计与开发工具': [
-    {name:'QFD', icon:'📐', desc:'质量功能展开，客户需求转化为技术要求', use:'产品策划、需求分析、CTQ确定', steps:['收集客户需求','需求重要度评价','技术特性展开','关系矩阵评价','技术冲突分析','确定CTQ和目标值']},
-    {name:'DOE', icon:'🧪', desc:'试验设计，科学安排试验找到最优参数', use:'工艺优化、参数设计、因子筛选', steps:['确定试验目标','选择因子和水平','设计试验方案','执行试验','数据分析','确定最优参数','验证确认']},
-    {name:'田口方法', icon:'📊', desc:'稳健设计，减少波动对质量的影响', use:'参数设计、稳健性优化、质量损失', steps:['确定质量特性','选择控制因子和噪声因子','设计正交试验','计算信噪比','分析因子效应','确定最优参数组合','验证稳健性']},
-    {name:'故障树FTA', icon:'🌳', desc:'故障树分析，从顶事件向下演绎分析', use:'可靠性分析、故障诊断、安全分析', steps:['确定顶事件','建立故障树','定性分析','定量分析','识别薄弱环节','制定改进措施']},
-    {name:'ECN/ECR', icon:'📝', desc:'工程变更申请/通知，规范设计变更', use:'设计变更、工艺变更、物料变更', steps:['ECR变更申请','变更评审','变更批准','ECN变更通知','变更实施','变更验证','变更关闭']},
-    {name:'DVT/PVT', icon:'✅', desc:'设计验证/生产验证测试，确认产品满足要求', use:'设计验证、试产验证、可靠性测试', steps:['制定验证计划','准备测试样品','执行测试项目','记录测试数据','分析测试结果','问题整改','验证报告','批准放行']}
-  ],
-  '检验与测量工具': [
-    {name:'GB2828抽样', icon:'📋', desc:'计数抽样检验标准，科学确定抽样方案', use:'来料检验、成品检验、出货检验', steps:['确定检验水平','确定AQL','查样本量字码','查抽样方案','抽取样本','检验判定','批处理']},
-    {name:'GRR分析', icon:'📏', desc:'量具重复性和再现性分析', use:'测量系统评估、量具验收、MSA', steps:['选择评价人','选择零件','随机测量','计算重复性','计算再现性','计算GRR%','判定可接受性']},
-    {name:'Cpk分析', icon:'📊', desc:'过程能力指数，评估过程满足规格能力', use:'过程能力评估、量产批准、持续监控', steps:['确定关键特性','收集数据','计算均值和标准差','计算Cp和Cpk','判定过程能力','制定改进措施']},
-    {name:'VDA6.3', icon:'🔍', desc:'过程审核标准，系统评价过程能力', use:'供应商审核、过程审核、体系评价', steps:['审核准备','过程要素评价','风险分析','审核发现','评分定级','纠正措施','跟踪验证','审核报告']},
-    {name:'VDA6.5', icon:'✅', desc:'产品审核标准，独立评价产品质量', use:'成品审核、产品质量评价、客户审核', steps:['审核计划','抽样方案','特性检验','功能测试','外观检查','包装检查','评分评价','审核报告','改进措施']},
-    {name:'LPA分层审核', icon:'📋', desc:'分层过程审核，各级管理层定期审核', use:'过程监控、管理层参与、标准执行', steps:['制定审核计划','设计检查表','分层执行审核','记录发现','问题整改','跟踪验证','数据分析','持续改进']}
-  ],
-  '管理工具': [
-    {name:'SWOT分析', icon:'🎯', desc:'优势/劣势/机会/威胁，战略分析', use:'战略规划、企业诊断、项目评估', steps:['分析内部优势','分析内部劣势','分析外部机会','分析外部威胁','构建SWOT矩阵','制定战略方案']},
-    {name:'SMART原则', icon:'📋', desc:'目标设定原则，Specific/Measurable/Achievable/Relevant/Time-bound', use:'目标制定、KPI设定、计划管理', steps:['Specific具体明确','Measurable可衡量','Achievable可实现','Relevant相关联','Time-bound有时限']},
-    {name:'平衡计分卡', icon:'📊', desc:'财务/客户/内部流程/学习成长，四维绩效', use:'绩效管理、战略落地、KPI体系', steps:['明确战略目标','财务维度指标','客户维度指标','内部流程维度','学习成长维度','指标因果链','行动计划','跟踪评价']},
-    {name:'甘特图', icon:'📈', desc:'项目进度可视化，任务时间管理', use:'项目管理、进度跟踪、资源安排', steps:['分解任务','确定工期','确定先后关系','绘制甘特图','跟踪进度','调整优化']},
-    {name:'5S管理', icon:'🧹', desc:'整理/整顿/清扫/清洁/素养，现场管理', use:'现场管理、目视化、基础管理', steps:['整理：要与不要','整顿：定置定位','清扫：清洁干净','清洁：标准化','素养：习惯养成']},
-    {name:'TPM全员生产维护', icon:'⚙️', desc:'全员参与设备维护，提高设备效率', use:'设备管理、OEE提升、自主维护', steps:['初期清扫','发生源困难点对策','制定基准书','总点检','自主点检','标准化','自主管理']},
-    {name:'精益生产', icon:'🎯', desc:'消除浪费，持续改善，准时化生产', use:'生产优化、降本增效、流程改善', steps:['识别7大浪费','价值流分析','拉动生产','看板管理','快速换模','持续改善','尊重员工']}
-  ]
-};
+function navigateTo(page, moduleId = null, itemId = null) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  currentPage = page;
+  
+  // 更新侧边栏选中状态
+  document.querySelectorAll('.sidebar .nav-item').forEach(item => item.classList.remove('active'));
+  
+  if (page === 'home') {
+    document.getElementById('pageTitle').textContent = '质量管理工作台';
+    document.getElementById('fabAdd').style.display = 'none';
+    document.getElementById('searchBtn').style.display = 'flex';
+    renderHome();
+  } else if (page === 'module') {
+    currentModule = MODULES.find(m => m.id === moduleId);
+    document.getElementById('pageTitle').textContent = currentModule.name;
+    document.getElementById('fabAdd').style.display = 'flex';
+    document.getElementById('searchBtn').style.display = 'flex';
+    document.getElementById('moduleSearchBox').style.display = 'flex';
+    document.getElementById('moduleSearchInput').value = '';
+    currentFilter = 'all';
+    renderModuleList();
+  } else if (page === 'detail') {
+    currentModule = MODULES.find(m => m.id === moduleId);
+    currentItem = appData[moduleId].find(item => item.id === itemId);
+    document.getElementById('pageTitle').textContent = '详情';
+    document.getElementById('fabAdd').style.display = 'none';
+    document.getElementById('searchBtn').style.display = 'none';
+    renderDetail();
+  } else if (page === 'dashboard') {
+    document.getElementById('pageTitle').textContent = '数据看板';
+    document.getElementById('fabAdd').style.display = 'none';
+    document.getElementById('searchBtn').style.display = 'none';
+    renderDashboard();
+  }
+  
+  window.scrollTo(0, 0);
+}
 
-// 生命周期阶段数据
-const lifecycleData = {
-  '设计': {title:'📐 设计与开发阶段', desc:'需求分析→方案设计→DFMEA→DVT验证→设计改进',
-    P:['客户需求分析与转化','质量策划方案','设计计划制定','CTQ识别'],
-    D:['方案设计','详细设计','DFMEA分析','原型制作','设计评审'],
-    C:['DVT设计验证','可靠性测试','设计确认','第三方验证'],
-    A:['设计改进','ECN工程变更','标准化','经验教训总结'],
-    tools:['QFD','DFMEA','DOE','田口方法','FTA','DVT','ECN'],
-    kpis:[{name:'设计评审一次通过率',value:'85%',target:'90%'},{name:'DFMEA风险项关闭率',value:'92%',target:'100%'},{name:'DVT测试通过率',value:'92%',target:'95%'}]},
-  '供应商': {title:'👥 供应商管理阶段', desc:'供应商开发→选择评估→样品确认→IQC检验→绩效考核',
-    P:['供应商开发计划','采购计划','供应商资质要求'],
-    D:['供应商选择评估','样品确认','合同签订','供应商送货'],
-    C:['IQC来料检验','供应商现场审核','供应商绩效考核','SCAR跟踪'],
-    A:['供应商改进','供应商优化淘汰','供应商分级管理'],
-    tools:['VDA6.3','供应商评分卡','GB2828抽样','SCAR','8D'],
-    kpis:[{name:'来料合格率',value:'96.5%',target:'98%'},{name:'准时交付率',value:'93%',target:'95%'},{name:'SCAR按时关闭率',value:'85%',target:'90%'}]},
-  '试产': {title:'🧪 试产验证阶段', desc:'试产策划→工艺调试→首件检验→Cpk研究→PPAP批准',
-    P:['试产策划与准备','工艺策划','控制计划制定','PFMEA'],
-    D:['试产执行','工艺调试','首件检验','过程监控'],
-    C:['Cpk过程能力研究','MSA测量系统分析','试产问题分析','可靠性验证'],
-    A:['工艺改进','控制计划更新','PPAP提交','量产批准'],
-    tools:['PFMEA','PPAP','MSA','Cpk分析','SPC','DOE'],
-    kpis:[{name:'试产问题闭环率',value:'90%',target:'100%'},{name:'Cpk达标率',value:'88%',target:'95%'},{name:'PPAP一次通过率',value:'80%',target:'90%'}]},
-  '量产': {title:'🏭 批量生产阶段', desc:'生产计划→首件检验→IPQC巡检→SPC监控→异常处理',
-    P:['生产计划与排程','质量目标','人员培训','设备点检'],
-    D:['首件检验','SOP作业','IPQC巡检','SPC监控','5S管理'],
-    C:['制程巡检','SPC异常预警','过程审核','设备状态监控'],
-    A:['异常处理','CAPA纠正预防','防错改进','工艺优化','持续改进'],
-    tools:['SPC','控制计划','TPM','5S','LPA','防错法','8D'],
-    kpis:[{name:'首件检验合格率',value:'98.5%',target:'99%'},{name:'IPQC巡检合格率',value:'97.2%',target:'98%'},{name:'SPC异常预警次数',value:'8次/月',target:'≤5次/月'}]},
-  '检验': {title:'✅ 成品检验阶段', desc:'成品入库→FQC检验→OQC抽检→MRB评审→合格放行',
-    P:['成品检验计划','检验标准','抽样方案','检验人员资质'],
-    D:['FQC成品检验','OQC出货检验','留样管理','检验记录'],
-    C:['MRB不合格品评审','检验数据统计分析','测量系统监控','检验标准有效性'],
-    A:['检验标准更新','防错措施','检验方法改进','限度样品更新'],
-    tools:['GB2828抽样','VDA6.5','控制图','柏拉图','MRB评审'],
-    kpis:[{name:'成品检验合格率',value:'98.3%',target:'99%'},{name:'成品不良PPM',value:'650',target:'≤500'},{name:'返工率',value:'3.5%',target:'≤2%'}]},
-  '出货': {title:'🚚 出货交付阶段', desc:'出货计划→包装规范→电商/入仓→物流跟踪→交付确认',
-    P:['出货计划','包装规范','物流方案','客户要求确认'],
-    D:['成品包装','OQC出货检验','装车发运','电商拣货打包','入仓备货'],
-    C:['物流跟踪','客户收货确认','交付及时性','包装完整性'],
-    A:['出货异常处理','物流优化','包装改进','客户反馈处理'],
-    tools:['追溯管理','出货检验','检查表','5W2H'],
-    kpis:[{name:'出货准时率',value:'96%',target:'98%'},{name:'出货差错率',value:'0.15%',target:'≤0.1%'},{name:'客户收货确认率',value:'98%',target:'≥99%'}]},
-  '售后': {title:'📞 售后服务阶段', desc:'客诉受理→8D分析→退货处理→满意度调查→CAPA预防',
-    P:['客诉受理流程','服务标准','响应时限','处理预案'],
-    D:['客诉受理与分级','8D调查分析','退货处理','换货维修','临时措施'],
-    C:['客户满意度调查','客诉数据统计分析','服务质量评估','8D效果验证'],
-    A:['CAPA纠正预防','FMEA更新','控制计划更新','标准化预防','产品改进'],
-    tools:['8D报告','5Why','鱼骨图','CAPA','VOC分析','NPS'],
-    kpis:[{name:'客户投诉率',value:'0.8%',target:'≤0.5%'},{name:'8D按时关闭率',value:'85%',target:'≥90%'},{name:'客户满意度',value:'87分',target:'≥90分'}]},
-  '改进': {title:'📈 持续改进阶段', desc:'质量目标→QCC活动→内审→管理评审→标准化推广',
-    P:['年度质量目标','改进计划','培训计划','内审计划'],
-    D:['QCC质量圈活动','六西格玛项目','精益生产改善','培训执行','内审执行'],
-    C:['内部质量审核','管理评审','目标达成评估','改进效果验证','客户满意度'],
-    A:['标准化推广','经验教训库','最佳实践分享','体系优化','持续改进文化'],
-    tools:['QCC','六西格玛','精益生产','PDCA','内审检查表','管理评审','平衡计分卡'],
-    kpis:[{name:'年度质量目标达成率',value:'92%',target:'≥95%'},{name:'内审不符合关闭率',value:'95%',target:'100%'},{name:'QCC课题完成率',value:'80%',target:'≥90%'},{name:'CAPA有效率',value:'90%',target:'≥95%'}]}
-};
-
-// 体系文件数据
-const systemFiles = {
-  'P-020': {title:'P-020 设计开发控制程序', dept:'研发部', stage:'设计与开发阶段',
-    content:'<p><strong>目的：</strong>确保产品设计开发满足客户要求和法规要求。</p><p><strong>适用范围：</strong>新产品设计开发、产品变更、工艺设计。</p><p><strong>核心流程：</strong></p><p>1. 立项申请与批准（总经理批准）</p><p>2. 设计策划与计划制定</p><p>3. 客户需求转化与CTQ识别</p><p>4. 方案设计与设计评审</p><p>5. 详细设计与DFMEA分析</p><p>6. 原型制作与DVT验证</p><p>7. 设计确认与设计变更（ECN）</p><p>8. 设计输出与技术文件归档</p><p><strong>关键控制点：</strong>设计评审、DFMEA、DVT、ECN变更控制</p><p><strong>关联工具：</strong>QFD、DFMEA、DOE、田口方法、FTA、DVT</p>'},
-  'P-004': {title:'P-004 采购控制程序', dept:'采购部', stage:'供应商管理阶段',
-    content:'<p><strong>目的：</strong>确保采购产品满足规定要求，供应商得到有效管理。</p><p><strong>适用范围：</strong>原材料、外购件、外协件采购及供应商管理。</p><p><strong>核心流程：</strong></p><p>1. 供应商开发与选择评估</p><p>2. 供应商资质审查与现场审核</p><p>3. 样品确认与小批量试产</p><p>4. 合格供应商名录管理</p><p>5. 采购订单下达与跟踪</p><p>6. 来料检验（IQC）与入库</p><p>7. 供应商绩效考核与分级</p><p>8. 供应商纠正措施（SCAR）与改进</p><p><strong>关键控制点：</strong>供应商评估、IQC检验、绩效考核、SCAR</p><p><strong>关联工具：</strong>VDA6.3、供应商评分卡、GB2828抽样、8D</p>'},
-  'P-007': {title:'P-007 生产过程控制程序', dept:'生产部', stage:'批量生产阶段',
-    content:'<p><strong>目的：</strong>确保生产过程在受控状态下进行，产品质量稳定。</p><p><strong>适用范围：</strong>从投料至成品入库的全部生产过程。</p><p><strong>核心流程：</strong></p><p>1. 生产计划与排程</p><p>2. 物料领用与发料到产线</p><p>3. 首件检验（生产主管+IPQC确认）</p><p>4. 按SOP作业与过程监控</p><p>5. IPQC巡检（关键工序每2小时）</p><p>6. SPC统计过程控制</p><p>7. 异常停机与标识隔离</p><p>8. 生产完成与成品入库</p><p><strong>关键控制点：</strong>首件检验、IPQC巡检、SPC监控、异常处理</p><p><strong>关联工具：</strong>SPC、控制计划、TPM、5S、LPA、防错法</p>'},
-  'P-011': {title:'P-011 监视与测量控制程序', dept:'品质部', stage:'全流程检验',
-    content:'<p><strong>目的：</strong>确保监视和测量活动有效实施，测量数据准确可靠。</p><p><strong>适用范围：</strong>IQC、IPQC、FQC、OQC全流程检验及测量系统管理。</p><p><strong>核心流程：</strong></p><p>1. 检验标准与抽样方案制定</p><p>2. IQC来料检验（合格贴标入库，不合格按P-016）</p><p>3. IPQC制程巡检与首件检验</p><p>4. FQC成品检验与OQC出货检验</p><p>5. 测量设备校准与MSA分析</p><p>6. 检验记录与数据统计分析</p><p>7. 不合格品标识、隔离、评审</p><p><strong>关键控制点：</strong>抽样方案、检验标准、测量系统、不合格品控制</p><p><strong>关联工具：</strong>GB2828抽样、MSA、GRR、控制图、VDA6.5</p>'},
-  'P-016': {title:'P-016 不合格品控制程序', dept:'品质部', stage:'异常处理',
-    content:'<p><strong>目的：</strong>防止不合格品非预期使用或交付，确保不合格得到有效处理。</p><p><strong>适用范围：</strong>来料、制程、成品、出货全过程发现的不合格品。</p><p><strong>核心流程：</strong></p><p>1. 不合格品识别与标识</p><p>2. 不合格品隔离与记录</p><p>3. MRB物料评审委员会评审</p><p>4. 处理方式决定（返工/返修/特采/降级/报废）</p><p>5. 品质部主管最终判定</p><p>6. 特采/报废需报总经理同意</p><p>7. 处理执行与重新检验</p><p>8. 原因分析与纠正预防（CAPA）</p><p><strong>关键控制点：</strong>MRB评审、品质主管判定、总经理批准、CAPA</p><p><strong>关联工具：</strong>MRB评审、8D、5Why、鱼骨图、CAPA</p>'},
-  'P-013': {title:'P-013 纠正与预防措施控制程序', dept:'品质部', stage:'持续改进',
-    content:'<p><strong>目的：</strong>消除不合格原因，防止不合格发生或再发。</p><p><strong>适用范围：</strong>产品、过程、体系不合格的纠正与预防措施。</p><p><strong>核心流程：</strong></p><p>1. 不合格识别与评审</p><p>2. 原因分析（5Why/鱼骨图）</p><p>3. 纠正措施制定与实施</p><p>4. 预防措施制定与实施</p><p>5. 责任部门2-3工作日回复</p><p>6. 品质部跟踪验证效果</p><p>7. 措施有效性确认</p><p>8. 标准化与文件更新</p><p><strong>关键控制点：</strong>原因分析、措施实施、效果验证、标准化</p><p><strong>关联工具：</strong>8D、5Why、鱼骨图、CAPA、PDCA</p>'},
-  'P-021': {title:'P-021 工程变更ECN控制程序', dept:'研发部', stage:'设计变更',
-    content:'<p><strong>目的：</strong>规范工程变更管理，确保变更得到有效控制和验证。</p><p><strong>适用范围：</strong>产品设计、工艺、物料、设备等工程变更。</p><p><strong>核心流程：</strong></p><p>1. ECR变更申请提出</p><p>2. 变更影响评估（质量/成本/交付/库存）</p><p>3. 跨部门变更评审</p><p>4. 变更批准（重大变更总经理批准）</p><p>5. ECN变更通知发布</p><p>6. 变更实施与执行</p><p>7. 变更验证与确认</p><p>8. 文件更新与变更关闭</p><p><strong>关键控制点：</strong>变更评审、变更批准、变更验证、文件更新</p><p><strong>关联工具：</strong>ECN/ECR、FMEA更新、控制计划更新、4M变更管理</p>'},
-  'P-035': {title:'P-035 仓储控制程序', dept:'仓储部', stage:'仓库管理',
-    content:'<p><strong>目的：</strong>确保仓储物料和产品得到妥善保管，账物相符，先进先出。</p><p><strong>适用范围：</strong>原材料仓、半成品仓、成品仓、不良品仓。</p><p><strong>核心流程：</strong></p><p>1. 物料入库验收与上架</p><p>2. 库位管理与标识管理</p><p>3. 物料保管与环境控制</p><p>4. 先进先出（FIFO）执行</p><p>5. 物料领用与发料</p><p>6. 成品入库与出货备货</p><p>7. 定期盘点与账物核对</p><p>8. 呆滞料与不良品处理</p><p><strong>关键控制点：</strong>先进先出、账物相符、环境控制、定期盘点</p><p><strong>关联工具：</strong>检查表、5S、目视化管理、追溯管理</p>'}
-};
+// ==================== 侧边栏 ====================
+function renderSidebar() {
+  const nav = document.getElementById('sidebarNav');
+  let html = '<div class="nav-item active" onclick="navigateTo(\'home\'); toggleSidebar()"><span class="nav-icon">🏠</span><span class="nav-text">首页</span></div>';
+  html += '<div class="nav-section">质量管理</div>';
+  MODULES.forEach(m => {
+    const count = appData[m.id].length;
+    html += `<div class="nav-item" onclick="navigateTo('module', '${m.id}'); toggleSidebar()"><span class="nav-icon">${m.icon}</span><span class="nav-text">${m.name}</span>${count > 0 ? `<span class="nav-badge">${count}</span>` : ''}</div>`;
+  });
+  html += '<div class="nav-section">数据分析</div>';
+  html += '<div class="nav-item" onclick="navigateTo(\'dashboard\'); toggleSidebar()"><span class="nav-icon">📊</span><span class="nav-text">数据看板</span></div>';
+  nav.innerHTML = html;
+}
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
-  document.querySelector('.overlay').classList.toggle('show');
+  document.getElementById('overlay').classList.toggle('show');
 }
 
-function showPage(pageId, addHistory=true) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const target = document.getElementById('page-' + pageId);
-  if (target) target.classList.add('active');
-  document.getElementById('pageTitle').textContent = pageTitles[pageId] || '首页看板';
-  document.getElementById('sidebar').classList.remove('open');
-  document.querySelector('.overlay').classList.remove('show');
-  window.scrollTo(0, 0);
-  if (addHistory && currentPage !== pageId) {
-    pageHistory.push(pageId);
-  }
-  currentPage = pageId;
-  updateHeader();
-}
-
-function updateHeader() {
-  const backBtn = document.getElementById('backBtn');
-  const menuBtn = document.getElementById('menuBtn');
-  if (pageHistory.length > 1) {
-    backBtn.style.display = 'flex';
-    menuBtn.style.display = 'none';
-  } else {
-    backBtn.style.display = 'none';
-    menuBtn.style.display = 'flex';
-  }
-}
-
-function goBack() {
-  if (pageHistory.length > 1) {
-    pageHistory.pop();
-    const prevPage = pageHistory[pageHistory.length - 1];
-    showPage(prevPage, false);
-  }
-}
-
-function navTo(pageId, el) {
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  if (el) el.classList.add('active');
-  pageHistory = [pageId];
-  showPage(pageId, false);
-}
-
-function tabTo(pageId, el) {
-  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-  pageHistory = [pageId];
-  showPage(pageId, false);
-}
-
-function showForm(formName) {
-  document.getElementById('formTitle').textContent = formName;
-  showPage('form');
-}
-
-function openWPS() {
-  window.open(WPS_URL, '_blank');
-}
-
-// 渲染工具库
-function renderTools(filter='') {
-  const container = document.getElementById('toolsContainer');
-  let html = '';
-  for (const [category, tools] of Object.entries(toolsData)) {
-    const filteredTools = filter ? tools.filter(t => t.name.includes(filter) || t.desc.includes(filter)) : tools;
-    if (filteredTools.length === 0) continue;
-    html += `<div class="tool-category">
-      <div class="cat-title">${category}<span class="cat-count">${filteredTools.length}个</span></div>
-      <div class="quick-grid">`;
-    filteredTools.forEach(tool => {
-      html += `<div class="quick-item" onclick="showToolDetail('${tool.name}')">
-        <div class="quick-icon">${tool.icon}</div>
-        <div class="quick-text">${tool.name}</div>
-      </div>`;
+// ==================== 首页 ====================
+function renderHome() {
+  // 统计
+  let total = 0, pending = 0, urgent = 0, done = 0;
+  MODULES.forEach(m => {
+    appData[m.id].forEach(item => {
+      total++;
+      if (item.status === 'pending') pending++;
+      if (item.status === 'urgent') urgent++;
+      if (item.status === 'done') done++;
     });
-    html += `</div></div>`;
-  }
-  container.innerHTML = html || '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">未找到匹配的工具</div></div>';
-}
-
-function filterTools(keyword) {
-  renderTools(keyword);
-}
-
-// 显示工具详情
-function showToolDetail(toolName) {
-  let tool = null;
-  let category = '';
-  for (const [cat, tools] of Object.entries(toolsData)) {
-    const found = tools.find(t => t.name === toolName);
-    if (found) { tool = found; category = cat; break; }
-  }
-  if (!tool) { alert('工具详情暂未收录：' + toolName); return; }
-  
-  document.getElementById('toolDetailTitle').textContent = tool.icon + ' ' + tool.name;
-  document.getElementById('toolDetailCategory').textContent = category + ' · 点击查看使用指南';
-  
-  let stepsHtml = '';
-  tool.steps.forEach((step, i) => {
-    stepsHtml += `<div class="step-item"><div class="step-num">${i+1}</div><div class="step-text">${step}</div></div>`;
   });
   
-  document.getElementById('toolDetailContent').innerHTML = `
-    <div class="tool-detail-section">
-      <div class="section-label"><span class="icon">📝</span>工具定义</div>
-      <div class="section-content">${tool.desc}</div>
-    </div>
-    <div class="tool-detail-section">
-      <div class="section-label"><span class="icon">🎯</span>适用场景</div>
-      <div class="section-content">${tool.use}</div>
-    </div>
-    <div class="tool-detail-section">
-      <div class="section-label"><span class="icon">📋</span>操作步骤</div>
-      <div class="section-content">${stepsHtml}</div>
-    </div>
-    <div class="tool-detail-section">
-      <div class="section-label"><span class="icon">🔗</span>关联体系文件</div>
-      <div class="section-content">根据使用场景关联对应的程序文件，在WPS多维表格中查看详细要求</div>
-    </div>
+  document.getElementById('homeStats').innerHTML = `
+    <div class="stat-card" onclick="navigateTo('dashboard')"><div class="stat-num">${total}</div><div class="stat-label">总记录</div></div>
+    <div class="stat-card" onclick="filterByStatus('pending')"><div class="stat-num warn">${pending}</div><div class="stat-label">待处理</div></div>
+    <div class="stat-card" onclick="filterByStatus('urgent')"><div class="stat-num danger">${urgent}</div><div class="stat-label">紧急</div></div>
+    <div class="stat-card" onclick="filterByStatus('done')"><div class="stat-num blue">${done}</div><div class="stat-label">已完成</div></div>
   `;
-  showPage('tool-detail');
-}
-
-// 生命周期详情
-function showLifecycleDetail(stage) {
-  const data = lifecycleData[stage];
-  if (!data) return;
-  document.getElementById('lifecycleDetailTitle').textContent = data.title;
-  document.getElementById('lifecycleDetailDesc').textContent = data.desc;
-  switchPDCA('P', document.querySelectorAll('#page-lifecycle-detail .pdca-tab')[0]);
-  showPage('lifecycle-detail');
-}
-
-function switchPDCA(phase, el) {
-  document.querySelectorAll('#page-lifecycle-detail .pdca-tab').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
   
-  const stage = document.getElementById('lifecycleDetailTitle').textContent;
-  let stageKey = '';
-  for (const [key, val] of Object.entries(lifecycleData)) {
-    if (val.title === stage) { stageKey = key; break; }
+  // 快捷入口
+  let quickHtml = '';
+  MODULES.slice(0, 8).forEach(m => {
+    quickHtml += `<div class="quick-item" onclick="navigateTo('module', '${m.id}')"><div class="quick-icon">${m.icon}</div><div class="quick-text">${m.name}</div></div>`;
+  });
+  document.getElementById('quickGrid').innerHTML = quickHtml;
+  
+  // 最近更新（按创建时间倒序取前5条）
+  let allItems = [];
+  MODULES.forEach(m => {
+    appData[m.id].forEach(item => {
+      allItems.push({ ...item, moduleId: m.id, moduleName: m.name, moduleIcon: m.icon });
+    });
+  });
+  allItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const recent = allItems.slice(0, 5);
+  
+  if (recent.length === 0) {
+    document.getElementById('recentList').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无数据</div></div>';
+  } else {
+    let listHtml = '';
+    recent.forEach(item => {
+      const status = STATUSES.find(s => s.id === item.status) || STATUSES[0];
+      listHtml += `
+        <div class="list-item" onclick="navigateTo('detail', '${item.moduleId}', '${item.id}')">
+          <div class="item-icon ${item.moduleId === 'suppliers' ? 'blue' : item.moduleId === 'incoming' ? 'orange' : item.moduleId === 'abnormal' ? 'red' : item.moduleId === 'risk' ? 'orange' : 'green'}">${item.moduleIcon}</div>
+          <div class="item-content">
+            <div class="item-title">${item.name}</div>
+            <div class="item-desc">${item.moduleName} · ${item.description || '暂无描述'}</div>
+          </div>
+          <span class="item-status ${status.color}">${status.name}</span>
+          <span class="item-arrow">›</span>
+        </div>
+      `;
+    });
+    document.getElementById('recentList').innerHTML = listHtml;
   }
-  const data = lifecycleData[stageKey];
-  if (!data) return;
+}
+
+function filterByStatus(status) {
+  // 跳转到异常处理模块并筛选
+  navigateTo('module', 'abnormal');
+  currentFilter = status;
+  renderModuleList();
+}
+
+// ==================== 模块列表 ====================
+function renderModuleList() {
+  const container = document.getElementById('moduleListContainer');
+  const searchText = document.getElementById('moduleSearchInput').value.toLowerCase();
   
-  const items = data[phase] || [];
+  // 筛选标签
+  let filterHtml = '<div class="filter-tab ' + (currentFilter === 'all' ? 'active' : '') + '" onclick="setFilter(\'all\')">全部</div>';
+  STATUSES.forEach(s => {
+    filterHtml += `<div class="filter-tab ${currentFilter === s.id ? 'active' : ''}" onclick="setFilter('${s.id}')">${s.name}</div>`;
+  });
+  document.getElementById('moduleFilters').innerHTML = filterHtml;
+  
+  // 筛选数据
+  let items = appData[currentModule.id].filter(item => {
+    const matchFilter = currentFilter === 'all' || item.status === currentFilter;
+    const matchSearch = !searchText || item.name.toLowerCase().includes(searchText) || (item.description || '').toLowerCase().includes(searchText);
+    return matchFilter && matchSearch;
+  });
+  
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">${currentModule.icon}</div>
+        <div class="empty-text">${searchText ? '没有找到匹配的记录' : '暂无' + currentModule.name + '数据'}</div>
+        <div class="empty-btn" onclick="openAddForm()">+ 添加第一条</div>
+      </div>
+    `;
+    return;
+  }
+  
   let html = '<div class="list-card">';
-  items.forEach((item, i) => {
-    html += `<div class="list-item" onclick="showPDCAItemDetail('${item}')">
-      <div class="item-icon blue">📋</div>
-      <div class="item-content"><div class="item-title">${item}</div><div class="item-desc">${phase}-计划阶段工作项 · 点击查看详情</div></div>
-      <span class="item-arrow">›</span>
-    </div>`;
+  items.forEach(item => {
+    const status = STATUSES.find(s => s.id === item.status) || STATUSES[0];
+    html += `
+      <div class="list-item" onclick="navigateTo('detail', '${currentModule.id}', '${item.id}')">
+        <div class="item-icon ${currentModule.color}">${currentModule.icon}</div>
+        <div class="item-content">
+          <div class="item-title">${item.name}</div>
+          <div class="item-desc">${item.description || '暂无描述'}</div>
+        </div>
+        <span class="item-status ${status.color}">${status.name}</span>
+        <span class="item-arrow">›</span>
+      </div>
+    `;
   });
   html += '</div>';
-  document.getElementById('lifecyclePDCAContent').innerHTML = html;
+  container.innerHTML = html;
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+  renderModuleList();
+}
+
+function showSearch() {
+  if (currentPage === 'module') {
+    document.getElementById('moduleSearchInput').focus();
+  }
+}
+
+// ==================== 详情页 ====================
+function renderDetail() {
+  const item = currentItem;
+  const status = STATUSES.find(s => s.id === item.status) || STATUSES[0];
   
-  // 推荐工具
-  let toolsHtml = '<div class="quick-grid">';
-  data.tools.forEach(tool => {
-    toolsHtml += `<div class="quick-item" onclick="showToolDetail('${tool}')"><div class="quick-icon">🛠️</div><div class="quick-text">${tool}</div></div>`;
-  });
-  toolsHtml += '</div>';
-  document.getElementById('lifecycleTools').innerHTML = toolsHtml;
+  document.getElementById('detailTitle').textContent = item.name;
+  document.getElementById('detailDesc').textContent = item.description || '暂无描述';
+  document.getElementById('detailMeta').innerHTML = `
+    <span class="meta-tag">${currentModule.name}</span>
+    <span class="meta-tag">${status.name}</span>
+    <span class="meta-tag">${formatDate(item.createdAt)}</span>
+  `;
   
-  // KPI
-  let kpiHtml = '<div class="list-card">';
-  data.kpis.forEach(kpi => {
-    kpiHtml += `<div class="list-item" onclick="showKPIDetail('${kpi.name}')">
-      <div class="item-icon green">📊</div>
-      <div class="item-content"><div class="item-title">${kpi.name}</div><div class="item-desc">当前: ${kpi.value} · 目标: ${kpi.target}</div></div>
-      <span class="item-status doing">${kpi.value}</span>
-    </div>`;
+  const sections = [
+    { icon: '📋', name: '模板', key: 'template' },
+    { icon: '📚', name: '知识点', key: 'knowledge' },
+    { icon: '🧠', name: '底层逻辑', key: 'logic' },
+    { icon: '🛠', name: '落地操作', key: 'operation' },
+  ];
+  
+  let html = '';
+  sections.forEach(s => {
+    const content = item[s.key] || '';
+    html += `
+      <div class="detail-section">
+        <div class="section-head">
+          <span class="icon">${s.icon}</span>
+          <span class="name">${s.name}</span>
+        </div>
+        <div class="section-content ${content ? '' : 'empty'}">${content || '暂无内容，点击编辑添加'}</div>
+      </div>
+    `;
   });
-  kpiHtml += '</div>';
-  document.getElementById('lifecycleKPIs').innerHTML = kpiHtml;
+  document.getElementById('detailSections').innerHTML = html;
 }
 
-function showPDCAItemDetail(name) {
-  alert('工作项详情：' + name + '\n\n包含：工作描述、可选工具、负责人、计划日期、状态、优先级、完成率\n\n（在WPS多维表格中查看详细数据和编辑）');
+function formatDate(timestamp) {
+  if (!timestamp) return '未知';
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// 体系文件详情
-function showSystemFileDetail(fileId) {
-  const file = systemFiles[fileId];
-  if (!file) { alert('文件详情暂未收录：' + fileId); return; }
-  document.getElementById('systemDetailTitle').textContent = file.title;
-  document.getElementById('systemDetailDesc').textContent = file.dept + ' · ' + file.stage;
-  document.getElementById('systemDetailContent').innerHTML = file.content;
-  showPage('system-detail');
+function editCurrentItem() {
+  isEditing = true;
+  editingId = currentItem.id;
+  openForm();
 }
 
-function filterSystemFiles(keyword) {
-  const items = document.querySelectorAll('#systemFileList .list-item');
-  items.forEach(item => {
-    const text = item.textContent;
-    item.style.display = text.includes(keyword) ? 'flex' : 'none';
+function deleteCurrentItem() {
+  if (!confirm('确定要删除这条记录吗？删除后无法恢复。')) return;
+  const index = appData[currentModule.id].findIndex(item => item.id === currentItem.id);
+  if (index > -1) {
+    appData[currentModule.id].splice(index, 1);
+    saveData();
+    showToast('删除成功', 'success');
+    navigateTo('module', currentModule.id);
+  }
+}
+
+// ==================== 表单 ====================
+function openAddForm() {
+  isEditing = false;
+  editingId = null;
+  openForm();
+}
+
+function openForm() {
+  const title = isEditing ? '编辑' : '添加' + currentModule.name;
+  document.getElementById('formModalTitle').textContent = title;
+  
+  const item = isEditing ? currentItem : { name: '', description: '', status: 'pending', template: '', knowledge: '', logic: '', operation: '' };
+  
+  let statusOptions = '';
+  STATUSES.forEach(s => {
+    statusOptions += `<option value="${s.id}" ${item.status === s.id ? 'selected' : ''}>${s.name}</option>`;
   });
+  
+  document.getElementById('formModalBody').innerHTML = `
+    <div class="form-group">
+      <label>名称 <span class="required">*</span></label>
+      <input type="text" id="formName" value="${item.name}" placeholder="请输入名称">
+    </div>
+    <div class="form-group">
+      <label>描述</label>
+      <input type="text" id="formDesc" value="${item.description || ''}" placeholder="简要描述">
+    </div>
+    <div class="form-group">
+      <label>状态</label>
+      <select id="formStatus">${statusOptions}</select>
+    </div>
+    <div class="form-group">
+      <label>📋 模板</label>
+      <textarea id="formTemplate" placeholder="输入模板内容，可包含表格、步骤等">${item.template || ''}</textarea>
+      <div class="form-hint">标准模板、表单格式、检验项目等</div>
+    </div>
+    <div class="form-group">
+      <label>📚 知识点</label>
+      <textarea id="formKnowledge" placeholder="输入相关知识点">${item.knowledge || ''}</textarea>
+      <div class="form-hint">标准依据、理论知识、关键参数等</div>
+    </div>
+    <div class="form-group">
+      <label>🧠 底层逻辑</label>
+      <textarea id="formLogic" placeholder="输入底层逻辑分析">${item.logic || ''}</textarea>
+      <div class="form-hint">为什么这么做、原理机制、因果关系等</div>
+    </div>
+    <div class="form-group">
+      <label>🛠 落地操作</label>
+      <textarea id="formOperation" placeholder="输入落地操作步骤">${item.operation || ''}</textarea>
+      <div class="form-hint">具体操作步骤、执行方法、注意事项等</div>
+    </div>
+  `;
+  
+  document.getElementById('formModal').classList.add('show');
 }
 
-// 通用详情弹窗
-function showSupplierDetail(id) { alert('供应商' + id + '详情\n\n包含：基本信息、资质文件、评估记录、绩效考核、SCAR记录、合作历史\n\n（在WPS多维表格中查看详细数据）'); }
-function showBatchDetail(id) { alert('批次' + id + '详情\n\n包含：供应商信息、物料信息、数量、检验结果、不合格项、处理方式、流转记录\n\n（在WPS多维表格中查看详细数据）'); }
-function showOrderDetail(id) { alert('工单' + id + '详情\n\n包含：产品信息、计划数量、完成数量、不良率、首检记录、巡检记录、异常记录、负责人\n\n（在WPS多维表格中查看详细数据）'); }
-function showProductDetail(id) { alert('成品' + id + '详情\n\n包含：产品信息、数量、检验结果、不良项、MRB评审、入库信息、出货状态\n\n（在WPS多维表格中查看详细数据）'); }
-function showShippingDetail(id) { alert('订单' + id + '详情\n\n包含：客户信息、产品信息、数量、包装方式、物流信息、交付状态、签收确认\n\n（在WPS多维表格中查看详细数据）'); }
-function showExceptionDetail(id) { alert('异常' + id + '详情\n\n包含：异常描述、发生时间、责任人、原因分析、临时措施、永久措施、验证效果、8D报告\n\n（在WPS多维表格中查看详细数据）'); }
-function showRiskDetail(id) { alert('风险' + id + '详情\n\n包含：风险描述、可能性、影响程度、风险等级、应对措施、责任人、跟踪状态、关联工具\n\n（在WPS多维表格中查看详细数据）'); }
-function showKPIDetail(name) { alert('KPI指标：' + name + '\n\n包含：目标值、实际值、达成率、偏差率、趋势分析、关联工具、触发规则\n\n（在WPS多维表格中查看详细数据和趋势图）'); }
-function showRecordDetail(id) { alert('记录' + id + '详情\n\n包含：记录信息、审批流程、审批人、审批意见、审批时间、流转状态、上下游关联、追溯链\n\n（在WPS多维表格中查看详细数据）'); }
-
-function submitForm() {
-  alert('提交成功！数据已自动流转到下一环节。\n\n（实际使用时可对接WPS多维表格API，将数据写入对应数据表）');
-  goBack();
+function closeForm() {
+  document.getElementById('formModal').classList.remove('show');
 }
 
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
-  if (!checkLogin()) return;
-  renderTools();
-  setTimeout(() => {
-    document.querySelectorAll('.chart-bar').forEach(bar => {
-      const h = bar.style.height;
-      bar.style.height = '0';
-      setTimeout(() => { bar.style.height = h; }, 100);
+function saveForm() {
+  const name = document.getElementById('formName').value.trim();
+  if (!name) {
+    showToast('请输入名称', 'error');
+    return;
+  }
+  
+  const data = {
+    name: name,
+    description: document.getElementById('formDesc').value.trim(),
+    status: document.getElementById('formStatus').value,
+    template: document.getElementById('formTemplate').value.trim(),
+    knowledge: document.getElementById('formKnowledge').value.trim(),
+    logic: document.getElementById('formLogic').value.trim(),
+    operation: document.getElementById('formOperation').value.trim(),
+  };
+  
+  if (isEditing) {
+    const index = appData[currentModule.id].findIndex(item => item.id === editingId);
+    if (index > -1) {
+      appData[currentModule.id][index] = { ...appData[currentModule.id][index], ...data, updatedAt: Date.now() };
+    }
+    showToast('更新成功', 'success');
+  } else {
+    data.id = genId();
+    data.createdAt = Date.now();
+    appData[currentModule.id].unshift(data);
+    showToast('添加成功', 'success');
+  }
+  
+  saveData();
+  closeForm();
+  
+  if (isEditing) {
+    currentItem = appData[currentModule.id].find(item => item.id === editingId);
+    renderDetail();
+  } else {
+    renderModuleList();
+  }
+}
+
+// ==================== 数据看板 ====================
+function renderDashboard() {
+  // 统计
+  let total = 0, pending = 0, doing = 0, done = 0, urgent = 0;
+  MODULES.forEach(m => {
+    appData[m.id].forEach(item => {
+      total++;
+      if (item.status === 'pending') pending++;
+      if (item.status === 'doing') doing++;
+      if (item.status === 'done') done++;
+      if (item.status === 'urgent') urgent++;
     });
-  }, 300);
-});
+  });
+  
+  document.getElementById('dashboardStats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">总记录</div></div>
+    <div class="stat-card"><div class="stat-num warn">${pending}</div><div class="stat-label">待处理</div></div>
+    <div class="stat-card"><div class="stat-num blue">${doing}</div><div class="stat-label">进行中</div></div>
+    <div class="stat-card"><div class="stat-num danger">${urgent}</div><div class="stat-label">紧急</div></div>
+  `;
+  
+  // 柱状图 - 各模块数据量
+  const maxCount = Math.max(...MODULES.map(m => appData[m.id].length), 1);
+  let chartHtml = '';
+  let labelsHtml = '';
+  MODULES.forEach(m => {
+    const count = appData[m.id].length;
+    const height = Math.max((count / maxCount) * 120, 4);
+    chartHtml += `<div class="chart-bar" style="height:${height}px"><span class="bar-value">${count}</span></div>`;
+    labelsHtml += `<div class="chart-label">${m.name.slice(0,2)}</div>`;
+  });
+  document.getElementById('dashboardChart').innerHTML = chartHtml;
+  document.getElementById('dashboardChartLabels').innerHTML = labelsHtml;
+  
+  // 状态分布
+  const statusColors = { pending: '#fa8c16', doing: '#1890ff', done: '#2d7a4f', urgent: '#ff4d4f' };
+  let legendHtml = '';
+  STATUSES.forEach(s => {
+    const count = { pending, doing, done, urgent }[s.id];
+    legendHtml += `<div class="pie-legend-item"><span class="pie-legend-dot" style="background:${statusColors[s.id]}"></span>${s.name} ${count}条</div>`;
+  });
+  document.getElementById('statusLegend').innerHTML = legendHtml;
+}
+
+// ==================== Toast ====================
+let toastTimer = null;
+function showToast(message, type = '') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast show ' + type;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.className = 'toast';
+  }, 2000);
+}
+
+// ==================== 初始化 ====================
+function init() {
+  if (!checkLogin()) return;
+  loadData();
+  renderSidebar();
+  renderHome();
+}
+
+init();
 </script>
 </body>
 </html>
