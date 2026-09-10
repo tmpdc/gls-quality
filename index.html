@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>格丽思质量管理系统 - 登录</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+
+/* ===== 登录页 ===== */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a5c38 0%, #2d7a4f 40%, #3a9d68 100%); position: relative; overflow: hidden; }
+.login-wrap::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: rgba(255,255,255,0.05); top: -200px; right: -150px; }
+.login-wrap::after { content: ''; position: absolute; width: 400px; height: 400px; border-radius: 50%; background: rgba(255,255,255,0.04); bottom: -100px; left: -100px; }
+.login-box { background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); padding: 48px 40px; width: 400px; max-width: 90vw; position: relative; z-index: 1; }
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-logo .icon { width: 64px; height: 64px; background: linear-gradient(135deg, #2d7a4f, #3a9d68); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px; }
+.login-logo h1 { font-size: 22px; color: #1a1a1a; font-weight: 700; }
+.login-logo p { font-size: 13px; color: #888; margin-top: 6px; }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 8px; font-weight: 500; }
+.form-group .input-wrap { position: relative; }
+.form-group .input-wrap .prefix { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #999; font-size: 16px; }
+.form-group input { width: 100%; padding: 12px 14px 12px 44px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; transition: all 0.2s; background: #fafafa; }
+.form-group input:focus { outline: none; border-color: #2d7a4f; background: #fff; box-shadow: 0 0 0 3px rgba(45,122,79,0.1); }
+.form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 13px; }
+.form-row .remember { display: flex; align-items: center; gap: 6px; color: #666; cursor: pointer; }
+.form-row .remember input { width: 14px; height: 14px; accent-color: #2d7a4f; }
+.form-row a { color: #2d7a4f; text-decoration: none; }
+.form-row a:hover { text-decoration: underline; }
+.btn-login { width: 100%; padding: 13px; background: linear-gradient(135deg, #2d7a4f, #3a9d68); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-login:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,122,79,0.3); }
+.btn-login:active { transform: translateY(0); }
+.login-tip { text-align: center; margin-top: 20px; font-size: 12px; color: #aaa; }
+.login-error { background: #fff1f0; border: 1px solid #ffccc7; color: #ff4d4f; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
+
+/* ===== 后台布局 ===== */
+.admin-layout { display: none; min-height: 100vh; }
+.admin-layout.active { display: flex; }
+.sidebar { width: 220px; background: linear-gradient(180deg, #1a5c38 0%, #2d7a4f 100%); color: #fff; min-height: 100vh; position: fixed; left: 0; top: 0; z-index: 100; display: flex; flex-direction: column; }
+.sidebar .brand { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; }
+.sidebar .brand .b-icon { width: 36px; height: 36px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.sidebar .brand .b-text { font-size: 15px; font-weight: 600; }
+.sidebar .nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+.sidebar .nav-section { padding: 12px 20px 6px; font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+.sidebar .nav-item { display: flex; align-items: center; padding: 11px 20px; color: rgba(255,255,255,0.8); cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; font-size: 14px; gap: 10px; }
+.sidebar .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.sidebar .nav-item.active { background: rgba(255,255,255,0.12); color: #fff; border-left-color: #7dd3a0; }
+.sidebar .nav-item .n-icon { width: 20px; text-align: center; font-size: 16px; }
+.sidebar .user-info { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 10px; }
+.sidebar .user-info .avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.sidebar .user-info .u-detail { flex: 1; min-width: 0; }
+.sidebar .user-info .u-name { font-size: 13px; font-weight: 600; }
+.sidebar .user-info .u-role { font-size: 11px; opacity: 0.6; }
+.sidebar .logout-btn { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 16px; padding: 4px; }
+.sidebar .logout-btn:hover { color: #fff; }
+
+.main-content { margin-left: 220px; flex: 1; min-height: 100vh; }
+.topbar { background: #fff; padding: 14px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.topbar .page-title { font-size: 18px; font-weight: 600; color: #1a1a1a; }
+.topbar .top-actions { display: flex; align-items: center; gap: 16px; }
+.topbar .top-actions .time { font-size: 13px; color: #888; }
+.content-area { padding: 24px; }
+
+/* ===== 通用组件 ===== */
+.page-view { display: none; }
+.page-view.active { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.stat-card .s-label { font-size: 13px; color: #888; margin-bottom: 8px; }
+.stat-card .s-value { font-size: 28px; font-weight: 700; color: #2d7a4f; }
+.stat-card .s-value.warn { color: #fa8c16; }
+.stat-card .s-value.danger { color: #ff4d4f; }
+.stat-card .s-trend { font-size: 12px; color: #999; margin-top: 6px; }
+
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 16px; }
+.card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.card-header .c-title { font-size: 15px; font-weight: 600; }
+.card-body { padding: 20px; }
+
+.btn { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: linear-gradient(135deg, #2d7a4f, #3a9d68); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-default { background: #fff; color: #555; border: 1px solid #ddd; }
+.btn-default:hover { border-color: #2d7a4f; color: #2d7a4f; }
+.btn-danger { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+.btn-danger:hover { background: #ff4d4f; color: #fff; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+.toolbar .search-box { display: flex; align-items: center; gap: 8px; }
+.toolbar input, .toolbar select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
+.toolbar input:focus, .toolbar select:focus { border-color: #2d7a4f; }
+
+table { width: 100%; border-collapse: collapse; }
+table th { background: #fafafa; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; }
+table td { padding: 14px 16px; font-size: 13px; color: #333; border-bottom: 1px solid #f5f5f5; }
+table tr:hover { background: #f9f9f9; }
+table tr:last-child td { border-bottom: none; }
+.tag { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+.tag-success { background: #e6f7ee; color: #2d7a4f; }
+.tag-warning { background: #fff7e6; color: #fa8c16; }
+.tag-danger { background: #fff1f0; color: #ff4d4f; }
+.tag-info { background: #e6f7ff; color: #1890ff; }
+.tag-default { background: #f5f5f5; color: #888; }
+.action-links { display: flex; gap: 12px; }
+.action-links a { color: #2d7a4f; text-decoration: none; font-size: 13px; cursor: pointer; }
+.action-links a:hover { text-decoration: underline; }
+.action-links a.danger { color: #ff4d4f; }
+
+/* ===== 弹窗 ===== */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 14px; width: 480px; max-width: 92vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+.modal-header { padding: 18px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.modal-header .m-title { font-size: 16px; font-weight: 600; }
+.modal-header .m-close { background: none; border: none; font-size: 20px; color: #999; cursor: pointer; padding: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+.modal-header .m-close:hover { background: #f5f5f5; color: #333; }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 10px; }
+.form-item { margin-bottom: 18px; }
+.form-item label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; font-weight: 500; }
+.form-item label .req { color: #ff4d4f; margin-right: 2px; }
+.form-item input, .form-item select, .form-item textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; background: #fafafa; }
+.form-item input:focus, .form-item select:focus, .form-item textarea:focus { border-color: #2d7a4f; background: #fff; }
+.form-item textarea { resize: vertical; min-height: 70px; }
+.form-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+/* ===== Toast ===== */
+.toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-20px); background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; z-index: 2000; opacity: 0; transition: all 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: #2d7a4f; }
+.toast.error { background: #ff4d4f; }
+
+/* ===== 空状态 ===== */
+.empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+.empty-state .e-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state .e-text { font-size: 14px; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .sidebar { width: 60px; }
+  .sidebar .brand .b-text, .sidebar .nav-item .n-text, .sidebar .nav-section, .sidebar .user-info .u-detail { display: none; }
+  .sidebar .nav-item { justify-content: center; padding: 12px; }
+  .main-content { margin-left: 60px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .login-box { padding: 32px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== 登录页 ===== -->
+<div class="login-wrap" id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">🏭</div>
+      <h1>格丽思质量管理系统</h1>
+      <p>一体化管理体系工作台</p>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="form-group">
+      <label>账号</label>
+      <div class="input-wrap">
+        <span class="prefix">👤</span>
+        <input type="text" id="loginUsername" placeholder="请输入账号" autocomplete="username">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <div class="input-wrap">
+        <span class="prefix">🔒</span>
+        <input type="password" id="loginPassword" placeholder="请输入密码" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="remember"><input type="checkbox" id="rememberMe" checked> 记住账号</label>
+      <a href="javascript:void(0)" onclick="showToast('请联系管理员重置密码','error')">忘记密码？</a>
+    </div>
+    <button class="btn-login" onclick="doLogin()">登 录</button>
+  </div>
+</div>
+
+<!-- ===== 后台布局 ===== -->
+<div class="admin-layout" id="adminLayout">
+  <!-- 侧边栏 -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="b-icon">🏭</div>
+      <div class="b-text">格丽思管理系统</div>
+    </div>
+    <div class="nav">
+      <div class="nav-section">概览</div>
+      <div class="nav-item active" onclick="navTo('dashboard', this)">
+        <span class="n-icon">📊</span><span class="n-text">仪表盘</span>
+      </div>
+      <div class="nav-section">系统管理</div>
+      <div class="nav-item" onclick="navTo('accounts', this)">
+        <span class="n-icon">👥</span><span class="n-text">账号管理</span>
+      </div>
+      <div class="nav-item" onclick="navTo('roles', this)">
+        <span class="n-icon">🔐</span><span class="n-text">角色权限</span>
+      </div>
+      <div class="nav-item" onclick="navTo('logs', this)">
+        <span class="n-icon">📋</span><span class="n-text">登录日志</span>
+      </div>
+      <div class="nav-item" onclick="showChangePasswordModal()">
+        <span class="n-icon">🔑</span><span class="n-text">修改密码</span>
+      </div>
+      <div class="nav-section">业务入口</div>
+      <div class="nav-item" onclick="enterWorkbench()">
+        <span class="n-icon">🚀</span><span class="n-text">进入工作台</span>
+      </div>
+    </div>
+    <div class="user-info">
+      <div class="avatar" id="userAvatar">A</div>
+      <div class="u-detail">
+        <div class="u-name" id="userName">admin</div>
+        <div class="u-role" id="userRole">超级管理员</div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()" title="退出登录">⏻</button>
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <div class="main-content">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">仪表盘</div>
+      <div class="top-actions">
+        <span class="time" id="currentTime"></span>
+      </div>
+    </div>
+    <div class="content-area">
+
+      <!-- ===== 仪表盘 ===== -->
+      <div class="page-view active" id="view-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="s-label">账号总数</div>
+            <div class="s-value" id="statTotalAccounts">0</div>
+            <div class="s-trend">含启用与禁用</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">启用账号</div>
+            <div class="s-value" id="statActiveAccounts">0</div>
+            <div class="s-trend">可正常登录</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">今日登录</div>
+            <div class="s-value warn" id="statTodayLogins">0</div>
+            <div class="s-trend">人次</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">登录失败</div>
+            <div class="s-value danger" id="statFailedLogins">0</div>
+            <div class="s-trend">近7天</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="c-title">最近登录记录</div>
+            <button class="btn btn-default btn-sm" onclick="navTo('logs', document.querySelectorAll('.sidebar .nav-item')[4])">查看全部</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <table>
+              <thead><tr><th>账号</th><th>姓名</th><th>登录时间</th><th>IP地址</th><th>状态</th></tr></thead>
+              <tbody id="recentLoginsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="c-title">快捷操作</div></div>
+          <div class="card-body">
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="navTo('accounts', document.querySelectorAll('.sidebar .nav-item')[2]);showAddAccountModal()">＋ 新增账号</button>
+              <button class="btn btn-default" onclick="enterWorkbench()">🚀 进入质量管理工作台</button>
+              <button class="btn btn-default" onclick="navTo('logs', document.querySelectorAll('.sidebar .nav-item')[4])">📋 查看登录日志</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 账号管理 ===== -->
+      <div class="page-view" id="view-accounts">
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="accountSearch" placeholder="搜索账号/姓名" oninput="renderAccounts()">
+            <select id="accountRoleFilter" onchange="renderAccounts()">
+              <option value="">全部角色</option>
+              <option value="admin">超级管理员</option>
+              <option value="manager">部门主管</option>
+              <option value="staff">普通员工</option>
+              <option value="viewer">只读用户</option>
+            </select>
+            <select id="accountStatusFilter" onchange="renderAccounts()">
+              <option value="">全部状态</option>
+              <option value="active">启用</option>
+              <option value="disabled">禁用</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="showAddAccountModal()">＋ 新增账号</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <table>
+              <thead><tr><th>账号</th><th>姓名</th><th>角色</th><th>部门</th><th>最后登录</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="accountsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 角色权限 ===== -->
+      <div class="page-view" id="view-roles">
+        <div class="card">
+          <div class="card-header"><div class="c-title">角色列表</div></div>
+          <div class="card-body" style="padding:0;">
+            <table>
+              <thead><tr><th>角色标识</th><th>角色名称</th><th>描述</th><th>账号数</th><th>权限</th></tr></thead>
+              <tbody id="rolesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 登录日志 ===== -->
+      <div class="page-view" id="view-logs">
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="logSearch" placeholder="搜索账号" oninput="renderLogs()">
+            <select id="logStatusFilter" onchange="renderLogs()">
+              <option value="">全部状态</option>
+              <option value="success">成功</option>
+              <option value="failed">失败</option>
+            </select>
+          </div>
+          <button class="btn btn-default" onclick="clearLogs()">清空日志</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <table>
+              <thead><tr><th>账号</th><th>姓名</th><th>登录时间</th><th>IP地址</th><th>设备信息</th><th>状态</th><th>备注</th></tr></thead>
+              <tbody id="logsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== 新增/编辑账号弹窗 ===== -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title" id="accountModalTitle">新增账号</div>
+      <button class="m-close" onclick="closeAccountModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editAccountId">
+      <div class="form-item">
+        <label><span class="req">*</span>登录账号</label>
+        <input type="text" id="f_username" placeholder="请输入登录账号（英文/数字）">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>姓名</label>
+        <input type="text" id="f_realname" placeholder="请输入真实姓名">
+      </div>
+      <div class="form-item" id="passwordField">
+        <label><span class="req">*</span>初始密码</label>
+        <input type="text" id="f_password" placeholder="请输入初始密码（至少6位）">
+        <div class="form-hint">用户首次登录后可自行修改密码</div>
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>角色</label>
+        <select id="f_role">
+          <option value="admin">超级管理员</option>
+          <option value="manager">部门主管</option>
+          <option value="staff">普通员工</option>
+          <option value="viewer">只读用户</option>
+        </select>
+      </div>
+      <div class="form-item">
+        <label>部门</label>
+        <select id="f_dept">
+          <option value="品质部">品质部</option>
+          <option value="研发部">研发部</option>
+          <option value="生产部">生产部</option>
+          <option value="采购部">采购部</option>
+          <option value="仓储部">仓储部</option>
+          <option value="销售部">销售部</option>
+          <option value="管理层">管理层</option>
+        </select>
+      </div>
+      <div class="form-item">
+        <label>手机号</label>
+        <input type="text" id="f_phone" placeholder="选填">
+      </div>
+      <div class="form-item">
+        <label>邮箱</label>
+        <input type="text" id="f_email" placeholder="选填">
+      </div>
+      <div class="form-item">
+        <label>状态</label>
+        <select id="f_status">
+          <option value="active">启用</option>
+          <option value="disabled">禁用</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeAccountModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveAccount()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 修改密码弹窗 ===== -->
+<div class="modal-overlay" id="changePwdModal">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header">
+      <div class="m-title">修改密码</div>
+      <button class="m-close" onclick="closeChangePwdModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-item">
+        <label><span class="req">*</span>当前账号</label>
+        <input type="text" id="cp_account" disabled style="background:#f0f0f0;color:#999;">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>原密码</label>
+        <input type="password" id="cp_old" placeholder="请输入当前密码">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>新密码</label>
+        <input type="password" id="cp_new" placeholder="请输入新密码（至少6位）">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>确认新密码</label>
+        <input type="password" id="cp_confirm" placeholder="请再次输入新密码">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeChangePwdModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitChangePassword()">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 确认弹窗 ===== -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="width:380px;">
+    <div class="modal-header"><div class="m-title">确认操作</div></div>
+    <div class="modal-body">
+      <p id="confirmMessage" style="font-size:14px;color:#555;line-height:1.6;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeConfirm()">取消</button>
+      <button class="btn btn-danger" id="confirmBtn">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 数据存储 =====
+const STORAGE_KEY = 'gls_accounts';
+const LOG_KEY = 'gls_login_logs';
+const SESSION_KEY = 'gls_current_user';
+
+// 角色定义
+const ROLES = {
+  admin: { name: '超级管理员', desc: '拥有系统全部权限，可管理账号、角色、查看所有数据', perms: ['全部权限'] },
+  manager: { name: '部门主管', desc: '可管理本部门账号，查看部门数据，审批业务流程', perms: ['账号管理(本部门)', '数据查看', '业务审批', '工作台操作'] },
+  staff: { name: '普通员工', desc: '可使用工作台功能，录入和查看本人相关数据', perms: ['工作台操作', '数据录入', '本人数据查看'] },
+  viewer: { name: '只读用户', desc: '仅可查看数据，不可录入或修改', perms: ['数据查看(只读)'] }
+};
+
+// 初始化默认账号
+function initDefaultAccounts() {
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (!existing) {
+    const defaults = [
+      { id: 1, username: 'admin', password: 'admin123', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'admin@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' },
+      { id: 2, username: 'zhangsan', password: '123456', realname: '张三', role: 'manager', dept: '品质部', phone: '13800138001', email: 'zhangsan@gls.com', status: 'active', createdAt: '2026-03-15 09:30:00', lastLogin: '2026-09-09 14:22:00' },
+      { id: 3, username: 'lisi', password: '123456', realname: '李四', role: 'staff', dept: '生产部', phone: '13800138002', email: 'lisi@gls.com', status: 'active', createdAt: '2026-04-20 10:15:00', lastLogin: '2026-09-08 08:45:00' },
+      { id: 4, username: 'wangwu', password: '123456', realname: '王五', role: 'staff', dept: '研发部', phone: '13800138003', email: 'wangwu@gls.com', status: 'active', createdAt: '2026-05-10 11:00:00', lastLogin: '' },
+      { id: 5, username: 'zhaoliu', password: '123456', realname: '赵六', role: 'viewer', dept: '销售部', phone: '13800138004', email: 'zhaoliu@gls.com', status: 'disabled', createdAt: '2026-06-01 14:30:00', lastLogin: '2026-08-15 16:20:00' }
+    ];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+  }
+}
+
+function getAccounts() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+}
+function saveAccounts(accounts) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+}
+function getLogs() {
+  return JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+}
+function saveLogs(logs) {
+  localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+}
+function addLog(username, realname, success, remark) {
+  const logs = getLogs();
+  const now = new Date();
+  logs.unshift({
+    id: Date.now(),
+    username: username,
+    realname: realname || '-',
+    time: formatDateTime(now),
+    ip: '127.0.0.1',
+    device: navigator.userAgent.includes('Mobile') ? '移动端' : '桌面端',
+    success: success,
+    remark: remark || ''
+  });
+  if (logs.length > 500) logs.length = 500;
+  saveLogs(logs);
+}
+
+function formatDateTime(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// ===== 登录 =====
+function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+
+  if (!username) { showLoginError('请输入账号'); return; }
+  if (!password) { showLoginError('请输入密码'); return; }
+
+  const accounts = getAccounts();
+  const account = accounts.find(a => a.username === username);
+
+  if (!account) {
+    addLog(username, '', false, '账号不存在');
+    showLoginError('账号不存在，请检查输入');
+    return;
+  }
+  if (account.status !== 'active') {
+    addLog(username, account.realname, false, '账号已禁用');
+    showLoginError('账号已被禁用，请联系管理员');
+    return;
+  }
+  if (account.password !== password) {
+    addLog(username, account.realname, false, '密码错误');
+    showLoginError('密码错误，请重新输入');
+    return;
+  }
+
+  // 登录成功
+  addLog(username, account.realname, true, '登录成功');
+  account.lastLogin = formatDateTime(new Date());
+  saveAccounts(accounts);
+
+  const session = { id: account.id, username: account.username, realname: account.realname, role: account.role, loginTime: Date.now() };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+
+  if (document.getElementById('rememberMe').checked) {
+    localStorage.setItem('gls_remember_user', username);
+  } else {
+    localStorage.removeItem('gls_remember_user');
+  }
+
+  showToast('登录成功，欢迎回来！', 'success');
+  setTimeout(() => enterAdmin(), 500);
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function doLogout() {
+  showConfirm('确定要退出登录吗？', () => {
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById('adminLayout').classList.remove('active');
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('loginPassword').value = '';
+    showToast('已退出登录', 'success');
+  });
+}
+
+function enterAdmin() {
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (!session) return;
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('adminLayout').classList.add('active');
+  document.getElementById('userName').textContent = session.realname;
+  document.getElementById('userRole').textContent = ROLES[session.role]?.name || session.role;
+  document.getElementById('userAvatar').textContent = session.realname.charAt(0);
+  navTo('dashboard', document.querySelectorAll('.sidebar .nav-item')[0]);
+  updateStats();
+}
+
+function enterWorkbench() {
+  showToast('正在跳转到质量管理工作台...', 'success');
+  setTimeout(() => {
+    window.location.href = '../page.html';
+  }, 600);
+}
+
+// ===== 导航 =====
+const PAGE_TITLES = { dashboard: '仪表盘', accounts: '账号管理', roles: '角色权限', logs: '登录日志' };
+function navTo(page, el) {
+  document.querySelectorAll('.sidebar .nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+  const view = document.getElementById('view-' + page);
+  if (view) view.classList.add('active');
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
+  if (page === 'dashboard') updateStats();
+  if (page === 'accounts') renderAccounts();
+  if (page === 'roles') renderRoles();
+  if (page === 'logs') renderLogs();
+}
+
+// ===== 仪表盘 =====
+function updateStats() {
+  const accounts = getAccounts();
+  const logs = getLogs();
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('statTotalAccounts').textContent = accounts.length;
+  document.getElementById('statActiveAccounts').textContent = accounts.filter(a => a.status === 'active').length;
+  document.getElementById('statTodayLogins').textContent = logs.filter(l => l.success && l.time.startsWith(today)).length;
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('statFailedLogins').textContent = logs.filter(l => !l.success && l.time >= sevenDaysAgo).length;
+
+  const tbody = document.getElementById('recentLoginsBody');
+  const recent = logs.slice(0, 5);
+  if (recent.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:30px;">暂无登录记录</td></tr>';
+  } else {
+    tbody.innerHTML = recent.map(l => `<tr>
+      <td>${l.username}</td><td>${l.realname}</td><td>${l.time}</td><td>${l.ip}</td>
+      <td>${l.success ? '<span class="tag tag-success">成功</span>' : '<span class="tag tag-danger">失败</span>'}</td>
+    </tr>`).join('');
+  }
+}
+
+// ===== 账号管理 =====
+function renderAccounts() {
+  const keyword = document.getElementById('accountSearch').value.toLowerCase();
+  const roleFilter = document.getElementById('accountRoleFilter').value;
+  const statusFilter = document.getElementById('accountStatusFilter').value;
+  let accounts = getAccounts();
+  if (keyword) accounts = accounts.filter(a => a.username.toLowerCase().includes(keyword) || a.realname.toLowerCase().includes(keyword));
+  if (roleFilter) accounts = accounts.filter(a => a.role === roleFilter);
+  if (statusFilter) accounts = accounts.filter(a => a.status === statusFilter);
+
+  const tbody = document.getElementById('accountsBody');
+  if (accounts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px;">暂无账号数据</td></tr>';
+    return;
+  }
+  tbody.innerHTML = accounts.map(a => `<tr>
+    <td><strong>${a.username}</strong></td>
+    <td>${a.realname}</td>
+    <td><span class="tag tag-${a.role === 'admin' ? 'danger' : a.role === 'manager' ? 'info' : a.role === 'staff' ? 'success' : 'default'}">${ROLES[a.role]?.name || a.role}</span></td>
+    <td>${a.dept}</td>
+    <td>${a.lastLogin || '从未登录'}</td>
+    <td>${a.status === 'active' ? '<span class="tag tag-success">启用</span>' : '<span class="tag tag-default">禁用</span>'}</td>
+    <td><div class="action-links">
+      <a onclick="editAccount(${a.id})">编辑</a>
+      <a onclick="resetPassword(${a.id})">重置密码</a>
+      <a onclick="toggleAccount(${a.id})">${a.status === 'active' ? '禁用' : '启用'}</a>
+      ${a.username !== 'admin' ? `<a class="danger" onclick="deleteAccount(${a.id})">删除</a>` : ''}
+    </div></td>
+  </tr>`).join('');
+}
+
+function showAddAccountModal() {
+  document.getElementById('accountModalTitle').textContent = '新增账号';
+  document.getElementById('editAccountId').value = '';
+  document.getElementById('f_username').value = '';
+  document.getElementById('f_realname').value = '';
+  document.getElementById('f_password').value = '';
+  document.getElementById('f_role').value = 'staff';
+  document.getElementById('f_dept').value = '品质部';
+  document.getElementById('f_phone').value = '';
+  document.getElementById('f_email').value = '';
+  document.getElementById('f_status').value = 'active';
+  document.getElementById('passwordField').style.display = 'block';
+  document.getElementById('accountModal').classList.add('show');
+}
+
+function editAccount(id) {
+  const accounts = getAccounts();
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('accountModalTitle').textContent = '编辑账号';
+  document.getElementById('editAccountId').value = a.id;
+  document.getElementById('f_username').value = a.username;
+  document.getElementById('f_realname').value = a.realname;
+  document.getElementById('f_role').value = a.role;
+  document.getElementById('f_dept').value = a.dept;
+  document.getElementById('f_phone').value = a.phone || '';
+  document.getElementById('f_email').value = a.email || '';
+  document.getElementById('f_status').value = a.status;
+  document.getElementById('passwordField').style.display = 'none';
+  document.getElementById('accountModal').classList.add('show');
+}
+
+function closeAccountModal() {
+  document.getElementById('accountModal').classList.remove('show');
+}
+
+function saveAccount() {
+  const id = document.getElementById('editAccountId').value;
+  const username = document.getElementById('f_username').value.trim();
+  const realname = document.getElementById('f_realname').value.trim();
+  const role = document.getElementById('f_role').value;
+  const dept = document.getElementById('f_dept').value;
+  const phone = document.getElementById('f_phone').value.trim();
+  const email = document.getElementById('f_email').value.trim();
+  const status = document.getElementById('f_status').value;
+
+  if (!username) { showToast('请输入登录账号', 'error'); return; }
+  if (!realname) { showToast('请输入姓名', 'error'); return; }
+
+  const accounts = getAccounts();
+
+  if (id) {
+    const idx = accounts.findIndex(a => a.id === parseInt(id));
+    if (idx === -1) return;
+    if (accounts.some(a => a.username === username && a.id !== parseInt(id))) {
+      showToast('该账号已存在', 'error'); return;
+    }
+    accounts[idx] = { ...accounts[idx], username, realname, role, dept, phone, email, status };
+    showToast('账号更新成功', 'success');
+  } else {
+    const password = document.getElementById('f_password').value.trim();
+    if (!password || password.length < 6) { showToast('密码至少6位', 'error'); return; }
+    if (accounts.some(a => a.username === username)) {
+      showToast('该账号已存在', 'error'); return;
+    }
+    accounts.push({
+      id: Date.now(), username, password, realname, role, dept, phone, email, status,
+      createdAt: formatDateTime(new Date()), lastLogin: ''
+    });
+    showToast('账号创建成功', 'success');
+  }
+  saveAccounts(accounts);
+  closeAccountModal();
+  renderAccounts();
+  updateStats();
+}
+
+function resetPassword(id) {
+  const accounts = getAccounts();
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  showConfirm(`确定将账号「${a.username}」的密码重置为 123456 吗？`, () => {
+    a.password = '123456';
+    saveAccounts(accounts);
+    showToast('密码已重置为 123456', 'success');
+  });
+}
+
+// ===== 修改密码 =====
+function showChangePasswordModal() {
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (!session) return;
+  document.getElementById('cp_account').value = session.username;
+  document.getElementById('cp_old').value = '';
+  document.getElementById('cp_new').value = '';
+  document.getElementById('cp_confirm').value = '';
+  document.getElementById('changePwdModal').classList.add('show');
+}
+
+function closeChangePwdModal() {
+  document.getElementById('changePwdModal').classList.remove('show');
+}
+
+function submitChangePassword() {
+  const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if (!session) { showToast('登录状态已失效，请重新登录', 'error'); return; }
+
+  const oldPwd = document.getElementById('cp_old').value;
+  const newPwd = document.getElementById('cp_new').value;
+  const confirmPwd = document.getElementById('cp_confirm').value;
+
+  if (!oldPwd) { showToast('请输入原密码', 'error'); return; }
+  if (!newPwd) { showToast('请输入新密码', 'error'); return; }
+  if (newPwd.length < 6) { showToast('新密码至少6位', 'error'); return; }
+  if (newPwd !== confirmPwd) { showToast('两次输入的新密码不一致', 'error'); return; }
+  if (newPwd === oldPwd) { showToast('新密码不能与原密码相同', 'error'); return; }
+
+  const accounts = getAccounts();
+  const account = accounts.find(a => a.id === session.id);
+  if (!account) { showToast('账号不存在', 'error'); return; }
+  if (account.password !== oldPwd) { showToast('原密码错误', 'error'); return; }
+
+  account.password = newPwd;
+  saveAccounts(accounts);
+  closeChangePwdModal();
+  showToast('密码修改成功，请使用新密码登录', 'success');
+  setTimeout(() => doLogout(), 1200);
+}
+
+function toggleAccount(id) {
+  const accounts = getAccounts();
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  if (a.username === 'admin') { showToast('管理员账号不可禁用', 'error'); return; }
+  const action = a.status === 'active' ? '禁用' : '启用';
+  showConfirm(`确定${action}账号「${a.username}」吗？`, () => {
+    a.status = a.status === 'active' ? 'disabled' : 'active';
+    saveAccounts(accounts);
+    renderAccounts();
+    updateStats();
+    showToast(`账号已${action}`, 'success');
+  });
+}
+
+function deleteAccount(id) {
+  const accounts = getAccounts();
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  if (a.username === 'admin') { showToast('管理员账号不可删除', 'error'); return; }
+  showConfirm(`确定删除账号「${a.username}」吗？此操作不可恢复。`, () => {
+    const filtered = accounts.filter(x => x.id !== id);
+    saveAccounts(filtered);
+    renderAccounts();
+    updateStats();
+    showToast('账号已删除', 'success');
+  });
+}
+
+// ===== 角色权限 =====
+function renderRoles() {
+  const accounts = getAccounts();
+  const tbody = document.getElementById('rolesBody');
+  tbody.innerHTML = Object.entries(ROLES).map(([key, r]) => {
+    const count = accounts.filter(a => a.role === key).length;
+    return `<tr>
+      <td><code>${key}</code></td>
+      <td><strong>${r.name}</strong></td>
+      <td style="color:#666;">${r.desc}</td>
+      <td>${count} 人</td>
+      <td>${r.perms.map(p => `<span class="tag tag-info" style="margin:2px;">${p}</span>`).join('')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ===== 登录日志 =====
+function renderLogs() {
+  const keyword = document.getElementById('logSearch').value.toLowerCase();
+  const statusFilter = document.getElementById('logStatusFilter').value;
+  let logs = getLogs();
+  if (keyword) logs = logs.filter(l => l.username.toLowerCase().includes(keyword));
+  if (statusFilter === 'success') logs = logs.filter(l => l.success);
+  if (statusFilter === 'failed') logs = logs.filter(l => !l.success);
+
+  const tbody = document.getElementById('logsBody');
+  if (logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:30px;">暂无日志记录</td></tr>';
+    return;
+  }
+  tbody.innerHTML = logs.map(l => `<tr>
+    <td>${l.username}</td><td>${l.realname}</td><td>${l.time}</td><td>${l.ip}</td><td>${l.device}</td>
+    <td>${l.success ? '<span class="tag tag-success">成功</span>' : '<span class="tag tag-danger">失败</span>'}</td>
+    <td style="color:#999;">${l.remark || '-'}</td>
+  </tr>`).join('');
+}
+
+function clearLogs() {
+  showConfirm('确定清空所有登录日志吗？此操作不可恢复。', () => {
+    saveLogs([]);
+    renderLogs();
+    showToast('日志已清空', 'success');
+  });
+}
+
+// ===== 确认弹窗 =====
+let confirmCallback = null;
+function showConfirm(message, callback) {
+  document.getElementById('confirmMessage').textContent = message;
+  confirmCallback = callback;
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm() {
+  document.getElementById('confirmModal').classList.remove('show');
+  confirmCallback = null;
+}
+document.getElementById('confirmBtn').addEventListener('click', () => {
+  if (confirmCallback) confirmCallback();
+  closeConfirm();
+});
+
+// ===== Toast =====
+let toastTimer = null;
+function showToast(message, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = 'toast show ' + (type || '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = 'toast'; }, 2500);
+}
+
+// ===== 时间显示 =====
+function updateTime() {
+  document.getElementById('currentTime').textContent = formatDateTime(new Date());
+}
+
+// ===== 回车登录 =====
+document.getElementById('loginPassword').addEventListener('keypress', e => {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('loginUsername').addEventListener('keypress', e => {
+  if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+
+// ===== 初始化 =====
+initDefaultAccounts();
+const remembered = localStorage.getItem('gls_remember_user');
+if (remembered) document.getElementById('loginUsername').value = remembered;
+
+const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+if (session) {
+  const accounts = getAccounts();
+  const valid = accounts.find(a => a.id === session.id && a.status === 'active');
+  if (valid) {
+    enterAdmin();
+  } else {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+updateTime();
+setInterval(updateTime, 1000);
+</script>
+</body>
+</html>
