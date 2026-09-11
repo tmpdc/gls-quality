@@ -497,13 +497,26 @@ function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       appData = JSON.parse(saved);
+      // 数据迁移：确保所有模块都存在（旧数据可能缺少新模块）
+      const defaultData = getDefaultData();
+      let needSave = false;
+      MODULES.forEach(m => {
+        if (!appData[m.id] || !Array.isArray(appData[m.id])) {
+          appData[m.id] = defaultData[m.id] || [];
+          needSave = true;
+        }
+      });
+      if (needSave) saveData();
     } else {
       appData = getDefaultData();
       saveData();
     }
   } catch (e) {
+    console.error('加载数据失败，使用默认数据:', e);
     appData = getDefaultData();
   }
+  // 确保 appData 不是 null
+  if (!appData) appData = getDefaultData();
 }
 
 function saveData() {
@@ -652,10 +665,13 @@ function toggleSidebar() {
 
 // ==================== 首页 ====================
 function renderHome() {
+  if (!appData) appData = getDefaultData();
+  
   // 统计
   let total = 0, pending = 0, urgent = 0, done = 0;
   MODULES.forEach(m => {
-    appData[m.id].forEach(item => {
+    const items = appData[m.id] || [];
+    items.forEach(item => {
       total++;
       if (item.status === 'pending') pending++;
       if (item.status === 'urgent') urgent++;
@@ -680,7 +696,8 @@ function renderHome() {
   // 最近更新（按创建时间倒序取前5条）
   let allItems = [];
   MODULES.forEach(m => {
-    appData[m.id].forEach(item => {
+    const items = appData[m.id] || [];
+    items.forEach(item => {
       allItems.push({ ...item, moduleId: m.id, moduleName: m.name, moduleIcon: m.icon });
     });
   });
