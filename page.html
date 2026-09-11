@@ -172,6 +172,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(45,122,79,0.4); z-index: 90; transition: transform 0.2s; }
 .fab:active { transform: scale(0.9); }
 </style>
+<script src="system_docs.js"></script>
 </head>
 <body>
 
@@ -428,26 +429,15 @@ function getDefaultData() {
         operation: '1.成立PFMEA小组（生产、品质、工程、设备）\n2.确定分析过程和工序范围\n3.列出每道工序的功能要求\n4.分析每个功能的失效模式\n5.评估失效影响和严重度\n6.分析失效原因（人、机、料、法、环）\n7.评估现行控制和探测度\n8.计算RPN，确定优先改进项\n9.制定控制措施，更新控制计划\n10.定期评审，制程变更后更新PFMEA' },
     ],
     documents: [
-      { id: genId(), name: '质量手册', description: '质量管理体系纲领性文件，第一级文件', status: 'done',
-        template: '质量手册\n目录：\n1.发布令\n2.管理者代表任命书\n3.范围和应用\n4.引用标准\n5.术语和定义\n6.质量管理体系\n7.管理职责\n8.资源管理\n9.产品实现\n10.测量分析和改进\n11.附录（程序文件清单、组织架构图）',
-        knowledge: '质量手册是质量管理体系第一级文件，阐明质量方针、目标和体系范围\n依据ISO9001:2015标准编制，每年管理评审后更新\n质量方针：以客户为中心，持续改进，追求卓越品质',
-        logic: '质量手册是体系文件的顶层，统领程序文件、作业指导书、记录表单，确保体系一致性',
-        operation: '1.确定质量方针和目标\n2.明确体系范围和删减说明\n3.描述组织架构和职责权限\n4.描述过程方法和相互作用\n5.引用程序文件\n6.管理者代表审核\n7.总经理批准发布\n8.每年管理评审后更新' },
-      { id: genId(), name: '不合格品控制程序 P-016', description: '第二级程序文件，不合格品控制', status: 'done',
-        template: '不合格品控制程序\n1.目的\n2.范围\n3.职责\n4.定义\n5.作业内容\n  5.1不合格品识别\n  5.2不合格品标识\n  5.3不合格品隔离\n  5.4不合格品评审(MRB)\n  5.5不合格品处理\n    -返工\n    -返修\n    -特采\n    -降级\n    -报废\n  5.6重新检验\n  5.7记录与追溯\n6.相关文件\n7.记录表单',
-        knowledge: '依据ISO9001:2015第8.7条款不合格输出的控制\n不合格品处理方式：返工、返修、特采、降级使用、报废\n特采/报废需总经理批准，返工/返修需重新检验',
-        logic: '不合格品控制确保不合格品得到识别、标识、隔离、评审、处理，防止非预期使用或交付',
-        operation: '1.检验员发现不合格品立即标识\n2.将不合格品移至不合格品区隔离\n3.填写不合格品报告\n4.品质部组织MRB评审\n5.确定处理方式（返工/返修/特采/降级/报废）\n6.特采/报废报总经理批准\n7.责任部门执行处理\n8.返工/返修后重新检验\n9.记录处理全过程，纳入数据分析' },
-      { id: genId(), name: '纠正与预防措施控制程序 P-013', description: 'CAPA程序，持续改进', status: 'done',
-        template: '纠正与预防措施控制程序\n1.目的\n2.范围\n3.职责\n4.定义\n  -纠正\n  -纠正措施\n  -预防措施\n5.作业内容\n  5.1不合格识别\n  5.2原因分析(5Why/鱼骨图)\n  5.3纠正措施制定\n  5.4预防措施制定\n  5.5措施实施\n  5.6效果验证\n  5.7标准化\n  5.8记录与跟踪\n6.相关文件\n7.记录表单',
-        knowledge: '依据ISO9001:2015第10.2条款不合格和纠正措施\n纠正措施时限：责任部门2-3个工作日回复，品质部跟踪验证\n常用工具：5Why、鱼骨图、PDCA、8D',
-        logic: 'CAPA通过消除不合格原因，防止不合格发生或再发，实现持续改进',
-        operation: '1.识别不合格（内审、客诉、检验异常、数据分析）\n2.发出纠正措施要求单\n3.责任部门分析原因（5Why/鱼骨图）\n4.制定纠正措施和预防措施\n5.2-3个工作日内回复措施计划\n6.责任部门实施措施\n7.品质部跟踪验证效果\n8.措施有效则标准化（更新文件）\n9.措施无效则重新分析，直到有效\n10.关闭纠正措施单，纳入管理评审' },
-      { id: genId(), name: '生产过程控制程序 P-007', description: '生产过程质量控制程序', status: 'doing',
-        template: '生产过程控制程序\n1.目的\n2.范围\n3.职责\n4.作业内容\n  4.1生产计划\n  4.2物料准备\n  4.3首件检验\n  4.4SOP作业\n  4.5IPQC巡检\n  4.6SPC监控\n  4.7设备管理\n  4.8工装模具管理\n  4.9不合格品处理\n  4.10产品标识与追溯\n  4.11成品入库\n5.相关文件\n6.记录表单',
-        knowledge: '依据ISO9001:2015第8.5条款生产和服务提供\n关键工序必须编制作业指导书，操作人员经培训合格上岗\n特殊工序（焊接、注塑）必须确认过程能力，参数监控记录',
-        logic: '生产过程控制确保生产在受控条件下进行，产品质量稳定，符合要求',
-        operation: '1.生产部按计划排产\n2.物料领用核对（型号、批次、数量）\n3.开机首件检验（IPQC+生产主管双签）\n4.操作人员按SOP作业\n5.IPQC每2小时巡检关键工序\n6.SPC监控关键参数（Cpk≥1.33）\n7.设备日常点检和定期保养\n8.工装模具定期维护和寿命管理\n9.不合格品标识隔离，按程序处理\n10.产品标识清晰，可追溯批次\n11.成品经FQC检验合格后入库' },
+      { id: genId(), name: '管理手册', description: 'GLS管理体系手册，依据ISO9001+ISO14001+ISO45001编制', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-001文件控制程序', description: '体系文件编码、发放、回收、销毁管理', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-004采购控制程序', description: '供应商开发、评估、选择、绩效考核', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-007生产过程控制程序', description: '首件检验、IPQC巡检、SPC监控、设备管理', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-011监视与测量控制程序', description: 'IQC/IPQC/FQC/OQC全流程检验及测量系统管理', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-013纠正与预防措施控制程序', description: 'CAPA程序，5Why分析，8D报告，持续改进', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-016不合格品控制程序', description: 'MRB评审，返工/返修/特采/报废处理', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-020设计开发控制程序', description: '新产品研发全流程，EB/MB/PP试产，DFMEA', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
+      { id: genId(), name: 'P-035仓储控制程序', description: '物料收发、先进先出、盘点、呆滞料处理', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
     ],
   };
 }
@@ -694,6 +684,57 @@ function renderDetail() {
     <span class="meta-tag">${status.name}</span>
     <span class="meta-tag">${formatDate(item.createdAt)}</span>
   `;
+  
+  // 体系文件模块：显示完整文件内容
+  if (currentModule.id === 'documents' && typeof SYSTEM_DOCS !== 'undefined') {
+    const docKey = item.name;
+    const doc = SYSTEM_DOCS[docKey];
+    if (doc) {
+      let html = `
+        <div class="detail-section">
+          <div class="section-head">
+            <span class="icon">📄</span>
+            <span class="name">文件信息</span>
+          </div>
+          <div class="section-content">
+文件编号：${doc.code || '未编号'}
+版    本：${doc.version || 'A0'}
+文件名称：${doc.title || item.name}
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="section-head">
+            <span class="icon">📖</span>
+            <span class="name">文件全文</span>
+          </div>
+          <div class="section-content">${doc.content || '暂无内容'}</div>
+        </div>
+      `;
+      // 如果用户自己添加了模板/知识点等内容，也显示
+      const extraSections = [
+        { icon: '📋', name: '补充模板', key: 'template' },
+        { icon: '📚', name: '补充知识点', key: 'knowledge' },
+        { icon: '🧠', name: '补充底层逻辑', key: 'logic' },
+        { icon: '🛠', name: '补充落地操作', key: 'operation' },
+      ];
+      extraSections.forEach(s => {
+        const content = item[s.key] || '';
+        if (content) {
+          html += `
+            <div class="detail-section">
+              <div class="section-head">
+                <span class="icon">${s.icon}</span>
+                <span class="name">${s.name}</span>
+              </div>
+              <div class="section-content">${content}</div>
+            </div>
+          `;
+        }
+      });
+      document.getElementById('detailSections').innerHTML = html;
+      return;
+    }
+  }
   
   const sections = [
     { icon: '📋', name: '模板', key: 'template' },
