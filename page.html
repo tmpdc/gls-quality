@@ -173,6 +173,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .fab:active { transform: scale(0.9); }
 </style>
 <script src="system_docs.js"></script>
+<script src="knowledge_base.js"></script>
 </head>
 <body>
 
@@ -291,6 +292,8 @@ const MODULES = [
   { id: 'abnormal', name: '异常处理', icon: '⚠️', color: 'red', desc: '异常报告、原因分析、纠正措施' },
   { id: 'risk', name: '风险预警', icon: '🔔', color: 'orange', desc: '质量风险识别、评估、预防' },
   { id: 'documents', name: '体系文件', icon: '📁', color: 'green', desc: '质量手册、程序文件、作业指导书' },
+  { id: 'knowledge', name: '知识查询', icon: '📚', color: 'teal', desc: '质量管理860个知识点完整查询' },
+  { id: 'training', name: '培训管理', icon: '🎓', color: 'indigo', desc: '培训计划、培训记录、培训资料' },
 ];
 
 // 状态定义
@@ -439,6 +442,24 @@ function getDefaultData() {
       { id: genId(), name: 'P-020设计开发控制程序', description: '新产品研发全流程，EB/MB/PP试产，DFMEA', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
       { id: genId(), name: 'P-035仓储控制程序', description: '物料收发、先进先出、盘点、呆滞料处理', status: 'done', template: '', knowledge: '', logic: '', operation: '' },
     ],
+    knowledge: [],
+    training: [
+      { id: genId(), name: '2026年度质量培训计划', description: '全年质量培训计划，含月度安排', status: 'doing',
+        template: '2026年度质量培训计划\n\n月份 | 培训主题 | 培训对象 | 课时 | 讲师\n1月 | 质量管理体系基础 | 全员 | 4h | 质量经理\n2月 | QC七大手法 | 检验员/IPQC | 8h | 质量工程师\n3月 | GB/T2828.1抽样检验 | IQC/FQC | 4h | 质量工程师\n4月 | 不合格品控制程序 | 生产/品质 | 2h | 质量经理\n5月 | SPC统计过程控制 | 工艺/品质 | 8h | 外部讲师\n6月 | FMEA失效模式分析 | 研发/工艺/品质 | 8h | 外部讲师\n7月 | 五大工具(APQP/PPAP) | 研发/品质 | 8h | 外部讲师\n8月 | MSA测量系统分析 | 品质/计量 | 4h | 质量工程师\n9月 | 内审员培训 | 各部门代表 | 16h | 外部讲师\n10月 | 客户投诉处理与8D | 品质/业务 | 4h | 质量经理\n11月 | 质量成本管理 | 管理层/财务 | 4h | 质量经理\n12月 | 年度质量总结与改进 | 全员 | 2h | 质量经理',
+        knowledge: '培训计划制定原则：\n1. 与公司质量目标和战略对齐\n2. 覆盖各层级人员（管理层、工程师、操作员）\n3. 理论与实操结合，注重落地\n4. 内训与外训结合，关键课程外训\n5. 培训效果评估（考试、实操、行为改变）',
+        logic: '培训是质量管理体系的重要支撑，通过系统培训提升人员能力，确保体系有效运行。培训计划应基于培训需求调查，结合岗位能力要求和体系运行痛点制定。',
+        operation: '1. 每年12月进行下年度培训需求调查\n2. 各部门提交培训需求\n3. 品质部汇总制定年度培训计划\n4. 管理者代表审核，总经理批准\n5. 每月按计划执行培训\n6. 培训后进行效果评估\n7. 培训记录归档保存\n8. 年底总结培训完成情况和效果' },
+      { id: genId(), name: 'QC七大手法培训记录', description: '2026年2月QC七大手法培训', status: 'done',
+        template: '培训记录表\n培训主题：QC七大手法\n培训时间：2026年2月15日 9:00-17:00\n培训地点：会议室A\n培训讲师：张工（质量工程师）\n培训对象：IQC/IPQC/FQC检验员\n应到人数：15人\n实到人数：14人\n培训内容：\n1. 检查表——数据收集的起点\n2. 分层法——剥开数据表象\n3. 柏拉图——80/20法则可视化\n4. 因果图（鱼骨图）——系统梳理原因\n5. 散布图——量化变量关系\n6. 直方图——看清数据分布\n7. 控制图——区分正常与异常波动\n培训考核：笔试（平均分85分）+ 实操（柏拉图绘制）\n培训效果：良好，学员掌握基本应用\n签到表：附后\n讲师签字：\n记录人：',
+        knowledge: 'QC七大手法是质量改进的基础工具，适用于现场质量问题分析和解决。培训后应要求学员在实际工作中应用，并用案例分享巩固学习效果。',
+        logic: '培训记录是培训有效性的证据，也是体系审核的必查项。完整的培训记录应包括：培训计划、签到表、培训教材、考核记录、效果评估。',
+        operation: '1. 培训前准备教材和场地\n2. 学员签到，记录出勤\n3. 按计划进行培训\n4. 培训后进行考核（笔试/实操）\n5. 收集学员反馈\n6. 评估培训效果\n7. 整理培训记录归档\n8. 跟踪学员实际应用情况' },
+      { id: genId(), name: '培训资料库', description: '质量管理培训资料汇总', status: 'done',
+        template: '培训资料清单\n\n一、质量管理基础\n1. 质量管理体系基础培训.pptx\n2. ISO9001:2015标准解读.pdf\n3. 质量意识培训.pptx\n\n二、质量检验\n1. GB/T2828.1抽样检验标准.pdf\n2. 四大检验环节实操指南.docx\n3. 首件检验作业指导书.docx\n4. 不合格品控制程序培训.pptx\n\n三、质量工具\n1. QC七大手法培训教材.pptx\n2. 新QC七大手法.pdf\n3. 柏拉图绘制模板.xlsx\n4. 鱼骨图模板.pptx\n5. 控制图模板.xlsx\n\n四、五大工具\n1. APQP产品质量先期策划.pptx\n2. PPAP生产件批准程序.pdf\n3. FMEA失效模式分析.pptx\n4. SPC统计过程控制.pdf\n5. MSA测量系统分析.pptx\n\n五、质量改进\n1. 8D问题解决法培训.pptx\n2. 5Why分析法.docx\n3. PDCA循环培训.pptx\n4. 质量成本管理.pdf\n\n六、体系审核\n1. 内审员培训教材.pptx\n2. 内审检查表模板.xlsx\n3. 管理评审培训.pdf',
+        knowledge: '培训资料应分类管理，便于查找和使用。资料形式包括PPT、PDF、Word、Excel模板等。重要培训资料应受控管理，确保使用最新版本。',
+        logic: '培训资料库是知识管理的重要组成部分，通过沉淀和共享培训资料，降低培训成本，提升培训效率，确保知识传承。',
+        operation: '1. 收集各部门培训资料\n2. 分类整理（基础/检验/工具/五大工具/改进/审核）\n3. 统一命名规范\n4. 存储在共享服务器，设置访问权限\n5. 重要资料受控管理，版本更新及时通知\n6. 定期更新资料库，补充新资料\n7. 建立资料索引，便于检索\n8. 培训后及时将教材归档' },
+    ],
   };
 }
 
@@ -512,7 +533,30 @@ function navigateTo(page, moduleId = null, itemId = null) {
     renderModuleList();
   } else if (page === 'detail') {
     currentModule = MODULES.find(m => m.id === moduleId);
-    currentItem = appData[moduleId].find(item => item.id === itemId);
+    if (moduleId === 'knowledge' && typeof KNOWLEDGE_BASE !== 'undefined') {
+      // 从KNOWLEDGE_BASE查找知识点
+      let foundItem = null;
+      for (const group in KNOWLEDGE_BASE.groups) {
+        const found = KNOWLEDGE_BASE.groups[group].find(item => 
+          'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20) === itemId
+        );
+        if (found) {
+          foundItem = {
+            id: itemId,
+            name: found.title,
+            description: group + ' | ' + found.len + '字',
+            status: 'done',
+            group: group,
+            isKnowledge: true,
+            content: KNOWLEDGE_BASE.contents[group][found.title]
+          };
+          break;
+        }
+      }
+      currentItem = foundItem || { name: '未找到', description: '', content: '' };
+    } else {
+      currentItem = appData[moduleId].find(item => item.id === itemId);
+    }
     document.getElementById('pageTitle').textContent = '详情';
     document.getElementById('fabAdd').style.display = 'none';
     document.getElementById('searchBtn').style.display = 'none';
@@ -616,6 +660,62 @@ function filterByStatus(status) {
 function renderModuleList() {
   const container = document.getElementById('moduleListContainer');
   const searchText = document.getElementById('moduleSearchInput').value.toLowerCase();
+  
+  // 知识查询模块：从KNOWLEDGE_BASE读取
+  if (currentModule.id === 'knowledge' && typeof KNOWLEDGE_BASE !== 'undefined') {
+    // 筛选标签（知识查询不显示状态筛选）
+    document.getElementById('moduleFilters').innerHTML = '<div class="filter-tab active">共' + KNOWLEDGE_BASE.total + '个知识点</div>';
+    
+    // 收集所有知识点
+    let allItems = [];
+    for (const group in KNOWLEDGE_BASE.groups) {
+      KNOWLEDGE_BASE.groups[group].forEach(item => {
+        allItems.push({
+          id: 'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20),
+          name: item.title,
+          description: group + ' | ' + item.len + '字',
+          status: 'done',
+          group: group,
+          isKnowledge: true
+        });
+      });
+    }
+    
+    // 搜索筛选
+    if (searchText) {
+      allItems = allItems.filter(item => 
+        item.name.toLowerCase().includes(searchText) || 
+        item.group.toLowerCase().includes(searchText)
+      );
+    }
+    
+    if (allItems.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <div class="empty-text">没有找到匹配的知识点</div>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '<div class="list-card">';
+    allItems.forEach(item => {
+      html += `
+        <div class="list-item" onclick="navigateTo('detail', 'knowledge', '${item.id}')">
+          <div class="item-icon teal">📚</div>
+          <div class="item-content">
+            <div class="item-title">${item.name}</div>
+            <div class="item-desc">${item.description}</div>
+          </div>
+          <span class="item-arrow">›</span>
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    return;
+  }
   
   // 筛选标签
   let filterHtml = '<div class="filter-tab ' + (currentFilter === 'all' ? 'active' : '') + '" onclick="setFilter(\'all\')">全部</div>';
@@ -734,6 +834,29 @@ function renderDetail() {
       document.getElementById('detailSections').innerHTML = html;
       return;
     }
+  }
+  
+  // 知识查询模块：显示完整知识点内容
+  if (currentModule.id === 'knowledge' && item.isKnowledge) {
+    const content = item.content || '内容加载中...';
+    const html = `
+      <div class="detail-section">
+        <div class="section-head">
+          <span class="icon">📖</span>
+          <span class="name">知识点全文（${content.length}字）</span>
+        </div>
+        <div class="section-content">${content}</div>
+      </div>
+    `;
+    document.getElementById('detailSections').innerHTML = html;
+    // 隐藏编辑/删除按钮
+    const actions = document.querySelector('.detail-actions');
+    if (actions) actions.style.display = 'none';
+    return;
+  } else {
+    // 显示编辑/删除按钮
+    const actions = document.querySelector('.detail-actions');
+    if (actions) actions.style.display = 'flex';
   }
   
   const sections = [
