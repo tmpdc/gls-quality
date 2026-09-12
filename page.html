@@ -556,17 +556,34 @@ function navigateTo(page, moduleId = null, itemId = null) {
   } else if (page === 'detail') {
     currentModule = MODULES.find(m => m.id === moduleId);
     if (moduleId === 'knowledge') {
-      // 从KNOWLEDGE_INDEX查找知识点标题
+      // 用索引方式查找知识点（ID格式: kb_{groupIdx}_{itemIdx}）
       let foundTitle = null;
       let foundGroup = null;
-      for (const group in KNOWLEDGE_INDEX.groups) {
-        const found = KNOWLEDGE_INDEX.groups[group].find(item => 
-          'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20) === itemId
-        );
-        if (found) {
-          foundTitle = found.title;
-          foundGroup = group;
-          break;
+      const idParts = itemId.split('_');
+      if (idParts.length === 3) {
+        const groupIdx = parseInt(idParts[1]);
+        const itemIdx = parseInt(idParts[2]);
+        const groupNames = Object.keys(KNOWLEDGE_INDEX.groups);
+        if (groupIdx >= 0 && groupIdx < groupNames.length) {
+          foundGroup = groupNames[groupIdx];
+          const items = KNOWLEDGE_INDEX.groups[foundGroup];
+          if (itemIdx >= 0 && itemIdx < items.length) {
+            foundTitle = items[itemIdx].title;
+          }
+        }
+      }
+      
+      // 兼容旧ID格式（btoa编码）
+      if (!foundTitle) {
+        for (const group in KNOWLEDGE_INDEX.groups) {
+          const found = KNOWLEDGE_INDEX.groups[group].find(item => 
+            'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20) === itemId
+          );
+          if (found) {
+            foundTitle = found.title;
+            foundGroup = group;
+            break;
+          }
         }
       }
       
@@ -712,19 +729,23 @@ function renderModuleList() {
     // 筛选标签
     document.getElementById('moduleFilters').innerHTML = '<div class="filter-tab active">质量管理知识库（共' + KNOWLEDGE_INDEX.total + '个知识点）</div>';
     
-    // 收集所有知识点
+    // 收集所有知识点（用分组索引+知识点索引作为唯一ID）
     let allItems = [];
+    let groupIdx = 0;
     for (const group in KNOWLEDGE_INDEX.groups) {
-      KNOWLEDGE_INDEX.groups[group].forEach(item => {
+      KNOWLEDGE_INDEX.groups[group].forEach((item, itemIdx) => {
         allItems.push({
-          id: 'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20),
+          id: 'kb_' + groupIdx + '_' + itemIdx,
           name: item.title,
           description: group + ' | ' + item.len + '字',
           status: 'done',
           group: group,
+          groupIdx: groupIdx,
+          itemIdx: itemIdx,
           isKnowledge: true
         });
       });
+      groupIdx++;
     }
     
     // 搜索筛选
