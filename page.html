@@ -173,6 +173,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .fab:active { transform: scale(0.9); }
 </style>
 <script src="system_docs.js"></script>
+<script src="knowledge_index.js"></script>
+<script src="knowledge_loader.js"></script>
 </head>
 <body>
 
@@ -281,32 +283,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 const STORAGE_KEY = 'gls_quality_data_v2';
 const SESSION_KEY = 'gls_current_user';
 
-// 知识库（异步加载，12MB，点击知识查询模块时才加载）
-let KNOWLEDGE_BASE = null;
-let knowledgeLoading = false;
+// 知识库（使用索引+分片加载，索引仅87KB秒开，点击知识点再加载对应分片）
+let KNOWLEDGE_BASE = null; // 兼容旧代码，实际使用KNOWLEDGE_INDEX
 
-function loadKnowledgeBase(callback) {
-  if (KNOWLEDGE_BASE) {
-    if (callback) callback();
-    return;
-  }
-  if (knowledgeLoading) {
-    // 正在加载，等待后重试
-    setTimeout(() => loadKnowledgeBase(callback), 500);
-    return;
-  }
-  knowledgeLoading = true;
-  const script = document.createElement('script');
-  script.src = 'knowledge_base.js';
-  script.onload = function() {
-    knowledgeLoading = false;
-    if (callback) callback();
-  };
-  script.onerror = function() {
-    knowledgeLoading = false;
-    alert('知识库加载失败，请刷新页面重试');
-  };
-  document.head.appendChild(script);
+// 检查知识库索引是否已加载
+function isKnowledgeReady() {
+  return typeof KNOWLEDGE_INDEX !== 'undefined' && KNOWLEDGE_INDEX.groups;
 }
 
 // 模块定义
@@ -574,66 +556,53 @@ function navigateTo(page, moduleId = null, itemId = null) {
   } else if (page === 'detail') {
     currentModule = MODULES.find(m => m.id === moduleId);
     if (moduleId === 'knowledge') {
-      // 如果知识库未加载，先加载
-      if (!KNOWLEDGE_BASE) {
-        currentItem = { name: '加载中...', description: '正在加载知识库...', isKnowledge: true, content: '请稍候，知识库加载完成后自动显示内容...' };
+      // 从KNOWLEDGE_INDEX查找知识点标题
+      let foundTitle = null;
+      let foundGroup = null;
+      for (const group in KNOWLEDGE_INDEX.groups) {
+        const found = KNOWLEDGE_INDEX.groups[group].find(item => 
+          'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20) === itemId
+        );
+        if (found) {
+          foundTitle = found.title;
+          foundGroup = group;
+          break;
+        }
+      }
+      
+      if (!foundTitle) {
+        currentItem = { name: '未找到', description: '', isKnowledge: true, content: '未找到该知识点' };
         document.getElementById('pageTitle').textContent = '详情';
         document.getElementById('fabAdd').style.display = 'none';
         document.getElementById('searchBtn').style.display = 'none';
         renderDetail();
-        loadKnowledgeBase(function() {
-          // 加载完成后重新查找
-          let foundItem = null;
-          for (const group in KNOWLEDGE_BASE.groups) {
-            const found = KNOWLEDGE_BASE.groups[group].find(item => 
-              'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20) === itemId
-            );
-            if (found) {
-              foundItem = {
-                id: itemId,
-                name: found.title,
-                description: group + ' | ' + found.len + '字',
-                status: 'done',
-                group: group,
-                isKnowledge: true,
-                content: KNOWLEDGE_BASE.contents[group][found.title]
-              };
-              break;
-            }
-          }
-          currentItem = foundItem || { name: '未找到', description: '', content: '' };
+      } else {
+        // 先显示加载中，然后异步加载内容
+        currentItem = { 
+          id: itemId, 
+          name: foundTitle, 
+          description: foundGroup, 
+          isKnowledge: true, 
+          content: '正在加载内容...' 
+        };
+        document.getElementById('pageTitle').textContent = '详情';
+        document.getElementById('fabAdd').style.display = 'none';
+        document.getElementById('searchBtn').style.display = 'none';
+        renderDetail();
+        
+        // 异步加载对应分组的内容
+        getKnowledgeContent(foundTitle, function(content) {
+          currentItem.content = content;
           renderDetail();
         });
-        window.scrollTo(0, 0);
-        return;
       }
-      // 从KNOWLEDGE_BASE查找知识点
-      let foundItem = null;
-      for (const group in KNOWLEDGE_BASE.groups) {
-        const found = KNOWLEDGE_BASE.groups[group].find(item => 
-          'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20) === itemId
-        );
-        if (found) {
-          foundItem = {
-            id: itemId,
-            name: found.title,
-            description: group + ' | ' + found.len + '字',
-            status: 'done',
-            group: group,
-            isKnowledge: true,
-            content: KNOWLEDGE_BASE.contents[group][found.title]
-          };
-          break;
-        }
-      }
-      currentItem = foundItem || { name: '未找到', description: '', content: '' };
     } else {
       currentItem = appData[moduleId].find(item => item.id === itemId);
     }
     document.getElementById('pageTitle').textContent = '详情';
     document.getElementById('fabAdd').style.display = 'none';
     document.getElementById('searchBtn').style.display = 'none';
-    renderDetail();
+    if (moduleId !== 'knowledge') renderDetail();
   } else if (page === 'dashboard') {
     document.getElementById('pageTitle').textContent = '数据看板';
     document.getElementById('fabAdd').style.display = 'none';
@@ -738,30 +707,15 @@ function renderModuleList() {
   const container = document.getElementById('moduleListContainer');
   const searchText = document.getElementById('moduleSearchInput').value.toLowerCase();
   
-  // 知识查询模块：从KNOWLEDGE_BASE读取
+  // 知识查询模块：从KNOWLEDGE_INDEX读取（索引仅87KB，秒开）
   if (currentModule.id === 'knowledge') {
     // 筛选标签
-    document.getElementById('moduleFilters').innerHTML = '<div class="filter-tab active">质量管理知识库</div>';
-    
-    // 如果知识库未加载，显示加载中
-    if (!KNOWLEDGE_BASE) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">⏳</div>
-          <div class="empty-text">正在加载知识库（860个知识点，约12MB）...</div>
-          <div class="empty-text" style="font-size:12px;color:#999;margin-top:8px;">首次加载需要10-30秒，请耐心等待</div>
-        </div>
-      `;
-      loadKnowledgeBase(function() {
-        renderModuleList();
-      });
-      return;
-    }
+    document.getElementById('moduleFilters').innerHTML = '<div class="filter-tab active">质量管理知识库（共' + KNOWLEDGE_INDEX.total + '个知识点）</div>';
     
     // 收集所有知识点
     let allItems = [];
-    for (const group in KNOWLEDGE_BASE.groups) {
-      KNOWLEDGE_BASE.groups[group].forEach(item => {
+    for (const group in KNOWLEDGE_INDEX.groups) {
+      KNOWLEDGE_INDEX.groups[group].forEach(item => {
         allItems.push({
           id: 'kb_' + btoa(unescape(encodeURIComponent(item.title))).substring(0, 20),
           name: item.title,
