@@ -295,6 +295,7 @@ function isKnowledgeReady() {
 const MODULES = [
   { id: 'suppliers', name: '供应商管理', icon: '🏭', color: 'blue', desc: '供应商资质、评估、绩效管理' },
   { id: 'incoming', name: '到货检验', icon: '📦', color: 'orange', desc: '来料检验、抽样、判定' },
+  { id: 'rd', name: '研发管理', icon: '🔬', color: 'cyan', desc: '新品立项、设计开发、验证确认、工程变更' },
   { id: 'production', name: '生产过程', icon: '⚙️', color: 'purple', desc: '首件、巡检、制程管控' },
   { id: 'inspection', name: '成品检验', icon: '✅', color: 'green', desc: '成品全检、抽检、入库' },
   { id: 'shipping', name: '出货管理', icon: '🚚', color: 'blue', desc: '出货检验、包装、交付' },
@@ -360,6 +361,519 @@ function getDefaultData() {
         logic: '电路板质量管控预防为主，检测为辅，提升供应商制程能力(Cpk≥1.33)是降低成本根本',
         operation: '1.核对防静电包装完好\n2.外观AQL1.0检查\n3.尺寸AQL2.5抽检\n4.ICT通断测试AQL0.65\n5.FCT功能测试\n6.每批抽3PCS冷热冲击\n7.合格防静电存放，不合格隔离' },
     ],
+﻿    rd: [
+      { id: genId(), name: '新品立项', description: '新产品开发立项申请、评估、审批流程', status: 'done',
+        process: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">新品立项流程（6步）</h4>
+<ol style="line-height:2;padding-left:20px;">
+<li><b>需求提出</b>：业务部根据市场需求/客户来图来样，填写《新品开发立项输入表》</li>
+<li><b>可行性评估</b>：研发部对产品设计及生产可行性进行评估，记录在《新产品开发评估说明》</li>
+<li><b>成本核算</b>：研发部编制《产品开发阶段核价参考表》，财务部审核</li>
+<li><b>售价确定</b>：总经理结合立项输入表和核价表确定售价</li>
+<li><b>立项批准</b>：总经理批准立项，正式启动开发项目</li>
+<li><b>计划编制</b>：研发部编制《设计开发计划任务书》，发至相关部门</li>
+</ol>
+<div style="margin-top:15px;padding:10px;background:#f0f9ff;border-radius:6px;">
+<b>关键节点：</b>立项批准前不得投入开发资源；计划任务书需明确各阶段责任人及进度
+</div>
+</div>`,
+        recordTemplate: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">新品开发立项输入表</h4>
+<table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;"><td width="20%"><b>项目名称</b></td><td width="30%"></td><td width="20%"><b>项目编号</b></td><td width="30%"></td></tr>
+<tr><td><b>产品类型</b></td><td>□OEM □ODM □改型</td><td><b>提出日期</b></td><td></td></tr>
+<tr><td><b>客户/市场</b></td><td></td><td><b>预计销量</b></td><td>PCS/年</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>一、功能要求</b></td></tr>
+<tr><td colspan="4">1. 主要功能：<br>2. 性能参数：<br>3. 外观要求：<br>4. 尺寸要求：</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>二、成本与售价</b></td></tr>
+<tr><td><b>目标成本</b></td><td>元</td><td><b>目标售价</b></td><td>元</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>三、认证要求</b></td></tr>
+<tr><td colspan="4">□CCC □CE □UL □RoHS □FDA □其他：</td></tr>
+<tr><td><b>提出人</b></td><td></td><td><b>日期</b></td><td></td></tr>
+<tr><td><b>部门经理</b></td><td></td><td><b>日期</b></td><td></td></tr>
+<tr><td><b>总经理批准</b></td><td></td><td><b>日期</b></td><td></td></tr>
+</table>
+</div>`,
+        template: '',
+        knowledge: `新品立项是产品开发的起点，决定项目方向和资源投入。
+
+一、立项依据
+1. OEM产品：客户来函、来图、来样要求
+2. ODM产品：市场需求调研，业务部与研发部共同确定
+
+二、可行性评估维度
+1. 技术可行性：现有技术能力能否实现
+2. 生产可行性：现有设备/工艺能否量产
+3. 成本可行性：目标成本能否达成
+4. 法规可行性：能否通过相关认证
+
+三、关键输出文件
+- 《新品开发立项输入表》
+- 《新产品开发评估说明》
+- 《产品开发阶段核价参考表》
+- 《设计开发计划任务书》`,
+        logic: `立项质量决定项目成败。70%的项目失败源于立项阶段需求不清晰、评估不充分。
+
+一、因果链
+需求不清晰→设计反复→进度延误→成本超支→错过市场窗口
+
+二、分级管理逻辑
+- 全新产品（新技术/新结构）：严格立项评审，总经理批准
+- 改型产品（局部改动）：简化流程，部门经理批准
+-  minor变更（外观/包装）：无需立项，走工程变更流程
+
+三、风险控制逻辑
+- 技术风险：预研阶段验证关键技术
+- 市场风险：小批量试销验证市场接受度
+- 成本风险：目标成本倒推，设计阶段锁定成本`,
+        operation: `一、立项操作步骤
+1. 业务部收集市场/客户需求，填写《新品开发立项输入表》
+2. 研发部3个工作日内完成可行性评估，输出《新产品开发评估说明》
+3. 研发部5个工作日内完成成本核算，输出《产品开发阶段核价参考表》
+4. 财务部2个工作日内审核核价表
+5. 总经理审批，确定售价和立项
+6. 研发部3个工作日内编制《设计开发计划任务书》
+
+二、立项评审要点
+1. 需求是否明确、可量化
+2. 技术方案是否可行
+3. 目标成本是否合理
+4. 开发周期是否满足市场需求
+5. 资源配置是否到位
+
+三、立项后跟踪
+1. 每月召开项目例会，跟踪进度
+2. 关键节点进行阶段评审
+3. 重大变更需重新审批` },
+      { id: genId(), name: '设计开发流程（EB/MB/PP）', description: '工程试装→工艺试产→小批量试制三阶段开发流程', status: 'done',
+        process: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">设计开发三阶段流程</h4>
+<table border="1" cellspacing="0" cellpadding="8" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;">
+<th width="15%">阶段</th><th width="25%">目标</th><th width="30%">主要工作</th><th width="30%">输出/评审</th>
+</tr>
+<tr>
+<td><b>EB阶段</b><br>（工程试装）</td>
+<td>验证设计方案可行性</td>
+<td>1. 方案设计<br>2. 手板制作<br>3. 功能验证<br>4. DFMEA分析</td>
+<td>《设计评审报告》<br>《DFMEA》<br>《EB测试报告》</td>
+</tr>
+<tr style="background:#f9fafb;">
+<td><b>MB阶段</b><br>（工艺试产）</td>
+<td>验证生产工艺可行性</td>
+<td>1. 模具开发<br>2. 工艺文件编制<br>3. 检验规范编制<br>4. 小批量试装</td>
+<td>《工艺流程图》<br>《作业指导书》<br>《检验规范》<br>《MB试产报告》</td>
+</tr>
+<tr>
+<td><b>PP阶段</b><br>（小批量试制）</td>
+<td>验证量产稳定性</td>
+<td>1. 小批量生产（50-500PCS）<br>2. 全过程数据收集<br>3. 制程能力分析<br>4. 可靠性测试</td>
+<td>《PP试产报告》<br>《SPC分析报告》<br>《可靠性测试报告》<br>《量产确认单》</td>
+</tr>
+</table>
+<div style="margin-top:15px;padding:10px;background:#fef3c7;border-radius:6px;">
+<b>阶段准入条件：</b>上一阶段所有问题关闭，评审通过，方可进入下一阶段
+</div>
+</div>`,
+        recordTemplate: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">设计开发阶段评审报告</h4>
+<table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;"><td width="20%"><b>项目名称</b></td><td width="30%"></td><td width="20%"><b>阶段</b></td><td width="30%">□EB □MB □PP</td></tr>
+<tr><td><b>评审日期</b></td><td></td><td><b>评审地点</b></td><td></td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>参会人员</b></td></tr>
+<tr><td colspan="4">研发： 品质： 生产： 采购： 业务：</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>一、阶段目标达成情况</b></td></tr>
+<tr><td><b>计划目标</b></td><td colspan="3"></td></tr>
+<tr><td><b>实际达成</b></td><td colspan="3"></td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>二、测试验证结果</b></td></tr>
+<tr><td><b>测试项目</b></td><td><b>标准要求</b></td><td><b>实测结果</b></td><td><b>判定</b></td></tr>
+<tr><td>功能测试</td><td></td><td></td><td>□合格 □不合格</td></tr>
+<tr><td>性能测试</td><td></td><td></td><td>□合格 □不合格</td></tr>
+<tr><td>安全测试</td><td></td><td></td><td>□合格 □不合格</td></tr>
+<tr><td>可靠性测试</td><td></td><td></td><td>□合格 □不合格</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>三、问题清单及整改</b></td></tr>
+<tr><td><b>序号</b></td><td><b>问题描述</b></td><td><b>责任人/完成日期</b></td><td><b>状态</b></td></tr>
+<tr><td>1</td><td></td><td></td><td>□开放 □关闭</td></tr>
+<tr><td>2</td><td></td><td></td><td>□开放 □关闭</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>四、评审结论</b></td></tr>
+<tr><td colspan="4">□ 通过，进入下一阶段　□ 有条件通过，问题关闭后进入　□ 不通过，重新整改</td></tr>
+<tr><td><b>研发负责人</b></td><td></td><td><b>品质负责人</b></td><td></td></tr>
+<tr><td><b>生产负责人</b></td><td></td><td><b>总经理</b></td><td></td></tr>
+</table>
+</div>`,
+        template: '',
+        knowledge: `EB/MB/PP是电子产品开发的标准三阶段模型。
+
+一、各阶段定义
+- EB（Engineering Build）：工程试装，验证设计方案
+- MB（Manufacture Build）：工艺试产，验证生产工艺
+- PP（Production Pilot）：小批量试制，验证量产稳定性
+
+二、阶段评审要点
+1. EB评审：设计方案是否满足需求，关键技术是否验证
+2. MB评审：工艺是否可行，检验规范是否完善
+3. PP评审：制程是否稳定，是否具备量产条件
+
+三、关键工具
+- DFMEA（设计失效模式分析）\- PFMEA（过程失效模式分析）
+- SPC（统计过程控制）
+- MSA（测量系统分析）`,
+        logic: `三阶段开发是风险递进控制的过程。
+
+一、风险递减逻辑
+EB阶段（高风险）→ MB阶段（中风险）→ PP阶段（低风险）→ 量产
+每阶段通过评审过滤风险，避免问题流入下一阶段
+
+二、成本递增逻辑
+越晚发现问题，修改成本越高：
+- EB阶段修改：仅改设计，成本低
+- MB阶段修改：改模具/工艺，成本中
+- PP阶段修改：改物料/已生产，成本高
+- 量产后修改：召回/返工，成本极高
+因此，问题必须在早期阶段发现和关闭
+
+三、数据驱动决策
+每个阶段必须用数据说话：测试数据、SPC数据、不良率数据，不能凭感觉评审`,
+        operation: `一、EB阶段操作
+1. 研发部完成方案设计，输出3D图纸和BOM
+2. 制作手板（3D打印/CNC），验证外观和结构
+3. 进行功能测试，验证核心功能
+4. 编制DFMEA，识别设计风险
+5. 召开EB评审，问题整改后进入MB
+
+二、MB阶段操作
+1. 开模（注塑模/五金模）
+2. 编制工艺流程图、作业指导书
+3. 品质部编制检验规范（IQC/IPQC/FQC）
+4. 试装5-20PCS，验证工艺可行性
+5. 召开MB评审，问题整改后进入PP
+
+三、PP阶段操作
+1. 小批量生产50-500PCS，模拟量产条件
+2. 全过程记录数据：参数、不良率、工时
+3. 进行SPC分析，关键工序Cpk≥1.33
+4. 进行可靠性测试：寿命、高低温、跌落等
+5. 召开PP评审，通过后签署《量产确认单》
+
+四、阶段评审纪律
+1. 问题未关闭不得进入下一阶段
+2. 评审必须有数据支撑
+3. 评审结论需书面记录，相关方签字确认` },
+      { id: genId(), name: '设计输入与输出', description: '设计输入要求识别、设计输出文件管理', status: 'done',
+        process: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">设计输入输出管理流程</h4>
+<ol style="line-height:2;padding-left:20px;">
+<li><b>设计输入收集</b>：收集客户要求、法规要求、行业标准、过往经验</li>
+<li><b>输入评审</b>：跨部门评审输入的完整性、适宜性、充分性</li>
+<li><b>设计输出编制</b>：根据输入要求进行设计，输出设计文件</li>
+<li><b>输出验证</b>：对照输入要求，验证输出是否满足</li>
+<li><b>输出评审</b>：评审输出文件的完整性、正确性、可制造性</li>
+<li><b>输出发放</b>：受控发放至相关部门，确保使用最新版本</li>
+</ol>
+</div>`,
+        recordTemplate: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">设计输入评审表</h4>
+<table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;"><td width="25%"><b>输入类别</b></td><td width="45%"><b>具体要求</b></td><td width="15%"><b>适用性</b></td><td width="15%"><b>验证方法</b></td></tr>
+<tr><td>客户要求</td><td></td><td>□适用 □不适用</td><td></td></tr>
+<tr><td>功能性能</td><td></td><td>□适用 □不适用</td><td></td></tr>
+<tr><td>安全法规</td><td>GB4706.1, GB4706.19</td><td>□适用 □不适用</td><td>型式试验</td></tr>
+<tr><td>环保要求</td><td>RoHS, REACH</td><td>□适用 □不适用</td><td>材质检测</td></tr>
+<tr><td>包装运输</td><td></td><td>□适用 □不适用</td><td>跌落测试</td></tr>
+<tr><td>可制造性</td><td></td><td>□适用 □不适用</td><td>DFM评审</td></tr>
+<tr><td>成本目标</td><td></td><td>□适用 □不适用</td><td>成本核算</td></tr>
+<tr><td colspan="4"><b>评审结论：</b>□输入完整充分，可开始设计 □需补充后重新评审</td></tr>
+<tr><td><b>研发</b></td><td></td><td><b>品质</b></td><td></td></tr>
+<tr><td><b>生产</b></td><td></td><td><b>业务</b></td><td></td></tr>
+</table>
+</div>`,
+        template: '',
+        knowledge: `设计输入是设计的依据，设计输出是设计的结果。
+
+一、设计输入内容
+1. 客户要求：功能、性能、外观、尺寸
+2. 法规要求：安全、环保、能效
+3. 行业标准：国标、行标、企标
+4. 过往经验：类似产品的问题和改进
+5. 供应链要求：关键物料的可获得性
+
+二、设计输出内容
+1. 设计文件：图纸、BOM、规格书
+2. 工艺文件：流程图、作业指导书
+3. 检验文件：检验规范、测试标准
+4. 物料文件：物料规格、供应商清单`,
+        logic: `输入决定输出，输出必须可追溯到输入。
+
+一、追溯逻辑
+每一项设计输出都必须能追溯到对应的设计输入要求
+每一项设计输入都必须有对应的输出验证
+形成需求→设计→验证的闭环
+
+二、评审逻辑
+输入评审：防止"做错的产品"（方向错误）
+输出评审：防止"把产品做错"（执行错误）
+两次评审缺一不可`,
+        operation: `一、设计输入操作
+1. 项目启动时，研发部牵头收集设计输入
+2. 组织跨部门评审输入的完整性
+3. 输入不完整时，业务部负责补充
+4. 输入评审通过后，方可开始设计
+
+二、设计输出操作
+1. 研发部按输入要求进行设计
+2. 输出文件需经过校对、审核、批准
+3. 输出文件需对照输入逐项验证
+4. 输出文件受控发放，旧版本回收` },
+      { id: genId(), name: '设计评审验证确认', description: '设计评审、设计验证、设计确认的区别与执行', status: 'done',
+        process: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">评审-验证-确认三部曲</h4>
+<table border="1" cellspacing="0" cellpadding="8" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;">
+<th width="18%">活动</th><th width="22%">目的</th><th width="30%">时机</th><th width="30%">方法</th>
+</tr>
+<tr>
+<td><b>设计评审</b></td>
+<td>评价设计满足要求的能力，识别问题</td>
+<td>设计各阶段结束时（EB/MB/PP）</td>
+<td>会议评审、跨部门评审、检查表</td>
+</tr>
+<tr style="background:#f9fafb;">
+<td><b>设计验证</b></td>
+<td>确保设计输出满足设计输入要求</td>
+<td>设计输出完成后，量产前</td>
+<td>测试、计算、对比、试验</td>
+</tr>
+<tr>
+<td><b>设计确认</b></td>
+<td>确保产品满足规定的使用要求或预期用途</td>
+<td>验证通过后，客户确认/市场验证</td>
+<td>客户试用、市场试销、用户反馈</td>
+</tr>
+</table>
+</div>`,
+        recordTemplate: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">设计验证报告</h4>
+<table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;"><td width="20%"><b>项目名称</b></td><td width="30%"></td><td width="20%"><b>报告编号</b></td><td width="30%"></td></tr>
+<tr><td><b>验证日期</b></td><td></td><td><b>验证人员</b></td><td></td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>验证项目清单</b></td></tr>
+<tr><td><b>序号</b></td><td><b>输入要求</b></td><td><b>验证方法/结果</b></td><td><b>判定</b></td></tr>
+<tr><td>1</td><td>功率：1000W±5%</td><td>实测：____W</td><td>□合格 □不合格</td></tr>
+<tr><td>2</td><td>容量：500ml±5%</td><td>实测：____ml</td><td>□合格 □不合格</td></tr>
+<tr><td>3</td><td>绝缘电阻≥100MΩ</td><td>实测：____MΩ</td><td>□合格 □不合格</td></tr>
+<tr><td>4</td><td>耐压1500V/1min</td><td>□无击穿 □击穿</td><td>□合格 □不合格</td></tr>
+<tr><td>5</td><td>干烧保护≥30秒</td><td>实测：____秒</td><td>□合格 □不合格</td></tr>
+<tr><td>6</td><td>寿命≥10000次</td><td>测试中/完成</td><td>□合格 □不合格</td></tr>
+<tr style="background:#f9fafb;"><td colspan="4"><b>验证结论：</b>□全部合格 □部分不合格（见附件）</td></tr>
+<tr><td><b>验证人</b></td><td></td><td><b>审核人</b></td><td></td></tr>
+</table>
+</div>`,
+        template: '',
+        knowledge: `评审、验证、确认是ISO9001标准的三个核心概念。
+
+一、三者区别
+- 评审：评价"能不能做出来"（能力评价）
+- 验证：确认"做对了没有"（对照输入）
+- 确认：确认"是不是用户想要的"（对照使用要求）
+
+二、常见混淆
+- 评审≠验证：评审是找问题，验证是测结果
+- 验证≠确认：验证是对照标准，确认是对照用户
+
+三、执行原则
+- 评审必须有记录
+- 验证必须有数据
+- 确认必须有用户参与`,
+        logic: `三者构成质量保证的三道防线。
+
+一、递进逻辑
+评审（事前预防）→ 验证（事中检查）→ 确认（事后验收）
+
+二、成本逻辑
+评审发现问题：改设计，成本最低
+验证发现问题：改样品，成本中等
+确认发现问题：改量产，成本最高
+因此，问题尽量在评审阶段发现`,
+        operation: `一、设计评审操作
+1. 每个阶段结束时组织评审
+2. 评审前发放评审资料，参会人员提前阅读
+3. 评审采用检查表方式，逐项检查
+4. 记录问题，指定责任人和完成日期
+5. 问题关闭后方可进入下一阶段
+
+二、设计验证操作
+1. 根据设计输入制定验证计划
+2. 按计划进行测试，记录原始数据
+3. 对照输入要求逐项判定
+4. 不合格项启动整改，整改后重新验证
+5. 出具《设计验证报告》
+
+三、设计确认操作
+1. 验证通过后，送客户试用或市场试销
+2. 收集用户反馈，评估满意度
+3. 根据反馈进行优化改进
+4. 客户签字确认或市场验证通过` },
+      { id: genId(), name: '工程变更（ECN）', description: '设计变更、工艺变更、物料变更的申请评审执行', status: 'done',
+        process: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">工程变更流程（8步）</h4>
+<ol style="line-height:2;padding-left:20px;">
+<li><b>变更提出</b>：任何部门可提出变更申请，填写《工程变更申请单》</li>
+<li><b>变更分类</b>：设计变更/工艺变更/物料变更，评估变更等级</li>
+<li><b>影响评估</b>：评估对品质、成本、交付、库存的影响</li>
+<li><b>变更评审</b>：跨部门评审变更的必要性和可行性</li>
+<li><b>变更批准</b>：按变更等级由相应权限人员批准</li>
+<li><b>变更实施</b>：修改图纸/工艺/BOM，通知相关部门</li>
+<li><b>变更验证</b>：验证变更效果，确认达到预期</li>
+<li><b>变更关闭</b>：旧物料处理，文件更新，变更记录归档</li>
+</ol>
+</div>`,
+        recordTemplate: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">工程变更申请单（ECN）</h4>
+<table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;"><td width="15%"><b>变更编号</b></td><td width="20%"></td><td width="15%"><b>申请日期</b></td><td width="20%"></td><td width="15%"><b>申请人</b></td><td width="15%"></td></tr>
+<tr><td><b>产品型号</b></td><td colspan="2"></td><td><b>变更类型</b></td><td colspan="2">□设计 □工艺 □物料</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>一、变更原因</b></td></tr>
+<tr><td colspan="6">□品质改善 □成本降低 □工艺优化 □客户要求 □物料替换 □其他：</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>二、变更内容</b></td></tr>
+<tr><td colspan="3"><b>变更前</b></td><td colspan="3"><b>变更后</b></td></tr>
+<tr><td colspan="3" style="height:60px;"></td><td colspan="3" style="height:60px;"></td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>三、影响评估</b></td></tr>
+<tr><td><b>品质影响</b></td><td colspan="2"></td><td><b>成本影响</b></td><td colspan="2">增加/减少： 元</td></tr>
+<tr><td><b>库存影响</b></td><td colspan="2">旧物料数量： PCS</td><td><b>交付影响</b></td><td colspan="2"></td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>四、评审意见</b></td></tr>
+<tr><td><b>研发</b></td><td colspan="2">签字：</td><td><b>品质</b></td><td colspan="2">签字：</td></tr>
+<tr><td><b>生产</b></td><td colspan="2">签字：</td><td><b>采购</b></td><td colspan="2">签字：</td></tr>
+<tr><td><b>业务</b></td><td colspan="2">签字：</td><td><b>批准</b></td><td colspan="2">签字：</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>五、实施记录</b></td></tr>
+<tr><td><b>实施日期</b></td><td colspan="2"></td><td><b>验证结果</b></td><td colspan="2">□合格 □不合格</td></tr>
+</table>
+</div>`,
+        template: '',
+        knowledge: `工程变更是量产阶段最常见的质量活动。
+
+一、变更类型
+1. 设计变更：图纸、规格、结构变更
+2. 工艺变更：工艺流程、参数、设备变更
+3. 物料变更：供应商、规格、材质变更
+
+二、变更等级
+- 重大变更：影响安全、性能、认证，需总经理批准
+- 一般变更：影响外观、尺寸，需部门经理批准
+- 微小变更：不影响产品功能，需工程师批准
+
+三、变更原则
+- 变更必须有申请、有评审、有批准
+- 变更必须验证效果
+- 变更必须可追溯`,
+        logic: `变更管理的核心是"受控"，防止随意变更导致质量问题。
+
+一、风险传导逻辑
+变更评估不充分→未识别的风险→批量质量问题→客户投诉→召回
+因此，变更必须经过严格的影响评估和评审
+
+二、库存处理逻辑
+- 旧物料能用则用：制定切换计划，消耗库存
+- 旧物料不能用：报废或退供应商
+- 切换节点明确：从哪个批次开始用新物料
+
+三、验证逻辑
+- 变更必须验证：不能"改了就用"
+- 验证范围：变更直接影响的项目+可能影响的关联项目
+- 验证通过才能批量切换`,
+        operation: `一、变更申请操作
+1. 申请人填写《工程变更申请单》，说明变更原因和内容
+2. 附变更前后对比资料（图纸、样品、测试数据）
+3. 提交研发部受理
+
+二、变更评审操作
+1. 研发部组织跨部门评审
+2. 各部门评估本部门受影响的范围
+3. 评估变更的成本和收益
+4. 形成评审结论，必要时修改方案
+
+三、变更实施操作
+1. 变更批准后，研发部更新相关文件
+2. 通知生产、品质、采购等部门
+3. 制定旧物料处理方案和切换计划
+4. 按计划实施变更，首件确认
+5. 验证变更效果，确认达到预期
+6. 变更记录归档，关闭变更单` },
+      { id: genId(), name: '样品管理', description: '样品制作、确认、收发、保存全流程管理', status: 'done',
+        process: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">样品管理流程</h4>
+<ol style="line-height:2;padding-left:20px;">
+<li><b>样品申请</b>：业务部/研发部填写《样品制作申请单》</li>
+<li><b>样品制作</b>：研发部按要求制作样品，记录制作过程</li>
+<li><b>样品检验</b>：品质部按标准检验样品，出具检验报告</li>
+<li><b>样品确认</b>：业务部送客户确认，获取确认意见</li>
+<li><b>样品收发</b>：建立样品收发记录，确保可追溯</li>
+<li><b>样品保存</b>：确认样品归档保存，作为后续生产和检验的依据</li>
+</ol>
+</div>`,
+        recordTemplate: `<div style="padding:10px;">
+<h4 style="color:#2563eb;margin-bottom:10px;">样品制作申请单</h4>
+<table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;">
+<tr style="background:#eff6ff;"><td width="15%"><b>申请编号</b></td><td width="20%"></td><td width="15%"><b>申请日期</b></td><td width="20%"></td><td width="15%"><b>申请人</b></td><td width="15%"></td></tr>
+<tr><td><b>产品型号</b></td><td colspan="2"></td><td><b>样品数量</b></td><td colspan="2">PCS</td></tr>
+<tr><td><b>样品用途</b></td><td colspan="5">□客户确认 □设计验证 □测试用 □展会用 □其他：</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>样品要求</b></td></tr>
+<tr><td colspan="6">1. 功能要求：<br>2. 外观要求：<br>3. 包装要求：<br>4. 交付日期：</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>制作记录</b></td></tr>
+<tr><td><b>制作人</b></td><td></td><td><b>完成日期</b></td><td></td><td><b>实际数量</b></td><td>PCS</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>检验结果</b></td></tr>
+<tr><td><b>检验员</b></td><td></td><td><b>检验日期</b></td><td></td><td><b>判定</b></td><td>□合格 □不合格</td></tr>
+<tr style="background:#f9fafb;"><td colspan="6"><b>客户确认</b></td></tr>
+<tr><td><b>送出日期</b></td><td></td><td><b>确认结果</b></td><td colspan="3">□确认通过 □需修改（见备注）</td></tr>
+<tr><td colspan="6"><b>备注：</b></td></tr>
+</table>
+</div>`,
+        template: '',
+        knowledge: `样品是设计验证和客户确认的重要载体。
+
+一、样品类型
+1. 手板样：验证外观和结构，3D打印/CNC
+2. EB样：工程试装样，验证功能
+3. MB样：工艺试产样，验证工艺
+4. PP样：小批量试产样，验证量产
+5. 客户确认样：客户签字确认的标准样
+
+二、样品管理原则
+- 每批样品必须有记录
+- 确认样品必须归档保存
+- 样品变更必须重新确认`,
+        logic: `样品是"标准"的实物化，是后续生产和检验的依据。
+
+一、标准传递逻辑
+客户要求→设计→样品→客户确认→确认样→量产标准→检验标准
+确认样是连接设计和量产的关键节点
+
+二、追溯逻辑
+每批样品都要能追溯到：谁做的、什么时候做的、用什么物料、检验结果、客户反馈
+
+三、风险控制逻辑
+- 样品未经确认不得量产
+- 确认样必须妥善保存，防止丢失或损坏
+- 样品变更必须重新获得客户确认`,
+        operation: `一、样品制作操作
+1. 申请人填写《样品制作申请单》，明确要求和交付日期
+2. 研发部安排制作，优先使用量产物料和工艺
+3. 制作完成后送品质部检验
+4. 检验合格后包装，附检验报告
+
+二、样品确认操作
+1. 业务部送客户确认，附样品确认表
+2. 客户确认后，获取签字确认的样品和确认意见
+3. 确认样交研发部归档，贴上标识
+4. 确认样作为后续生产和检验的标准
+
+三、样品保存操作
+1. 确认样存放于样品柜，专人管理
+2. 样品标识：型号、版本、确认日期、客户
+3. 定期检查样品状态，防止损坏
+4. 样品变更时，旧样标注"作废"，保存新样` },
+    ],
+
+共生成 6 个研发过程卡片
     production: [
       { id: genId(), name: '烧水杯首件检验', description: '每班开机首件确认，IPQC+生产主管双签', status: 'doing',
         template: '首件检验报告\n产品型号：\n班次：\n开机时间：\n首件编号：\n检验项目：\n1.外观：\n2.尺寸：\n3.功能：\n4.安全：\n判定：□合格 □不合格\nIPQC：\n生产主管：',
@@ -977,7 +1491,8 @@ function renderDetail() {
   }
   
   const sections = [
-    { icon: '📋', name: '模板', key: 'template' },
+    { icon: '🔄', name: '流程步骤', key: 'process', isHtml: true },
+    { icon: '📋', name: '记录模板', key: 'recordTemplate', isHtml: true },
     { icon: '📚', name: '知识点', key: 'knowledge' },
     { icon: '🧠', name: '底层逻辑', key: 'logic' },
     { icon: '🛠', name: '落地操作', key: 'operation' },
@@ -1054,6 +1569,16 @@ function openForm() {
       <select id="formStatus">${statusOptions}</select>
     </div>
     <div class="form-group">
+      <label>🔄 流程步骤（支持HTML格式）</label>
+      <textarea id="formProcess" placeholder="输入流程步骤，可用HTML标签，如：<ol><li>步骤1</li><li>步骤2</li></ol>" style="height:120px;">${item.process || ''}</textarea>
+      <div class="form-hint">过程流程图、作业步骤、节点说明，支持HTML表格和列表</div>
+    </div>
+    <div class="form-group">
+      <label>📋 记录模板（支持HTML格式，可编辑）</label>
+      <textarea id="formRecordTemplate" placeholder="输入记录模板，可用HTML表格，如：<table><tr><td>项目</td><td>标准</td><td>实测</td></tr></table>" style="height:150px;">${item.recordTemplate || ''}</textarea>
+      <div class="form-hint">记录表单、检验报告、审批表等，带格式的模板，可直接复制使用</div>
+    </div>
+    <div class="form-group">
       <label>📋 模板</label>
       <textarea id="formTemplate" placeholder="输入模板内容，可包含表格、步骤等">${item.template || ''}</textarea>
       <div class="form-hint">标准模板、表单格式、检验项目等</div>
@@ -1093,6 +1618,8 @@ function saveForm() {
     name: name,
     description: document.getElementById('formDesc').value.trim(),
     status: document.getElementById('formStatus').value,
+    process: document.getElementById('formProcess').value,
+    recordTemplate: document.getElementById('formRecordTemplate').value,
     template: document.getElementById('formTemplate').value.trim(),
     knowledge: document.getElementById('formKnowledge').value.trim(),
     logic: document.getElementById('formLogic').value.trim(),
