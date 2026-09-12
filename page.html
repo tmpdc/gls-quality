@@ -1715,11 +1715,27 @@ function showToast(message, type = '') {
 
 // ==================== 初始化 ====================
 function init() {
-  if (!checkLogin()) return;
-  loadData();
-  renderSidebar();
-  renderHome();
+  try {
+    if (!checkLogin()) return;
+    loadData();
+    renderSidebar();
+    renderHome();
+  } catch (e) {
+    console.error('初始化失败:', e);
+    var errorDiv = document.createElement('div');
+    errorDiv.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;background:#fee;padding:15px;border:1px solid #f00;border-radius:8px;z-index:99999;font-size:14px;';
+    errorDiv.innerHTML = '<b>初始化失败：</b><br>' + e.message + '<br><br>' + e.stack;
+    document.body.appendChild(errorDiv);
+  }
 }
+
+window.onerror = function(msg, url, line, col, error) {
+  console.error('全局错误:', msg, url, line, col);
+  var errorDiv = document.createElement('div');
+  errorDiv.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;background:#fee;padding:15px;border:1px solid #f00;border-radius:8px;z-index:99999;font-size:14px;';
+  errorDiv.innerHTML = '<b>JavaScript错误：</b><br>' + msg + '<br>位置：行' + line + ' 列' + col;
+  document.body.appendChild(errorDiv);
+};
 
 init();
 </script>
