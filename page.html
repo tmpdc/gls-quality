@@ -1493,9 +1493,10 @@ function renderDetail() {
   const sections = [
     { icon: '🔄', name: '流程步骤', key: 'process', isHtml: true },
     { icon: '📋', name: '记录模板', key: 'recordTemplate', isHtml: true },
+    { icon: '📝', name: '操作步骤', key: 'operation' },
+    { icon: '✅', name: '落实情况', key: 'implementation', isHtml: true },
     { icon: '📚', name: '知识点', key: 'knowledge' },
     { icon: '🧠', name: '底层逻辑', key: 'logic' },
-    { icon: '🛠', name: '落地操作', key: 'operation' },
   ];
   
   let html = '';
@@ -1594,9 +1595,14 @@ function openForm() {
       <div class="form-hint">为什么这么做、原理机制、因果关系等</div>
     </div>
     <div class="form-group">
-      <label>🛠 落地操作</label>
-      <textarea id="formOperation" placeholder="输入落地操作步骤">${item.operation || ''}</textarea>
+      <label>📝 操作步骤</label>
+      <textarea id="formOperation" placeholder="输入具体操作步骤">${item.operation || ''}</textarea>
       <div class="form-hint">具体操作步骤、执行方法、注意事项等</div>
+    </div>
+    <div class="form-group">
+      <label>✅ 落实情况（支持HTML表格）</label>
+      <textarea id="formImplementation" placeholder="输入落实情况跟踪表，可用HTML表格" style="height:120px;">${item.implementation || ''}</textarea>
+      <div class="form-hint">任务分解、责任人、完成时间、完成状态跟踪表</div>
     </div>
   `;
   
@@ -1624,6 +1630,7 @@ function saveForm() {
     knowledge: document.getElementById('formKnowledge').value.trim(),
     logic: document.getElementById('formLogic').value.trim(),
     operation: document.getElementById('formOperation').value.trim(),
+    implementation: document.getElementById('formImplementation').value,
   };
   
   if (isEditing) {
