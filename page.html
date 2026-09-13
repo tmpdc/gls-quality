@@ -1745,6 +1745,19 @@ function init() {
   try {
     if (!checkLogin()) return;
     loadData();
+    // 调试信息
+    var debugDiv = document.createElement('div');
+    debugDiv.id = 'debugInfo';
+    debugDiv.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;background:#e3f2fd;padding:10px;border:1px solid #2196f3;border-radius:8px;z-index:99998;font-size:12px;font-family:monospace;';
+    var moduleInfo = '';
+    if (appData && MODULES) {
+      MODULES.forEach(function(m) {
+        var count = appData[m.id] ? appData[m.id].length : 0;
+        moduleInfo += m.id + ':' + count + ' ';
+      });
+    }
+    debugDiv.innerHTML = '<b>调试信息</b> | appData: ' + (appData ? 'OK' : 'NULL') + ' | 模块: ' + moduleInfo + ' | TEMPLATE_CARDS: ' + (typeof TEMPLATE_CARDS !== 'undefined' ? '已加载' : '未加载');
+    document.body.appendChild(debugDiv);
     renderSidebar();
     renderHome();
   } catch (e) {
