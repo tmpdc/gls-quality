@@ -175,6 +175,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
 <script src="knowledge_loader.js"></script>
+<script src="templates.js"></script>
 </head>
 <body>
 
@@ -1052,14 +1053,44 @@ function loadData() {
           needSave = true;
         }
       });
+      // 合并模板卡片（如果用户没有删除过模板）
+      if (typeof TEMPLATE_CARDS !== 'undefined') {
+        MODULES.forEach(m => {
+          const tpls = TEMPLATE_CARDS[m.id] || [];
+          tpls.forEach(tpl => {
+            const exists = appData[m.id].some(item => item.id === tpl.id);
+            if (!exists) {
+              appData[m.id].unshift({...tpl});
+              needSave = true;
+            }
+          });
+        });
+      }
       if (needSave) saveData();
     } else {
       appData = getDefaultData();
+      // 首次加载时合并模板卡片
+      if (typeof TEMPLATE_CARDS !== 'undefined') {
+        MODULES.forEach(m => {
+          const tpls = TEMPLATE_CARDS[m.id] || [];
+          tpls.forEach(tpl => {
+            appData[m.id].unshift({...tpl});
+          });
+        });
+      }
       saveData();
     }
   } catch (e) {
     console.error('加载数据失败，使用默认数据:', e);
     appData = getDefaultData();
+    if (typeof TEMPLATE_CARDS !== 'undefined') {
+      MODULES.forEach(m => {
+        const tpls = TEMPLATE_CARDS[m.id] || [];
+        tpls.forEach(tpl => {
+          appData[m.id].unshift({...tpl});
+        });
+      });
+    }
   }
   // 确保 appData 不是 null
   if (!appData) appData = getDefaultData();
