@@ -178,8 +178,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <script src="templates.js" async onload="onTemplatesLoaded()"></script>
 </head>
 <body>
-<div id="pageLoadStatus" style="position:fixed;top:0;left:0;right:0;background:#ffeb3b;color:#000;padding:5px;font-size:12px;z-index:100000;font-family:monospace;">页面加载中... JS未执行</div>
-<script>document.getElementById('pageLoadStatus').innerHTML = 'JS已开始执行 | ' + new Date().toLocaleTimeString();</script>
 
 <!-- 顶部导航 -->
 <div class="header">
@@ -1683,19 +1681,6 @@ function init() {
   try {
     if (!checkLogin()) return;
     loadData();
-    // 调试信息
-    var debugDiv = document.createElement('div');
-    debugDiv.id = 'debugInfo';
-    debugDiv.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;background:#e3f2fd;padding:10px;border:1px solid #2196f3;border-radius:8px;z-index:99998;font-size:12px;font-family:monospace;';
-    var moduleInfo = '';
-    if (appData && MODULES) {
-      MODULES.forEach(function(m) {
-        var count = appData[m.id] ? appData[m.id].length : 0;
-        moduleInfo += m.id + ':' + count + ' ';
-      });
-    }
-    debugDiv.innerHTML = '<b>调试信息</b> | appData: ' + (appData ? 'OK' : 'NULL') + ' | 模块: ' + moduleInfo + ' | TEMPLATE_CARDS: ' + (typeof TEMPLATE_CARDS !== 'undefined' ? '已加载' : '未加载');
-    document.body.appendChild(debugDiv);
     renderSidebar();
     renderHome();
   } catch (e) {
@@ -1715,7 +1700,7 @@ window.onerror = function(msg, url, line, col, error) {
   document.body.appendChild(errorDiv);
 };
 
-document.getElementById("pageLoadStatus").innerHTML += " | 即将调用init()"; init(); document.getElementById("pageLoadStatus").innerHTML += " | init()已返回";
+init();
 </script>
 </body>
 </html>
