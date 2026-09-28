@@ -1,12 +1,11 @@
 /*!
- * gls-flow.js —— 格丽思质量管理工作台 流程引擎
- * 功能：发起流程 / 环节流转 / 审批（通过·退回·终止）/ 待办 / 全程留痕 / 自动指派下一环节
- * 设计原则：不修改主逻辑，通过函数包装实现增强；流程数据存于 appData.flows，随工作台数据一起持久化
+ * gls-flow.js —— 格丽思质量管理工作台 流程引擎（图结构版）
+ * 支持：顺序环节 / 条件分支 / 检验判定 / 可选环节 / 评审处理回流 / 自动环节
+ * 数据存于 appData.flows，随工作台数据一起持久化在本机浏览器
  */
 (function (global) {
 
-  var FLOW_VER = '1';
-  var MY_TODO_KEY = 'gls_flow_filter';
+  var FLOW_VER = '2';
 
   /* ==================== 通用工具 ==================== */
   function $(id) { return document.getElementById(id); }
@@ -41,15 +40,12 @@
 
   function fmtShort(ts) {
     if (!ts) return '';
-    var d = new Date(ts);
-    var now = new Date();
+    var d = new Date(ts), now = new Date();
     if (d.toDateString() === now.toDateString()) return '今天 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
     return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
   }
 
-  function uid(prefix) {
-    return (prefix || 'flow_') + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
-  }
+  function uid(p) { return (p || 'flow_') + Date.now().toString(36) + Math.random().toString(36).substr(2, 4); }
 
   /* ==================== 用户 / 账号 ==================== */
   function curUser() {
@@ -88,21 +84,53 @@
 
   function isAdmin() { return curUser().role === 'admin'; }
 
-  /* ==================== 流程数据层 ==================== */
-  var DEFAULT_NODES = {
-    suppliers: ['供应商开发', '资质审查', '样品测试', '现场审核', '批准纳入合格名录'],
-    incoming: ['报检申请', '抽样检验', '判定', '入库或退货'],
-    rd: ['立项申请', '可行性评审', '批准', '开发实施', '验证确认', '归档'],
-    production: ['首件申请', '首件检验', '确认', '批量生产'],
-    inspection: ['报检', '成品检验', '判定', '入库'],
-    shipping: ['出货申请', '出货检验', '审批', '放行'],
-    abnormal: ['异常报告', '原因分析', '纠正措施', '措施验证', '结案'],
-    risk: ['风险识别', '风险评估', '制定措施', '跟踪验证'],
-    documents: ['文件编制', '审核', '批准', '发布'],
-    knowledge: ['提出', '审核', '入库'],
-    training: ['培训申请', '计划审批', '实施培训', '效果评估', '归档']
-  };
+  /* ==================== 内置流程模板 ==================== */
+  // 节点类型：normal 普通环节 / auto 自动环节 / branch 分支判断 / inspect 检验判定 /
+  //           optional 可选环节 / review 评审处理 / end 结束
+  var TEMPLATES = [
+    {
+      id: 'tpl_production_main',
+      name: '主机生产全流程',
+      icon: '🏭',
+      desc: '销售订单 → PMC生产计划（自动核对物料齐套）→ 齐套走备料 / 不齐套走采购 → 进料检验 → 物料入库 → 生产备料 → 生产 → 首件 → 正式生产 → 巡检 → 成品 → 成品检验 → 成品入库 → 发货；各检验不合格均转评审处理',
+      graph: {
+        start: 'so',
+        nodes: {
+          so: { id: 'so', name: '销售订单', type: 'normal', dept: '业务部', note: '接单评审：数量、交期、特殊要求', next: 'pmc' },
+          pmc: { id: 'pmc', name: 'PMC生产计划', type: 'auto', dept: 'PMC', note: '自动核对物料齐套：比对BOM需求与库存/在途，输出齐套结论', next: 'kitting' },
+          kitting: { id: 'kitting', name: '物料齐套判断', type: 'branch', dept: 'PMC',
+            note: '齐套则直接备料；不齐套转采购',
+            options: [{ label: '齐套', to: 'prep' }, { label: '不齐套', to: 'purchase' }] },
+          purchase: { id: 'purchase', name: '采购', type: 'normal', dept: '采购部', note: '下达采购订单并跟催交期', next: 'wh_confirm' },
+          wh_confirm: { id: 'wh_confirm', name: '物料仓库确认', type: 'normal', dept: '仓储部', note: '到货数量、包装、标识核对', next: 'iqc' },
+          iqc: { id: 'iqc', name: '进料检验', type: 'inspect', dept: '品质部', note: '按检验标准抽样判定',
+            options: [{ label: '合格', to: 'mat_in' }, { label: '不合格', to: 'review' }] },
+          mat_in: { id: 'mat_in', name: '物料入库', type: 'normal', dept: '仓储部', note: '标识、FIFO、防静电/防潮', next: 'prep' },
+          prep: { id: 'prep', name: '生产备料', type: 'normal', dept: '仓储部/生产部', note: '按工单发料，核对料号数量', next: 'prod' },
+          prod: { id: 'prod', name: '生产', type: 'normal', dept: '生产部', note: '按作业指导书生产，参数点检', next: 'fai' },
+          fai: { id: 'fai', name: '首件检验', type: 'inspect', dept: '品质部', note: '首件全项目确认，合格方可批量',
+            options: [{ label: '合格', to: 'mass' }, { label: '不合格', to: 'review' }] },
+          mass: { id: 'mass', name: '正式生产', type: 'normal', dept: '生产部', note: '批量生产，参数监控', next: 'patrol' },
+          patrol: { id: 'patrol', name: '巡检', type: 'optional', dept: '品质部', note: '按岗位/工序设定巡检频次，可跳过',
+            options: [{ label: '合格', to: 'fg' }, { label: '批量不合格', to: 'review' }, { label: '跳过巡检', to: 'fg', skip: true }] },
+          fg: { id: 'fg', name: '成品', type: 'normal', dept: '生产部', note: '成品下线，待检验', next: 'oqc' },
+          oqc: { id: 'oqc', name: '成品检验', type: 'inspect', dept: '品质部', note: '成品抽检+安全项目',
+            options: [{ label: '合格', to: 'fg_in' }, { label: '不合格', to: 'review' }] },
+          fg_in: { id: 'fg_in', name: '成品入库', type: 'normal', dept: '仓储部', note: '入库上架，记录批次', next: 'ship' },
+          ship: { id: 'ship', name: '发货', type: 'end', dept: '仓储部/业务部', note: '按订单发货，出库记录留存' },
+          review: { id: 'review', name: '评审处理', type: 'review', dept: '品质部/工程/生产',
+            note: '不合格品评审：返工返修 / 让步接收 / 报废退货（由评审结论决定去向）' }
+        }
+      }
+    }
+  ];
 
+  function getTemplate(id) {
+    for (var i = 0; i < TEMPLATES.length; i++) { if (TEMPLATES[i].id === id) return TEMPLATES[i]; }
+    return null;
+  }
+
+  /* ==================== 流程数据层 ==================== */
   function getFlows() {
     if (typeof appData === 'undefined' || !appData) return [];
     if (!Array.isArray(appData.flows)) appData.flows = [];
@@ -119,47 +147,62 @@
     return null;
   }
 
-  // 从业务卡片的 process 里解析环节；解析不出则用模块默认环节
-  function parseNodes(item, moduleId) {
-    var nodes = [];
-    var src = (item && item.process) ? String(item.process) : '';
-    if (src) {
-      var liRe = /<li[^>]*>([\s\S]*?)<\/li>/gi, m;
-      while ((m = liRe.exec(src)) !== null) {
-        var inner = m[1];
-        var bm = inner.match(/<(?:b|strong)[^>]*>([\s\S]*?)<\/(?:b|strong)>/i);
-        var raw = bm ? bm[1] : inner;
-        var name = stripHtml(raw).replace(/^[\s\d一二三四五六七八九十]+[.、)）]?\s*/, '').trim();
-        name = name.replace(/[：:]\s*$/, '').trim();
-        if (name) nodes.push(name.slice(0, 26));
-      }
-    }
-    if (!nodes.length) {
-      nodes = (DEFAULT_NODES[moduleId] || ['申请', '审核', '批准', '执行', '归档']).slice();
-    }
-    return nodes;
-  }
-
-  function moduleName(id) {
-    try {
-      var m = MODULES.filter(function (x) { return x.id === id; })[0];
-      return m ? m.name : id;
-    } catch (e) { return id; }
-  }
-
-  function moduleIcon(id) {
-    try {
-      var m = MODULES.filter(function (x) { return x.id === id; })[0];
-      return m ? m.icon : '📋';
-    } catch (e) { return '📋'; }
-  }
-
   var STATUS_MAP = {
     running: { name: '进行中', cls: 'run' },
     done: { name: '已办结', cls: 'ok' },
     terminated: { name: '已终止', cls: 'stop' }
   };
 
+  /* ---- 图操作 ---- */
+  function graphOf(f) { return (f && f.graph && f.graph.nodes) ? f.graph : null; }
+  function nodeOf(f, id) { var g = graphOf(f); return (g && g.nodes[id]) ? g.nodes[id] : null; }
+  function curNode(f) { return nodeOf(f, f.curId); }
+
+  function isMulti(type) { return type === 'branch' || type === 'inspect' || type === 'optional' || type === 'review'; }
+
+  function nextOf(f, node) {
+    if (!node) return null;
+    if (node.type === 'review') return null;
+    if (node.type === 'branch' || node.type === 'inspect' || node.type === 'optional') {
+      var opts = node.options || [];
+      for (var i = 0; i < opts.length; i++) { if (!opts[i].skip && opts[i].to !== 'review') return opts[i].to; }
+      return null;
+    }
+    return node.next || null;
+  }
+
+  // 主链路线性展开（用于列表页显示进度）
+  function mainChain(f) {
+    var g = graphOf(f), out = [], seen = {};
+    if (!g) return out;
+    var id = g.start, guard = 0;
+    while (id && !seen[id] && guard++ < 60) {
+      seen[id] = 1;
+      var n = g.nodes[id];
+      if (!n) break;
+      out.push(n);
+      id = nextOf(f, n);
+    }
+    return out;
+  }
+
+  function totalCount(f) { var g = graphOf(f); return g ? Object.keys(g.nodes).length : 0; }
+
+  function doneCount(f) {
+    var v = f.visited || [], n = 0;
+    v.forEach(function (x) { if (x) n++; });
+    return n;
+  }
+
+  function progressPct(f) {
+    if (f.status === 'done') return 100;
+    var total = totalCount(f);
+    if (!total) return 0;
+    var visited = (f.visited || []).length;
+    return Math.min(96, Math.round((visited / total) * 100));
+  }
+
+  /* ---- 权限 / 待办 ---- */
   function canHandle(f) {
     if (!f || f.status !== 'running') return false;
     var u = curUser();
@@ -181,6 +224,172 @@
     return n;
   }
 
+  /* ==================== 兼容旧流程（字符串数组） ==================== */
+  function migrate(f) {
+    if (!f) return f;
+    if (f._mg) return f;
+    if (f.graph) {
+      if (!f.curId && f.status === 'running') f.curId = f.graph.start;
+      f._mg = 1;
+      return f;
+    }
+    var arr = f.nodes || [];
+    var nodes = {}, start = null;
+    for (var i = 0; i < arr.length; i++) {
+      var id = 'm' + i;
+      nodes[id] = { id: id, name: String(arr[i]), type: 'normal', next: (i + 1 < arr.length) ? ('m' + (i + 1)) : null };
+      if (i === 0) start = id;
+    }
+    if (!start) { nodes.m0 = { id: 'm0', name: '开始', type: 'normal', next: null }; start = 'm0'; }
+    f.graph = { start: start, nodes: nodes };
+    f.curId = 'm' + Math.min(f.cur || 0, arr.length - 1);
+    f.visited = [];
+    for (var j = 0; j <= (f.cur || 0) && j < arr.length; j++) f.visited.push('m' + j);
+    f._mg = 1;
+    return f;
+  }
+
+  function migrateAll() {
+    var changed = false;
+    getFlows().forEach(function (f) { if (!f._mg) { migrate(f); changed = true; } });
+    if (changed) saveFlows();
+  }
+
+  /* ---- 从业务卡片解析环节（保留原有能力） ---- */
+  var DEFAULT_NODES = {
+    suppliers: ['供应商开发', '资质审查', '样品测试', '现场审核', '批准纳入合格名录'],
+    incoming: ['报检申请', '抽样检验', '判定', '入库或退货'],
+    rd: ['立项申请', '可行性评审', '批准', '开发实施', '验证确认', '归档'],
+    production: ['首件申请', '首件检验', '确认', '批量生产'],
+    inspection: ['报检', '成品检验', '判定', '入库'],
+    shipping: ['出货申请', '出货检验', '审批', '放行'],
+    abnormal: ['异常报告', '原因分析', '纠正措施', '措施验证', '结案'],
+    risk: ['风险识别', '风险评估', '制定措施', '跟踪验证'],
+    documents: ['文件编制', '审核', '批准', '发布'],
+    knowledge: ['提出', '审核', '入库'],
+    training: ['培训申请', '计划审批', '实施培训', '效果评估', '归档']
+  };
+
+  function parseNodes(item, moduleId) {
+    var nodes = [];
+    var src = (item && item.process) ? String(item.process) : '';
+    if (src) {
+      var liRe = /<li[^>]*>([\s\S]*?)<\/li>/gi, m;
+      while ((m = liRe.exec(src)) !== null) {
+        var inner = m[1];
+        var bm = inner.match(/<(?:b|strong)[^>]*>([\s\S]*?)<\/(?:b|strong)>/i);
+        var name = stripHtml(bm ? bm[1] : inner).replace(/^[\s\d一二三四五六七八九十]+[.、)）]?\s*/, '').trim();
+        name = name.replace(/[：:]\s*$/, '').trim();
+        if (name) nodes.push(name.slice(0, 26));
+      }
+    }
+    if (!nodes.length) nodes = (DEFAULT_NODES[moduleId] || ['申请', '审核', '批准', '执行', '归档']).slice();
+    return nodes;
+  }
+
+  function linearGraph(names) {
+    var nodes = {}, start = null;
+    for (var i = 0; i < names.length; i++) {
+      var id = 'k' + i;
+      nodes[id] = { id: id, name: names[i], type: 'normal', next: (i + 1 < names.length) ? ('k' + (i + 1)) : null };
+      if (i === 0) start = id;
+    }
+    return { start: start, nodes: nodes };
+  }
+
+  function moduleName(id) {
+    try {
+      var m = MODULES.filter(function (x) { return x.id === id; })[0];
+      return m ? m.name : id;
+    } catch (e) { return id; }
+  }
+
+  function moduleIcon(id) {
+    try {
+      var m = MODULES.filter(function (x) { return x.id === id; })[0];
+      return m ? m.icon : '📋';
+    } catch (e) { return '📋'; }
+  }
+
+  /* ==================== 导出内部对象 ==================== */
+  var API = {
+    $: $, escHtml: escHtml, escAttr: escAttr, stripHtml: stripHtml, toast: toast,
+    fmtTime: fmtTime, fmtShort: fmtShort, uid: uid, pad2: pad2,
+    curUser: curUser, getAccounts: getAccounts, activeAccounts: activeAccounts,
+    userLabel: userLabel, isAdmin: isAdmin,
+    TEMPLATES: TEMPLATES, getTemplate: getTemplate,
+    getFlows: getFlows, saveFlows: saveFlows, findFlow: findFlow, migrateAll: migrateAll,
+    STATUS_MAP: STATUS_MAP, graphOf: graphOf, nodeOf: nodeOf, curNode: curNode,
+    nextOf: nextOf, mainChain: mainChain, totalCount: totalCount, doneCount: doneCount,
+    progressPct: progressPct, canHandle: canHandle, isMyTodo: isMyTodo, countTodo: countTodo,
+    parseNodes: parseNodes, linearGraph: linearGraph,
+    moduleName: moduleName, moduleIcon: moduleIcon, isMulti: isMulti
+  };
+  global.GF = API;
+
+
+  /* ==================== 流程图渲染 ==================== */
+  var TYPE_TAG = {
+    auto: '<span class="fg-tag auto">自动</span>',
+    branch: '<span class="fg-tag branch">分支</span>',
+    inspect: '<span class="fg-tag insp">检验判定</span>',
+    optional: '<span class="fg-tag opt">可选</span>',
+    review: '<span class="fg-tag rev">评审</span>',
+    end: '<span class="fg-tag end">结束</span>'
+  };
+
+  function renderGraphTree(f) {
+    var g = graphOf(f);
+    if (!g) return '';
+    var visited = f.visited || [];
+    var cur = f.curId;
+    var seen = {}, num = 0, out = [];
+
+    function classify(n) {
+      if (n.id === cur && f.status === 'running') return 'cur';
+      if (visited.indexOf(n.id) >= 0) return 'past';
+      return 'future';
+    }
+
+    function row(n, depth, label) {
+      var cls = classify(n);
+      var dot = cls === 'past' ? '✓' : (cls === 'cur' ? '●' : '○');
+      var idx = seen[n.id] ? ('<span class="fg-idx">' + seen[n.id] + '</span>') : '';
+      return '<div class="fg-node ' + cls + '" style="margin-left:' + (depth * 16) + 'px">' +
+        (label ? '<span class="fg-lbl">' + escHtml(label) + '</span>' : '') +
+        '<span class="fg-dot">' + dot + '</span>' + idx +
+        '<span class="fg-name">' + escHtml(n.name) + '</span>' +
+        (TYPE_TAG[n.type] || '') +
+        (n.dept ? '<span class="fg-dept">' + escHtml(n.dept) + '</span>' : '') +
+        (cls === 'cur' ? '<span class="fg-here">当前</span>' : '') +
+        '</div>' +
+        (n.note && (cls === 'cur' || depth === 0 || n.type === 'review')
+          ? '<div class="fg-note" style="margin-left:' + (depth * 16 + 22) + 'px">' + escHtml(n.note) + '</div>' : '');
+    }
+
+    function walk(id, depth, label, guard) {
+      if (!id || guard > 90) return;
+      var n = g.nodes[id];
+      if (!n) return;
+      if (seen[id]) {
+        out.push('<div class="fg-node ref" style="margin-left:' + (depth * 16) + 'px">' +
+          (label ? '<span class="fg-lbl">' + escHtml(label) + '</span>' : '') +
+          '<span class="fg-ref">↩ 汇聚回「' + escHtml(n.name) + '」</span></div>');
+        return;
+      }
+      seen[id] = ++num;
+      out.push(row(n, depth, label));
+      if (n.type === 'review') return;
+      if (n.options && n.options.length) {
+        n.options.forEach(function (o) { walk(o.to, depth + 1, o.label, guard + 1); });
+      } else if (n.next) {
+        walk(n.next, depth, null, guard + 1);
+      }
+    }
+    walk(g.start, 0, null, 0);
+    return out.join('');
+  }
+
   /* ==================== 流程中心（列表页） ==================== */
   var flowFilter = 'todo';
 
@@ -194,8 +403,7 @@
 
   function filterFlows() {
     var u = curUser();
-    var arr = getFlows();
-    var out = arr.filter(function (f) {
+    var out = getFlows().filter(function (f) {
       if (flowFilter === 'todo') return isMyTodo(f);
       if (flowFilter === 'mine') return f.initiator === u.username;
       if (flowFilter === 'running') return f.status === 'running';
@@ -207,13 +415,9 @@
   }
 
   function renderFlowsPage() {
-    var statEl = $('flowStats');
-    var tabEl = $('flowTabs');
-    var listEl = $('flowList');
+    var statEl = $('flowStats'), tabEl = $('flowTabs'), listEl = $('flowList');
     if (!listEl) return;
-
-    var all = getFlows();
-    var u = curUser();
+    var all = getFlows(), u = curUser();
     var todo = 0, mine = 0, running = 0, done = 0;
     all.forEach(function (f) {
       if (isMyTodo(f)) todo++;
@@ -229,7 +433,6 @@
         '<div class="fstat' + (flowFilter === 'running' ? ' on' : '') + '" onclick="setFlowFilter(\'running\')"><div class="fstat-num blue">' + running + '</div><div class="fstat-lb">进行中</div></div>' +
         '<div class="fstat' + (flowFilter === 'done' ? ' on' : '') + '" onclick="setFlowFilter(\'done\')"><div class="fstat-num ok">' + done + '</div><div class="fstat-lb">已办结</div></div>';
     }
-
     if (tabEl) {
       var th = '';
       FLOW_TABS.forEach(function (t) {
@@ -242,51 +445,41 @@
     if (!list.length) {
       listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">⚡</div>' +
         '<div class="empty-text">' + (flowFilter === 'todo' ? '暂无待办流程' : '暂无流程记录') + '</div>' +
-        '<div style="font-size:12px;color:#bbb;margin-top:8px;">在业务卡片详情页点「发起流程」即可创建</div></div>';
+        '<div style="font-size:12px;color:#bbb;margin-top:8px;">点上方「＋ 发起流程」可发起生产全流程或业务卡片流程</div></div>';
       return;
     }
-
     var html = '';
-    list.forEach(function (f) {
-      html += flowCardHtml(f);
-    });
+    list.forEach(function (f) { html += flowCardHtml(f); });
     listEl.innerHTML = html;
   }
 
   function flowCardHtml(f) {
     var st = STATUS_MAP[f.status] || STATUS_MAP.running;
-    var total = (f.nodes || []).length;
-    var cur = Math.min(f.cur || 0, Math.max(total - 1, 0));
-    var pct = total ? Math.round(((f.status === 'done' ? total : cur) / total) * 100) : 0;
-    var nodeName = (f.nodes && f.nodes[cur]) ? f.nodes[cur] : '—';
+    var total = totalCount(f);
+    var n = curNode(f);
+    var pct = progressPct(f);
     var todo = isMyTodo(f);
-    var late = f.status === 'running' && f.dueDate && Date.now() > f.dueDate;
+    var nodeName = n ? n.name : (f.status === 'done' ? '已办结' : '—');
+    var done = (f.visited || []).length;
+    var icon = f.templateId ? (getTemplate(f.templateId) ? getTemplate(f.templateId).icon : '⚡') : moduleIcon(f.moduleId);
 
     return '<div class="flow-card' + (todo ? ' is-todo' : '') + '" onclick="openFlow(\'' + escAttr(f.id) + '\')">' +
-      '<div class="fc-top">' +
-        '<span class="fc-icon">' + moduleIcon(f.moduleId) + '</span>' +
+      '<div class="fc-top"><span class="fc-icon">' + icon + '</span>' +
         '<span class="fc-title">' + escHtml(f.title) + '</span>' +
-        '<span class="fc-badge ' + st.cls + '">' + st.name + '</span>' +
-      '</div>' +
-      '<div class="fc-mid">' +
-        '<span class="fc-node">当前：' + escHtml(nodeName) + '</span>' +
-        '<span class="fc-step">' + (f.status === 'done' ? total : cur + 1) + '/' + total + '</span>' +
-      '</div>' +
+        '<span class="fc-badge ' + st.cls + '">' + st.name + '</span></div>' +
+      '<div class="fc-mid"><span class="fc-node">当前：' + escHtml(nodeName) + '</span>' +
+        '<span class="fc-step">已走 ' + done + '/' + total + ' 节点</span></div>' +
       '<div class="fc-bar"><i style="width:' + pct + '%"></i></div>' +
       '<div class="fc-bot">' +
-        '<span>' + escHtml(moduleName(f.moduleId)) + '</span>' +
+        '<span>' + escHtml(f.templateId ? '生产全流程' : moduleName(f.moduleId)) + '</span>' +
         '<span>发起：' + escHtml(userLabel(f.initiator)) + '</span>' +
         '<span>' + fmtShort(f.updatedAt || f.createdAt) + '</span>' +
         (todo ? '<span class="fc-todo">待我处理</span>' : '') +
-        (late ? '<span class="fc-late">已超期</span>' : '') +
-      '</div>' +
-    '</div>';
+        (f.priority === 'urgent' ? '<span class="fc-late">紧急</span>' : '') +
+      '</div></div>';
   }
 
-  global.setFlowFilter = function (f) {
-    flowFilter = f;
-    renderFlowsPage();
-  };
+  global.setFlowFilter = function (f) { flowFilter = f; renderFlowsPage(); };
 
   /* ==================== 流程详情 ==================== */
   var curFlowId = null;
@@ -294,9 +487,9 @@
   global.openFlow = function (id) {
     var f = findFlow(id);
     if (!f) { toast('未找到该流程', 'error'); return; }
+    migrate(f);
     curFlowId = id;
-    switchPage('flow', '流程详情');
-    try { currentPage = 'flow'; } catch (e) {}
+    switchFlowPage('flow', '流程详情');
     renderFlowDetail();
   };
 
@@ -304,60 +497,40 @@
     var f = findFlow(curFlowId);
     var headEl = $('flowHead'), tlEl = $('flowTimeline'), actEl = $('flowActions');
     if (!f || !headEl) return;
+    migrate(f);
     var st = STATUS_MAP[f.status] || STATUS_MAP.running;
-    var nodes = f.nodes || [];
-    var cur = f.cur || 0;
-    var can = canHandle(f);
+    var n = curNode(f);
     var u = curUser();
 
     headEl.innerHTML =
       '<div class="fh-title">' + escHtml(f.title) + '</div>' +
       '<div class="fh-meta">' +
         '<span class="fc-badge ' + st.cls + '">' + st.name + '</span>' +
-        '<span>' + escHtml(moduleName(f.moduleId)) + '</span>' +
+        '<span>' + escHtml(f.templateId ? '流程模板' : moduleName(f.moduleId)) + '</span>' +
         '<span>发起人：' + escHtml(userLabel(f.initiator)) + '</span>' +
         '<span>' + fmtTime(f.createdAt) + '</span>' +
         (f.priority === 'urgent' ? '<span class="fc-late">紧急</span>' : '') +
       '</div>' +
       (f.remark ? '<div class="fh-remark">' + escHtml(f.remark) + '</div>' : '') +
-      (f.itemId ? '<div class="fh-link" onclick="jumpToItem()">↗ 查看关联业务卡片</div>' : '');
+      (f.itemId ? '<div class="fh-link" onclick="jumpToItem()">↗ 查看关联业务卡片</div>' : '') +
+      (n && f.status === 'running'
+        ? '<div class="fh-cur"><span class="fh-cur-dot"></span>当前节点：<b>' + escHtml(n.name) + '</b>' +
+          (n.dept ? ' · ' + escHtml(n.dept) : '') + ' · 处理人 ' + escHtml(userLabel(f.assignee)) + '</div>'
+        : '');
 
-    // 时间轴
-    var _showIdx = (f.status === 'done') ? nodes.length : Math.min(cur + 1, nodes.length);
-    var tl = '<div class="ftl-head"><span>流程进度</span><span>' +
-      _showIdx + '/' + nodes.length + ' 环节</span></div>';
-    tl += '<div class="ftl">';
-    nodes.forEach(function (n, i) {
-      var rec = null, recIdx = -1;
-      (f.records || []).forEach(function (r, ri) {
-        if (r.node === n && r.action !== 'comment' && ri > recIdx) { rec = r; recIdx = ri; }
-      });
-      var cls = 'wait', mark = '○';
-      if (f.status === 'done' || i < cur) { cls = 'ok'; mark = '✓'; }
-      else if (i === cur && f.status === 'running') { cls = 'cur'; mark = '●'; }
-      if (i === cur && f.status === 'terminated') { cls = 'stop'; mark = '×'; }
-      var sub = '';
-      if (rec) {
-        sub = '<div class="ftl-sub">' + escHtml(userLabel(rec.actor)) + ' · ' + fmtTime(rec.at) +
-          (rec.opinion ? ' · ' + escHtml(rec.opinion) : '') + '</div>';
-      } else if (i === cur && f.status === 'running') {
-        sub = '<div class="ftl-sub pending">待 ' + escHtml(userLabel(f.assignee)) + ' 处理' + (f.dueDate ? ' · 限 ' + fmtTime(f.dueDate) : '') + '</div>';
-      }
-      tl += '<div class="ftl-item ' + cls + '">' +
-        '<div class="ftl-dot">' + mark + '</div>' +
-        '<div class="ftl-body"><div class="ftl-name">' + (i + 1) + '. ' + escHtml(n) + '</div>' + sub + '</div>' +
-        '</div>';
-    });
-    tl += '</div>';
-
-    // 流转记录
-    if ((f.records || []).length) {
+    // 流程图 + 记录
+    var tl = '<div class="ftl-head"><span>流程路径</span><span>已走 ' + doneCount(f) + '/' + totalCount(f) + ' 节点</span></div>';
+    tl += '<div class="fg-wrap">' + renderGraphTree(f) + '</div>';
+    if ((f.history || []).length) {
       tl += '<div class="frec-head">流转记录</div><div class="frec">';
-      f.records.slice().reverse().forEach(function (r) {
-        var actName = { submit: '发起', approve: '通过', reject: '退回', terminate: '终止', comment: '意见', assign: '指派' }[r.action] || r.action;
+      f.history.slice().reverse().forEach(function (r) {
+        var actName = { submit: '发起', approve: '通过', branch: '选择', review: '评审', reject: '退回', terminate: '终止', comment: '意见', assign: '指派' }[r.action] || r.action;
+        var path = (r.fromName ? '「' + r.fromName + '」' : '') + (r.toName ? ' → 「' + r.toName + '」' : '');
+        var lbl = r.label ? '【' + r.label + '】' : '';
         tl += '<div class="frec-item"><span class="frec-act ' + r.action + '">' + actName + '</span>' +
-          '<span class="frec-txt">' + escHtml(userLabel(r.actor)) + ' 于 ' + fmtTime(r.at) +
-          (r.node ? ' 在「' + escHtml(r.node) + '」' : '') + (r.opinion ? '：' + escHtml(r.opinion) : '') + '</span></div>';
+          '<span class="frec-txt">' + escHtml(userLabel(r.actor)) + ' · ' + fmtTime(r.at) +
+          (path ? ' · ' + escHtml(path) : '') + (lbl ? ' ' + escHtml(lbl) : '') +
+          (r.opinion ? '：' + escHtml(r.opinion) : '') + '</span></div>';
       });
       tl += '</div>';
     }
@@ -368,28 +541,102 @@
       actEl.innerHTML = '<div class="fa-done">该流程已' + st.name + '，无待办操作</div>';
       return;
     }
-    var nextName = nodes[cur + 1] || '（结束）';
+    actEl.innerHTML = renderActions(f, n, u);
+  }
+
+  function userSelectHtml(f, selected) {
     var opts = '';
+    var u = curUser();
+    var sel = selected || f.assignee || u.username;
     activeAccounts().forEach(function (a) {
-      opts += '<option value="' + escAttr(a.username) + '"' + (a.username === (f.assignee || u.username) ? ' selected' : '') + '>' +
+      opts += '<option value="' + escAttr(a.username) + '"' + (a.username === sel ? ' selected' : '') + '>' +
         escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
     });
-    var canAct = can;
-    actEl.innerHTML =
-      '<div class="fa-label">审批意见（可选）</div>' +
-      '<textarea id="flowOpinion" class="fa-input" placeholder="填写处理说明 / 审批意见…" rows="2"></textarea>' +
-      '<div class="fa-row">' +
-        '<div class="fa-col"><div class="fa-label">下一环节处理人</div>' +
-        '<select id="flowNextUser" class="fa-input">' + opts + '</select></div>' +
-        '<div class="fa-col"><div class="fa-label">下一环节</div>' +
-        '<div class="fa-static">' + escHtml(nextName) + '</div></div>' +
-      '</div>' +
+    return '<select id="flowNextUser" class="fa-input">' + opts + '</select>';
+  }
+
+  function renderActions(f, n, u) {
+    if (!n) return '<div class="fa-done">流程节点异常</div>';
+    var can = canHandle(f);
+    var head = '';
+    if (n.note) head += '<div class="fa-note">' + escHtml(n.note) + '</div>';
+
+    var opinionBox =
+      '<div class="fa-label">处理意见（可选）</div>' +
+      '<textarea id="flowOpinion" class="fa-input" placeholder="填写处理说明 / 审批意见…" rows="2"></textarea>';
+
+    var nextBox =
+      '<div class="fa-row"><div class="fa-col"><div class="fa-label">下一节点处理人</div>' +
+      userSelectHtml(f) + '</div>' +
+      '<div class="fa-col"><div class="fa-label">当前节点</div>' +
+      '<div class="fa-static">' + escHtml(n.name) + (n.dept ? ' · ' + escHtml(n.dept) : '') + '</div></div></div>';
+
+    var dis = can ? '' : ' disabled';
+    var tip = can ? '' : '<div class="fa-tip">当前节点处理人为 ' + escHtml(userLabel(f.assignee)) + '，你不是该节点处理人，无法操作（超级管理员可代审）</div>';
+
+    // 评审处理节点
+    if (n.type === 'review') {
+      var ctx = f.reviewCtx || {};
+      return head + opinionBox +
+        '<div class="fa-label" style="margin-top:12px;">评审结论</div>' +
+        '<div class="fa-btns">' +
+          '<button class="btn btn-approve"' + dis + ' onclick="flowReview(\'rework\')">↻ 返工返修</button>' +
+          '<button class="btn btn-concede"' + dis + ' onclick="flowReview(\'concede\')">⇢ 让步接收</button>' +
+          '<button class="btn btn-stop"' + dis + ' onclick="flowReview(\'scrap\')">✕ 报废/退货终止</button>' +
+        '</div>' +
+        '<div class="fa-tip2">返工返修 → 回到「' + escHtml(ctx.backName || '上一检验环节') + '」重检；' +
+        '让步接收 → 继续走合格路径' + (ctx.okName ? '（' + escHtml(ctx.okName) + '）' : '') + '；报废/退货 → 终止流程</div>' +
+        tip;
+    }
+
+    // 分支 / 检验判定 / 可选节点
+    if (n.options && n.options.length) {
+      var btns = '';
+      n.options.forEach(function (o, i) {
+        var cls = 'btn-opt';
+        if (o.skip) cls = 'btn-skip';
+        else if (/不合格|不齐套|批量不合格/.test(o.label)) cls = 'btn-reject';
+        else cls = 'btn-approve';
+        btns += '<button class="btn ' + cls + '"' + dis + ' onclick="flowChoose(' + i + ')">' + escHtml(o.label) + '</button>';
+      });
+      return head + opinionBox +
+        '<div class="fa-label" style="margin-top:12px;">选择走向</div>' +
+        '<div class="fa-btns">' + btns + '</div>' +
+        '<div class="fa-row" style="margin-top:12px;"><div class="fa-col"><div class="fa-label">下一节点处理人</div>' +
+        userSelectHtml(f) + '</div></div>' +
+        '<div class="fa-btns" style="margin-top:10px;"><button class="btn btn-plain"' + dis + ' onclick="flowReject()">↩ 退回上一节点</button></div>' +
+        tip;
+    }
+
+    // 自动节点
+    if (n.type === 'auto') {
+      return head + opinionBox +
+        '<div class="fa-btns"><button class="btn btn-approve"' + dis + ' onclick="flowApprove()">⚙ 执行并流转</button>' +
+        '<button class="btn btn-plain"' + dis + ' onclick="flowReject()">↩ 退回上一节点</button>' +
+        '<button class="btn btn-stop"' + dis + ' onclick="flowTerminate()">✕ 终止</button></div>' +
+        nextBox + tip;
+    }
+
+    // 普通节点
+    var endInfo = '';
+    if (!n.next) endInfo = '<div class="fa-note">该节点为最后节点，通过后流程办结</div>';
+    return head + opinionBox +
       '<div class="fa-btns">' +
-        '<button class="btn btn-approve"' + (canAct ? '' : ' disabled') + ' onclick="flowApprove()">✓ 通过并流转</button>' +
-        '<button class="btn btn-reject"' + (canAct ? '' : ' disabled') + ' onclick="flowReject()">↩ 退回上一环节</button>' +
-        '<button class="btn btn-stop"' + (canAct ? '' : ' disabled') + ' onclick="flowTerminate()">✕ 终止</button>' +
-      '</div>' +
-      (canAct ? '' : '<div class="fa-tip">当前环节处理人为 ' + escHtml(userLabel(f.assignee)) + '，你不是该环节处理人，无法操作</div>');
+        '<button class="btn btn-approve"' + dis + ' onclick="flowApprove()">✓ 通过并流转</button>' +
+        '<button class="btn btn-plain"' + dis + ' onclick="flowReject()">↩ 退回上一节点</button>' +
+        '<button class="btn btn-stop"' + dis + ' onclick="flowTerminate()">✕ 终止</button>' +
+      '</div>' + nextBox + endInfo + tip;
+  }
+
+  function switchFlowPage(pageId, title) {
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    var el = $('page-' + pageId);
+    if (el) el.classList.add('active');
+    var t = $('pageTitle'); if (t) t.textContent = title;
+    var fab = $('fabAdd'); if (fab) fab.style.display = 'none';
+    var sb = $('searchBtn'); if (sb) sb.style.display = 'none';
+    document.querySelectorAll('.sidebar .nav-item').forEach(function (x) { x.classList.remove('active'); });
+    try { window.scrollTo(0, 0); } catch (e) {}
   }
 
   global.jumpToItem = function () {
@@ -398,426 +645,511 @@
     navigateTo('detail', f.moduleId, f.itemId);
   };
 
-  /* ---- 流转动作 ---- */
-  function doAction(action) {
-    var f = findFlow(curFlowId);
-    if (!f || f.status !== 'running') { toast('流程已结束', 'error'); return; }
-    if (!canHandle(f)) { toast('你不是该环节处理人', 'error'); return; }
-    var u = curUser();
-    var opinionEl = $('flowOpinion');
-    var opinion = opinionEl ? opinionEl.value.trim() : '';
-    var nextEl = $('flowNextUser');
-    var nextUser = nextEl ? nextEl.value : '';
-    var nodes = f.nodes || [];
-    var nodeName = nodes[f.cur] || '';
+  /* ==================== 流转动作 ==================== */
+  function pushRec(f, fromNode, toNode, opinion, action, label, actor) {
+    f.history = f.history || [];
+    f.history.push({
+      at: Date.now(), actor: actor || curUser().username, action: action,
+      from: fromNode ? fromNode.id : '', fromName: fromNode ? fromNode.name : '',
+      to: toNode ? toNode.id : '', toName: toNode ? toNode.name : '',
+      label: label || '', opinion: opinion || ''
+    });
+  }
 
-    if (action === 'approve') {
-      if (!opinion && (f.nodes || []).length > 2) {
-        // 中间环节建议填写意见，但不强制
-      }
-      f.records = f.records || [];
-      f.records.push({ node: nodeName, actor: u.username, action: 'approve', opinion: opinion, at: Date.now() });
-      if (f.cur + 1 >= nodes.length) {
-        f.status = 'done';
-        f.assignee = '';
-        f.records.push({ node: '流程结束', actor: u.username, action: 'comment', opinion: '流程已办结', at: Date.now() });
-        syncItemStatus(f, 'done');
-        toast('流程已办结', 'success');
-      } else {
-        f.cur = f.cur + 1;
-        f.assignee = nextUser || u.username;
-        f.records.push({ node: nodes[f.cur], actor: u.username, action: 'assign', opinion: '指派给 ' + userLabel(f.assignee), at: Date.now() });
-        toast('已通过，自动流转至「' + nodes[f.cur] + '」', 'success');
-      }
-    } else if (action === 'reject') {
-      f.records = f.records || [];
-      f.records.push({ node: nodeName, actor: u.username, action: 'reject', opinion: opinion, at: Date.now() });
-      if (f.cur > 0) {
-        f.cur = f.cur - 1;
-        f.assignee = nextUser || f.initiator || u.username;
-        toast('已退回至「' + nodes[f.cur] + '」', 'success');
-      } else {
-        f.assignee = nextUser || f.initiator || u.username;
-        toast('已在首个环节，已退回发起人', 'success');
-      }
-    } else if (action === 'terminate') {
-      f.records = f.records || [];
-      f.records.push({ node: nodeName, actor: u.username, action: 'terminate', opinion: opinion, at: Date.now() });
-      f.status = 'terminated';
-      f.assignee = '';
-      toast('流程已终止', 'success');
+  function okTargetOf(f, node) {
+    if (!node || !node.options) return null;
+    for (var i = 0; i < node.options.length; i++) {
+      var o = node.options[i];
+      if (o.skip) continue;
+      if (/合格|齐套/.test(o.label)) return o.to;
     }
+    return null;
+  }
 
+  function commit(f, fromNode, toId, opinion, nextUser, action, label) {
+    var u = curUser();
+    var toNode = nodeOf(f, toId);
+    f.visited = f.visited || [];
+    if (fromNode && f.visited.indexOf(fromNode.id) < 0) f.visited.push(fromNode.id);
+    pushRec(f, fromNode, toNode, opinion, action, label, u.username);
+
+    if (!toNode) {
+      f.status = 'done';
+      f.curId = '';
+      f.reviewCtx = null;
+      try {
+        if (f.itemId && typeof appData !== 'undefined' && appData[f.moduleId]) {
+          var it = appData[f.moduleId].filter(function (x) { return x.id === f.itemId; })[0];
+          if (it) { it.status = 'done'; it.flowStatus = 'done'; }
+        }
+      } catch (e) {}
+    } else {
+      f.curId = toNode.id;
+      f.assignee = nextUser || f.assignee || u.username;
+      if (toNode.type === 'review') {
+        var ok = okTargetOf(f, fromNode);
+        f.reviewCtx = {
+          back: fromNode ? fromNode.id : '', backName: fromNode ? fromNode.name : '',
+          ok: ok,
+          okName: (ok && nodeOf(f, ok)) ? nodeOf(f, ok).name : ''
+        };
+      } else {
+        f.reviewCtx = null;
+      }
+    }
     f.updatedAt = Date.now();
     saveFlows();
     renderFlowDetail();
-    try { renderSidebar(); } catch (e) {}
+    refreshBadges();
+    toast(toNode ? ('已流转到「' + toNode.name + '」') : '流程已办结');
   }
 
-  global.flowApprove = function () { doAction('approve'); };
-  global.flowReject = function () { doAction('reject'); };
-  global.flowTerminate = function () {
-    if (global.confirm && !global.confirm('确认终止该流程？终止后不能再流转。')) return;
-    doAction('terminate');
+  function guard() {
+    var f = findFlow(curFlowId);
+    if (!f) { toast('未找到该流程', 'error'); return null; }
+    if (f.status !== 'running') { toast('该流程已结束', 'error'); return null; }
+    if (!canHandle(f)) { toast('你不是当前节点处理人，无法操作', 'error'); return null; }
+    return f;
+  }
+
+  function readForm() {
+    return {
+      opinion: ($('flowOpinion') && $('flowOpinion').value) || '',
+      nextUser: ($('flowNextUser') && $('flowNextUser').value) || ''
+    };
+  }
+
+  global.flowApprove = function () {
+    var f = guard(); if (!f) return;
+    var n = curNode(f);
+    if (!n) return;
+    var v = readForm();
+    var to = n.next || null;
+    if (!to && n.options) {
+      for (var i = 0; i < n.options.length; i++) {
+        if (!n.options[i].skip && n.options[i].to !== 'review') { to = n.options[i].to; break; }
+      }
+    }
+    commit(f, n, to, v.opinion, v.nextUser, 'approve', '');
   };
 
-  // 流程办结后同步业务卡片状态
-  function syncItemStatus(f, status) {
-    try {
-      if (!f.itemId || typeof appData === 'undefined') return;
-      var arr = appData[f.moduleId] || [];
-      for (var i = 0; i < arr.length; i++) {
-        if (arr[i].id === f.itemId) {
-          arr[i].status = status;
-          arr[i].flowId = f.id;
-          break;
-        }
-      }
-      saveData();
-    } catch (e) { console.error(e); }
-  }
+  global.flowChoose = function (i) {
+    var f = guard(); if (!f) return;
+    var n = curNode(f);
+    var o = (n.options || [])[i];
+    if (!o) return;
+    var v = readForm();
+    commit(f, n, o.to, v.opinion, v.nextUser, o.skip ? 'comment' : 'branch', o.label);
+  };
 
-  /* ==================== 发起流程弹窗 ==================== */
-  var pendingItem = null;
+  global.flowReview = function (kind) {
+    var f = guard(); if (!f) return;
+    var n = curNode(f);
+    var v = readForm();
+    var ctx = f.reviewCtx || {};
 
-  global.openFlowCreate = function (moduleId, itemId) {
-    var item = null, mId = moduleId;
-    try {
-      if (itemId) {
-        var arr = appData[moduleId] || [];
-        for (var i = 0; i < arr.length; i++) { if (arr[i].id === itemId) { item = arr[i]; break; } }
-      } else {
-        item = (typeof currentItem !== 'undefined') ? currentItem : null;
-        mId = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : moduleId;
-      }
-    } catch (e) {}
-    if (!item) { toast('未找到业务卡片', 'error'); return; }
-    pendingItem = { moduleId: mId, itemId: item.id, item: item };
+    if (kind === 'scrap') {
+      f.visited = f.visited || [];
+      if (f.visited.indexOf(n.id) < 0) f.visited.push(n.id);
+      pushRec(f, n, null, v.opinion, 'terminate', '报废/退货', curUser().username);
+      f.status = 'terminated';
+      f.curId = '';
+      f.reviewCtx = null;
+      f.updatedAt = Date.now();
+      saveFlows(); renderFlowDetail(); refreshBadges();
+      toast('流程已终止（报废/退货）');
+      return;
+    }
+    var to = (kind === 'rework') ? ctx.back : ctx.ok;
+    if (!to) { toast('评审上下文缺失，无法流转', 'error'); return; }
+    commit(f, n, to, v.opinion, v.nextUser, 'review', (kind === 'rework' ? '返工返修' : '让步接收'));
+  };
 
-    var nodes = parseNodes(item, mId);
-    var u = curUser();
-    var opts = '';
-    activeAccounts().forEach(function (a) {
-      opts += '<option value="' + escAttr(a.username) + '"' + (a.username === u.username ? ' selected' : '') + '>' +
-        escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
-    });
+  global.flowReject = function () {
+    var f = guard(); if (!f) return;
+    var n = curNode(f);
+    var v = readForm();
+    var prev = null;
+    var hist = f.history || [];
+    for (var i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].from && hist[i].from !== n.id) { prev = hist[i].from; break; }
+    }
+    if (!prev) { toast('已是第一个节点，无法退回', 'error'); return; }
+    commit(f, n, prev, v.opinion, v.nextUser, 'reject', '退回');
+  };
 
-    var body =
-      '<div class="fm-row"><div class="fm-label">流程名称</div>' +
-      '<input id="fmTitle" class="fm-input" value="' + escAttr(item.name + ' · 流程') + '"></div>' +
-      '<div class="fm-row"><div class="fm-label">关联业务卡片</div>' +
-      '<div class="fm-static">' + moduleIcon(mId) + ' ' + escHtml(moduleName(mId)) + ' / ' + escHtml(item.name) + '</div></div>' +
-      '<div class="fm-row"><div class="fm-label">流程环节<span class="fm-tip">每行一个环节，可自由增删改</span></div>' +
-      '<textarea id="fmNodes" class="fm-input" rows="' + Math.max(4, nodes.length) + '">' + escHtml(nodes.join('\n')) + '</textarea></div>' +
-      '<div class="fm-row fm-2col">' +
-        '<div><div class="fm-label">当前处理人</div><select id="fmAssignee" class="fm-input">' + opts + '</select></div>' +
-        '<div><div class="fm-label">优先级</div><select id="fmPriority" class="fm-input">' +
-          '<option value="normal">普通</option><option value="urgent">紧急</option></select></div>' +
-      '</div>' +
-      '<div class="fm-row"><div class="fm-label">备注（可选）</div>' +
-      '<textarea id="fmRemark" class="fm-input" rows="2" placeholder="补充说明…"></textarea></div>';
+  global.flowTerminate = function () {
+    var f = guard(); if (!f) return;
+    var n = curNode(f);
+    var v = readForm();
+    f.visited = f.visited || [];
+    if (n && f.visited.indexOf(n.id) < 0) f.visited.push(n.id);
+    pushRec(f, n, null, v.opinion, 'terminate', '终止', curUser().username);
+    f.status = 'terminated';
+    f.curId = '';
+    f.reviewCtx = null;
+    f.updatedAt = Date.now();
+    saveFlows(); renderFlowDetail(); refreshBadges();
+    toast('流程已终止');
+  };
 
-    var box = $('flowModalBody');
-    if (box) box.innerHTML = body;
-    var _t = document.querySelector('#flowModal .modal-title');
-    if (_t) _t.textContent = '🚀 发起流程';
-    var _nb = $('flowNextBtn'), _sb = $('flowSubmitBtn');
-    if (_nb) _nb.style.display = 'none';
-    if (_sb) _sb.style.display = '';
+  /* ==================== 发起流程 ==================== */
+  var pending = null;
+
+  function showModal(title) {
+    var t = document.querySelector('#flowModal .modal-title');
+    if (t) t.textContent = title;
     var md = $('flowModal');
     if (md) md.classList.add('show');
-    var t = $('fmTitle');
-    if (t) setTimeout(function () { try { t.focus(); } catch (e) {} }, 60);
-  };
+    var nb = $('flowNextBtn'), sb = $('flowSubmitBtn');
+    if (nb) nb.style.display = 'none';
+    if (sb) sb.style.display = '';
+  }
 
   global.closeFlowModal = function () {
     var md = $('flowModal');
     if (md) md.classList.remove('show');
-    pendingItem = null;
+    pending = null;
   };
 
-  global.submitFlowCreate = function () {
-    if (!pendingItem) { toast('数据已失效，请重新发起', 'error'); return; }
-    var titleEl = $('fmTitle'), nodesEl = $('fmNodes');
-    var title = titleEl ? titleEl.value.trim() : '';
-    if (!title) { toast('请输入流程名称', 'error'); return; }
-    var raw = nodesEl ? nodesEl.value : '';
-    var nodes = raw.split('\n').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
-    if (nodes.length < 2) { toast('流程至少需要 2 个环节', 'error'); return; }
-
-    var u = curUser();
-    var f = {
-      id: uid(),
-      title: title,
-      moduleId: pendingItem.moduleId,
-      itemId: pendingItem.itemId,
-      nodes: nodes,
-      cur: 0,
-      status: 'running',
-      initiator: u.username,
-      assignee: ($('fmAssignee') || {}).value || u.username,
-      priority: ($('fmPriority') || {}).value || 'normal',
-      remark: ($('fmRemark') || {}).value.trim(),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      records: [{ node: nodes[0], actor: u.username, action: 'submit', opinion: ($('fmRemark') || {}).value.trim() || '发起流程', at: Date.now() }]
-    };
-    getFlows().unshift(f);
-
-    // 回写业务卡片
-    try {
-      pendingItem.item.flowId = f.id;
-      if (pendingItem.item.status === 'pending') pendingItem.item.status = 'doing';
-    } catch (e) {}
-    saveFlows();
-    closeFlowModal();
-    toast('流程已发起，当前环节：' + nodes[0], 'success');
-    try { renderSidebar(); } catch (e) {}
-    openFlow(f.id);
-  };
-
-  /* ---- 从流程中心发起：先选业务卡片 ---- */
+  /* ---- 选择器：内置模板 or 业务卡片 ---- */
   global.openFlowPicker = function () {
-    var opts = '', cnt = 0;
+    var opts = '';
+    opts += '<optgroup label="⚡ 内置流程模板">';
+    TEMPLATES.forEach(function (t) {
+      opts += '<option value="tpl|' + escAttr(t.id) + '">' + escHtml(t.icon + ' ' + t.name) + '</option>';
+    });
+    opts += '</optgroup>';
+    var cnt = 0;
     try {
       MODULES.forEach(function (m) {
-        if (m.id === 'knowledge') return;
         var arr = (typeof appData !== 'undefined' && appData[m.id]) || [];
         var items = arr.filter(function (it) { return it && !it.isTemplate && !it.isKnowledge; });
         if (!items.length) return;
-        opts += '<optgroup label="' + escAttr(m.icon + ' ' + m.name) + '">';
+        opts += '<optgroup label="' + escAttr(m.icon + ' ' + m.name) + '（业务卡片）">';
         items.forEach(function (it) {
           cnt++;
-          opts += '<option value="' + escAttr(m.id + '|' + it.id) + '">' + escHtml(it.name) + '</option>';
+          opts += '<option value="card|' + escAttr(m.id + '|' + it.id) + '">' + escHtml(it.name) + '</option>';
         });
         opts += '</optgroup>';
       });
     } catch (e) { console.error(e); }
 
-    var body = '<div class="fm-row"><div class="fm-label">选择要发起流程的业务卡片' +
-      '<span class="fm-tip">共 ' + cnt + ' 张</span></div>' +
-      '<select id="fmPickItem" class="fm-input" size="' + Math.min(12, Math.max(5, cnt)) + '">' + opts + '</select></div>' +
-      '<div class="fm-row" style="font-size:12px;color:#999;line-height:1.7;">' +
-      '选定后进入下一步，可编辑流程环节、指定当前环节处理人。</div>';
-
     var box = $('flowModalBody');
-    if (box) box.innerHTML = body;
-    var t = document.querySelector('#flowModal .modal-title');
-    if (t) t.textContent = '🚀 发起流程';
-    var nb = $('flowNextBtn'), sb2 = $('flowSubmitBtn');
+    if (box) box.innerHTML =
+      '<div class="fm-row"><div class="fm-label">选择流程模板或业务卡片<span class="fm-tip">共 ' + cnt + ' 张业务卡片</span></div>' +
+      '<select id="fmPickItem" class="fm-input" size="' + Math.min(14, Math.max(6, cnt + 1)) + '">' + opts + '</select></div>' +
+      '<div class="fm-hint">「主机生产全流程」是按公司实际业务流程内置的完整流程，含齐套/合格判定与评审回流；' +
+      '选业务卡片则按该卡片的流程步骤生成环节。</div>';
+    showModal('🚀 发起流程');
+    var nb = $('flowNextBtn');
     if (nb) nb.style.display = '';
-    if (sb2) sb2.style.display = 'none';
-    var md = $('flowModal');
-    if (md) md.classList.add('show');
-    pendingItem = null;
+    var sb = $('flowSubmitBtn');
+    if (sb) sb.style.display = 'none';
   };
 
   global.flowPickerNext = function () {
     var el = $('fmPickItem');
     var v = el ? el.value : '';
-    var parts = String(v).split('|');
-    if (parts.length !== 2 || !parts[0]) { toast('请先选择业务卡片', 'error'); return; }
-    openFlowCreate(parts[0], parts[1]);
-  };
-
-  global.toastFlowHelp = function () {
-    var html = '<div style="font-size:13px;line-height:1.9;color:#444;">' +
-      '<p style="margin:0 0 10px;"><b>1. 怎么发起</b><br>在业务卡片详情页点「🚀 发起流程」，或在流程中心点「＋ 发起流程」选一张卡片。</p>' +
-      '<p style="margin:0 0 10px;"><b>2. 环节从哪来</b><br>自动读取该卡片的「流程步骤」拆成环节（如新品立项→需求提出/可行性评估/成本核算…），<b>每行一个，可自由增删改</b>。</p>' +
-      '<p style="margin:0 0 10px;"><b>3. 谁来处理</b><br>发起时指定「当前环节处理人」；每次通过时可指定「下一环节处理人」，默认沿用当前处理人。</p>' +
-      '<p style="margin:0 0 10px;"><b>4. 怎么流转</b><br>「通过并流转」自动进入下一环节；末环节通过即办结；「退回上一环节」用于打回重做；「终止」结束流程。每一步都留痕。</p>' +
-      '<p style="margin:0 0 10px;"><b>5. 去哪看待办</b><br>指派给你的流程会出现在侧边栏「⚡流程中心」角标和首页「流程待办」卡片里。</p>' +
-      '<p style="margin:0;"><b>6. 多人怎么用</b><br>同一台电脑、同一浏览器下，退出后换账号登录，即可看到各自身份的待办并审批（数据存在本机浏览器里）。</p>' +
-      '</div>';
-    var box = $('flowModalBody');
-    if (box) box.innerHTML = html;
-    var t = document.querySelector('#flowModal .modal-title');
-    if (t) t.textContent = '流程中心使用说明';
-    var nb = $('flowNextBtn'), sb2 = $('flowSubmitBtn');
-    if (nb) nb.style.display = 'none';
-    if (sb2) sb2.style.display = 'none';
-    pendingItem = null;
-    var md = $('flowModal');
-    if (md) md.classList.add('show');
-  };
-
-  /* ==================== 详情页集成 ==================== */
-  function flowOfItem(item) {
-    if (!item) return null;
-    var arr = getFlows();
-    for (var i = 0; i < arr.length; i++) {
-      if (arr[i].itemId === item.id) return arr[i];
+    if (!v) { toast('请先选择', 'error'); return; }
+    if (v.indexOf('tpl|') === 0) {
+      openFlowFromTemplate(v.split('|')[1]);
+    } else if (v.indexOf('card|') === 0) {
+      var p = v.split('|');
+      openFlowFromCard(p[1], p[2]);
     }
-    return null;
+  };
+
+  /* ---- 模板发起 ---- */
+  function openFlowFromTemplate(tplId) {
+    var t = getTemplate(tplId);
+    if (!t) { toast('模板不存在', 'error'); return; }
+    var graph = JSON.parse(JSON.stringify(t.graph));
+    pending = { templateId: tplId, title: t.name, graph: graph, moduleId: '', itemId: '' };
+    renderCreateForm('template');
   }
 
-  function appendFlowSection() {
+  /* ---- 卡片发起 ---- */
+  function openFlowFromCard(moduleId, itemId) {
+    var item = null;
     try {
-      if (typeof currentModule === 'undefined' || !currentModule) return;
-      if (typeof currentItem === 'undefined' || !currentItem) return;
-      if (currentItem.isKnowledge) return;
-      if (currentModule.id === 'knowledge') return;
-      var wrap = $('detailSections');
-      if (!wrap) return;
-      if (wrap.querySelector('[data-flow-box="1"]')) return;
-
-      var f = flowOfItem(currentItem);
-      var html = '<div class="detail-section" data-flow-box="1">' +
-        '<div class="section-head"><span class="icon">⚡</span><span class="name">流程处理</span></div>';
-
-      if (f) {
-        var st = STATUS_MAP[f.status] || STATUS_MAP.running;
-        var total = (f.nodes || []).length;
-        var cur = Math.min(f.cur || 0, Math.max(total - 1, 0));
-        var pct = total ? Math.round(((f.status === 'done' ? total : cur) / total) * 100) : 0;
-        html += '<div class="fb-card">' +
-          '<div class="fb-row"><span class="fb-title">' + escHtml(f.title) + '</span>' +
-          '<span class="fc-badge ' + st.cls + '">' + st.name + '</span></div>' +
-          '<div class="fb-node">当前环节：' + escHtml((f.nodes || [])[cur] || '—') +
-          '（' + (f.status === 'done' ? total : cur + 1) + '/' + total + '）</div>' +
-          '<div class="fc-bar"><i style="width:' + pct + '%"></i></div>' +
-          '<div class="fb-btns">' +
-            '<button class="btn-sm primary" onclick="openFlow(\'' + escAttr(f.id) + '\')">查看流程</button>' +
-            (isMyTodo(f) ? '<button class="btn-sm warn" onclick="openFlow(\'' + escAttr(f.id) + '\')">去处理（待我）</button>' : '') +
-          '</div></div>';
-      } else {
-        html += '<div class="fb-empty">该卡片还没有流程' +
-          '<button class="btn-sm primary" onclick="openFlowCreate(\'' + escAttr(currentModule.id) + '\',\'' + escAttr(currentItem.id) + '\')">🚀 发起流程</button></div>';
-      }
-      html += '</div>';
-      wrap.insertAdjacentHTML('beforeend', html);
-    } catch (e) { console.error('渲染流程区块失败:', e); }
+      item = (appData[moduleId] || []).filter(function (x) { return x.id === itemId; })[0];
+    } catch (e) {}
+    if (!item) { toast('业务卡片不存在', 'error'); return; }
+    var names = parseNodes(item, moduleId);
+    pending = { templateId: '', title: item.name + ' · 流程', graph: linearGraph(names),
+      moduleId: moduleId, itemId: itemId, itemName: item.name };
+    renderCreateForm('card');
   }
 
-  /* ==================== 侧边栏入口 ==================== */
-  function injectFlowEntry() {
-    try {
-      var nav = $('sidebarNav');
-      if (!nav) return;
-      if (nav.querySelector('[data-flow-entry="1"]')) {
-        var badge = nav.querySelector('[data-flow-entry="1"] .nav-badge');
-        var n = countTodo();
-        if (badge) { badge.textContent = n; badge.style.display = n ? '' : 'none'; }
-        return;
-      }
-      var anchor = nav.querySelector('.nav-section');
-      var n2 = countTodo();
-      var div = document.createElement('div');
-      div.setAttribute('data-flow-entry', '1');
-      div.className = 'nav-item';
-      div.setAttribute('onclick', "navigateTo('flows'); toggleSidebar()");
-      div.innerHTML = '<span class="nav-icon">⚡</span><span class="nav-text">流程中心</span>' +
-        '<span class="nav-badge nav-badge-warn" style="' + (n2 ? '' : 'display:none') + '">' + n2 + '</span>';
-      var sec = document.createElement('div');
-      sec.className = 'nav-section';
-      sec.textContent = '流程与审批';
-      if (anchor && anchor.parentNode) {
-        anchor.parentNode.insertBefore(sec, anchor);
-        anchor.parentNode.insertBefore(div, anchor);
-      } else {
-        nav.insertBefore(div, nav.firstChild);
-      }
-    } catch (e) { console.error(e); }
+  global.openFlowCreate = function (moduleId, itemId) {
+    if (moduleId && itemId) { openFlowFromCard(moduleId, itemId); return; }
+    var item = null, mid = '';
+    try { item = (typeof currentItem !== 'undefined') ? currentItem : null; } catch (e) {}
+    try { mid = (typeof currentModule !== 'undefined') ? currentModule : ''; } catch (e) {}
+    if (item && item.id && mid) { openFlowFromCard(mid, item.id); return; }
+    global.openFlowPicker();
+  };
+
+  function assigneeOptions() {
+    var opts = '', u = curUser();
+    activeAccounts().forEach(function (a) {
+      opts += '<option value="' + escAttr(a.username) + '"' + (a.username === u.username ? ' selected' : '') + '>' +
+        escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
+    });
+    return opts;
   }
 
-  /* ==================== 首页待办入口 ==================== */
-  function injectHomeTodo() {
-    try {
-      var box = $('homeStats');
-      if (!box) return;
-      if (box.querySelector('[data-flow-stat="1"]')) {
-        var num = box.querySelector('[data-flow-stat="1"] .stat-num');
-        if (num) num.textContent = countTodo();
-        return;
-      }
-      var n = countTodo();
-      var div = document.createElement('div');
-      div.className = 'stat-card';
-      div.setAttribute('data-flow-stat', '1');
-      div.setAttribute('onclick', "navigateTo('flows')");
-      div.innerHTML = '<div class="stat-num ' + (n ? 'warn' : '') + '">' + n + '</div><div class="stat-label">流程待办</div>';
-      box.appendChild(div);
-    } catch (e) { console.error(e); }
-  }
-
-  /* ==================== 函数包装 ==================== */
-  function patchFunctions() {
-    var _nav = global.navigateTo;
-    if (typeof _nav === 'function' && !_nav.__flowPatched) {
-      var newNav = function (page, moduleId, itemId) {
-        if (page === 'flows') {
-          switchPage('flows', '流程中心');
-          try { currentPage = 'flows'; } catch (e) {}
-          renderFlowsPage();
-          return;
+  function renderCreateForm(mode) {
+    if (!pending) return;
+    var isTpl = mode === 'template';
+    var g = pending.graph;
+    var nodeRows = '';
+    if (isTpl) {
+      var ids = Object.keys(g.nodes), _ni = 0;
+      nodeRows = '<div class="fe-list">';
+      ids.forEach(function (id) {
+        var n = g.nodes[id];
+        nodeRows += '<div class="fe-row"><span class="fe-idx">' + (++_ni) + '</span>' +
+          '<input class="fe-input fe-name" data-id="' + escAttr(id) + '" value="' + escHtml(n.name) + '">' +
+          '<input class="fe-input fe-dept" data-id="' + escAttr(id) + '" value="' + escHtml(n.dept || '') + '" placeholder="负责部门">' +
+          '</div>';
+        if (n.options && n.options.length) {
+          nodeRows += '<div class="fe-branch">' + n.options.map(function (o) {
+            return '<span>' + escHtml(o.label) + ' → ' + escHtml((g.nodes[o.to] || {}).name || '') + '</span>';
+          }).join('') + '</div>';
         }
-        return _nav.apply(this, arguments);
-      };
-      newNav.__flowPatched = true;
-      global.navigateTo = newNav;
+      });
+      nodeRows += '</div>';
     }
 
-    var _side = global.renderSidebar;
-    if (typeof _side === 'function' && !_side.__flowPatched) {
-      var newSide = function () {
-        _side.apply(this, arguments);
-        try { injectFlowEntry(); } catch (e) { console.error(e); }
-      };
-      newSide.__flowPatched = true;
-      global.renderSidebar = newSide;
-    }
-
-    var _home = global.renderHome;
-    if (typeof _home === 'function' && !_home.__flowPatched) {
-      var newHome = function () {
-        _home.apply(this, arguments);
-        try { injectHomeTodo(); } catch (e) { console.error(e); }
-      };
-      newHome.__flowPatched = true;
-      global.renderHome = newHome;
-    }
-
-    var _detail = global.renderDetail;
-    if (typeof _detail === 'function' && !_detail.__flowPatched) {
-      var newDetail = function () {
-        _detail.apply(this, arguments);
-        try { appendFlowSection(); } catch (e) { console.error(e); }
-      };
-      newDetail.__flowPatched = true;
-      global.renderDetail = newDetail;
-    }
+    var box = $('flowModalBody');
+    if (box) box.innerHTML =
+      '<div class="fm-row"><div class="fm-label">流程名称</div>' +
+        '<input id="fmTitle" class="fm-input" value="' + escHtml(pending.title) + '"></div>' +
+      (pending.itemName ? '<div class="fm-row"><div class="fm-label">关联业务卡片</div><div class="fm-static">' + escHtml(pending.itemName) + '</div></div>' : '') +
+      '<div class="fm-row"><div class="fm-label">当前节点处理人</div>' +
+        '<select id="fmAssignee" class="fm-input">' + assigneeOptions() + '</select></div>' +
+      '<div class="fm-row"><div class="fm-label">备注（可选）</div>' +
+        '<textarea id="fmRemark" class="fm-input" rows="2" placeholder="如订单号、机型、批量…"></textarea></div>' +
+      (isTpl
+        ? '<div class="fm-row"><div class="fm-label">流程节点<span class="fm-tip">名称与负责部门可直接修改，分支走向固定</span></div>' + nodeRows + '</div>'
+        : '<div class="fm-row"><div class="fm-label">流程环节<span class="fm-tip">每行一个，可自由增删改</span></div>' +
+          '<textarea id="fmNodes" class="fm-input" rows="6">' +
+          mainChain({ graph: g }).map(function (n) { return escHtml(n.name); }).join('\n') + '</textarea></div>');
+    showModal('🚀 ' + (isTpl ? '发起生产全流程' : '发起流程'));
   }
 
-  function switchPage(pageId, title) {
-    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
-    var el = $('page-' + pageId);
-    if (el) el.classList.add('active');
-    var t = $('pageTitle'); if (t) t.textContent = title;
-    var fab = $('fabAdd'); if (fab) fab.style.display = 'none';
-    var sb = $('searchBtn'); if (sb) sb.style.display = 'none';
-    document.querySelectorAll('.sidebar .nav-item').forEach(function (n) { n.classList.remove('active'); });
-    try { window.scrollTo(0, 0); } catch (e) {}
+  global.submitFlowCreate = function () {
+    if (!pending) return;
+    var title = ($('fmTitle') && $('fmTitle').value || '').trim() || pending.title;
+    var assignee = ($('fmAssignee') && $('fmAssignee').value) || curUser().username;
+    var remark = ($('fmRemark') && $('fmRemark').value || '').trim();
+    var g = pending.graph;
+
+    if (pending.templateId) {
+      var nameEls = document.querySelectorAll('#flowModalBody .fe-name');
+      var deptEls = document.querySelectorAll('#flowModalBody .fe-dept');
+      Array.prototype.forEach.call(nameEls, function (el) {
+        var id = el.getAttribute('data-id');
+        if (g.nodes[id] && el.value.trim()) g.nodes[id].name = el.value.trim();
+      });
+      Array.prototype.forEach.call(deptEls, function (el) {
+        var id = el.getAttribute('data-id');
+        if (g.nodes[id]) g.nodes[id].dept = el.value.trim();
+      });
+    } else {
+      var ta = $('fmNodes');
+      var lines = (ta && ta.value || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (!lines.length) { toast('至少保留一个环节', 'error'); return; }
+      g = linearGraph(lines);
+    }
+
+    var u = curUser();
+    var now = Date.now();
+    var f = {
+      id: uid(),
+      title: title,
+      templateId: pending.templateId || '',
+      moduleId: pending.moduleId || '',
+      itemId: pending.itemId || '',
+      graph: g,
+      curId: g.start,
+      assignee: assignee,
+      initiator: u.username,
+      status: 'running',
+      priority: '',
+      remark: remark,
+      visited: [],
+      history: [],
+      reviewCtx: null,
+      createdAt: now,
+      updatedAt: now
+    };
+    var startNode = g.nodes[g.start];
+    pushRec(f, null, startNode, remark, 'submit', '发起', u.username);
+
+    var _pid = pending.itemId || '';
+    getFlows().push(f);
+    saveFlows();
+    global.closeFlowModal();
+    refreshBadges();
+    if ($('page-flows') && $('page-flows').classList.contains('active')) renderFlowsPage();
+    var _cur = null;
+    try { _cur = (typeof currentItem !== 'undefined') ? currentItem : null; } catch (e) {}
+    if (_cur && _pid && _cur.id === _pid) { renderFlowBoxInDetail(); }
+    openFlow(f.id);
+    toast('流程已发起');
+  };
+
+  /* ==================== 卡片详情页集成 ==================== */
+  function flowsOfItem(moduleId, itemId) {
+    return getFlows().filter(function (f) { return f.moduleId === moduleId && f.itemId === itemId; })
+      .sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+  }
+
+  function renderFlowBoxInDetail() {
+    var box = document.querySelector('[data-flow-box="1"]');
+    if (!box) return;
+    var item = null;
+    try { item = (typeof currentItem !== 'undefined') ? currentItem : null; } catch (e) {}
+    if (!item) return;
+    var mid = (typeof currentModule !== 'undefined') ? currentModule : '';
+    var list = flowsOfItem(mid, item.id);
+    var h = '<div class="fbox-head">⚡ 流程处理</div>';
+    if (!list.length) {
+      h += '<div class="fbox-empty">该卡片还没有流程</div>' +
+        '<div class="fbox-btn" onclick="openFlowCreate(\'' + escAttr(mid) + '\',\'' + escAttr(item.id) + '\')">🚀 发起流程</div>';
+    } else {
+      list.forEach(function (f) {
+        var st = STATUS_MAP[f.status] || STATUS_MAP.running;
+        var n = curNode(f);
+        h += '<div class="fbox-item" onclick="openFlow(\'' + escAttr(f.id) + '\')">' +
+          '<div class="fbox-t">' + escHtml(f.title) + '<span class="fc-badge ' + st.cls + '">' + st.name + '</span></div>' +
+          '<div class="fbox-s">当前：' + escHtml(n ? n.name : '—') + ' · ' + escHtml(userLabel(f.assignee)) + ' · ' + fmtShort(f.updatedAt) + '</div>' +
+          '</div>';
+      });
+      h += '<div class="fbox-btn ghost" onclick="openFlowCreate(\'' + escAttr(mid) + '\',\'' + escAttr(item.id) + '\')">🚀 再发起一条流程</div>';
+    }
+    box.innerHTML = h;
+  }
+
+  /* ==================== 角标 / 首页 ==================== */
+  function refreshBadges() {
+    var n = countTodo();
+    try {
+      document.querySelectorAll('#sidebarNav .nav-item').forEach(function (el) {
+        if (el.textContent.indexOf('流程中心') < 0) return;
+        var b = el.querySelector('.nav-badge');
+        if (n > 0) {
+          if (!b) { b = document.createElement('span'); b.className = 'nav-badge nav-badge-warn'; el.appendChild(b); }
+          b.textContent = n;
+          b.style.display = '';
+        } else if (b) { b.style.display = 'none'; }
+      });
+    } catch (e) {}
+    try {
+      var hs = $('homeStats');
+      if (hs) {
+        var c = $('homeFlowStat');
+        if (!c) {
+          c = document.createElement('div');
+          c.id = 'homeFlowStat';
+          c.className = 'stat-card';
+          hs.appendChild(c);
+        }
+        c.setAttribute('onclick', "navigateTo('flows')");
+        c.innerHTML = '<div class="stat-num warn">' + n + '</div><div class="stat-label">流程待办</div>';
+      }
+    } catch (e) {}
   }
 
   /* ==================== 启动 ==================== */
   function boot() {
-    patchFunctions();
-    try { renderSidebar(); } catch (e) {}
-    try { if (typeof currentPage !== 'undefined' && currentPage === 'home') renderHome(); } catch (e) {}
-    console.log('[FLOW] 流程引擎加载完成，待办 ' + countTodo() + ' 项');
-  }
+    try { migrateAll(); } catch (e) {}
 
-  global.glsFlow = {
-    countTodo: countTodo,
-    getFlows: getFlows,
-    parseNodes: parseNodes,
-    openFlow: function (id) { global.openFlow(id); }
-  };
+    // 侧边栏入口
+    var _rs = global.renderSidebar;
+    if (typeof _rs === 'function') {
+      global.renderSidebar = function () {
+        var r = _rs.apply(this, arguments);
+        try {
+          var nav = $('sidebarNav');
+          if (nav && nav.innerHTML.indexOf('流程中心') < 0) {
+            var n = countTodo();
+            var html = '<div class="nav-section">流程协作</div>' +
+              '<div class="nav-item" onclick="navigateTo(\'flows\'); toggleSidebar()">' +
+              '<span class="nav-icon">⚡</span><span class="nav-text">流程中心</span>' +
+              (n > 0 ? '<span class="nav-badge nav-badge-warn">' + n + '</span>' : '') + '</div>';
+            var secs = nav.querySelectorAll('.nav-section');
+            var done = false;
+            for (var i = 0; i < secs.length; i++) {
+              if (secs[i].textContent.indexOf('数据分析') >= 0) { secs[i].insertAdjacentHTML('beforebegin', html); done = true; break; }
+            }
+            if (!done) nav.insertAdjacentHTML('beforeend', html);
+          }
+        } catch (e) {}
+        return r;
+      };
+    }
+
+    // 导航到流程中心
+    var _nav = global.navigateTo;
+    if (typeof _nav === 'function') {
+      global.navigateTo = function (page) {
+        var r = _nav.apply(this, arguments);
+        try { if (page === 'flows') { renderFlowsPage(); refreshBadges(); } } catch (e) {}
+        return r;
+      };
+    }
+
+    // 首页统计补流程待办
+    var _rh = global.renderHome;
+    if (typeof _rh === 'function') {
+      global.renderHome = function () {
+        var r = _rh.apply(this, arguments);
+        try { refreshBadges(); } catch (e) {}
+        return r;
+      };
+    }
+
+    // 卡片详情页注入流程区块
+    var _rd = global.renderDetail;
+    if (typeof _rd === 'function') {
+      global.renderDetail = function () {
+        var r = _rd.apply(this, arguments);
+        try {
+          var pg = $('page-detail');
+          if (pg && pg.classList.contains('active') && !document.querySelector('[data-flow-box="1"]')) {
+            var box = document.createElement('div');
+            box.className = 'fbox';
+            box.setAttribute('data-flow-box', '1');
+            pg.appendChild(box);
+          }
+          renderFlowBoxInDetail();
+        } catch (e) { console.error(e); }
+        return r;
+      };
+    }
+
+    setTimeout(function () {
+      try { if (typeof renderSidebar === 'function') renderSidebar(); } catch (e) {}
+      try { if ($('page-flows') && $('page-flows').classList.contains('active')) renderFlowsPage(); } catch (e) {}
+      refreshBadges();
+    }, 600);
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
     boot();
   }
+
+  // 供外部调用
+  global.glsFlow = {
+    getFlows: getFlows, findFlow: findFlow, countTodo: countTodo,
+    openFlow: global.openFlow, parseNodes: parseNodes, renderFlowsPage: renderFlowsPage,
+    TEMPLATES: TEMPLATES, renderFlowBoxInDetail: renderFlowBoxInDetail
+  };
 
 })(window);
