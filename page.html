@@ -244,6 +244,109 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .pick-group { font-size: 11px; color: #999; padding: 6px 8px 2px; }
 .pick-empty { font-size: 12px; color: #bbb; padding: 10px; text-align: center; }
 .pick-count { font-size: 11px; color: #2d7a4f; }
+
+/* ==================== 流程引擎 ==================== */
+.flow-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.fstat { background: #fff; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; border: 1px solid #eee; }
+.fstat.on { border-color: #2d7a4f; background: #f5fbf7; }
+.fstat-num { font-size: 20px; font-weight: 700; color: #333; line-height: 1.2; }
+.fstat-num.warn { color: #fa8c16; }
+.fstat-num.blue { color: #1890ff; }
+.fstat-num.ok { color: #2d7a4f; }
+.fstat-lb { font-size: 11px; color: #888; margin-top: 3px; }
+
+.flow-card { background: #fff; border-radius: 12px; padding: 12px 13px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); cursor: pointer; border-left: 3px solid transparent; }
+.flow-card.is-todo { border-left-color: #fa8c16; }
+.fc-top { display: flex; align-items: center; gap: 6px; }
+.fc-icon { font-size: 15px; }
+.fc-title { font-size: 14px; font-weight: 600; color: #333; flex: 1; line-height: 1.4; }
+.fc-badge { font-size: 11px; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+.fc-badge.run { background: #e6f7ff; color: #1890ff; }
+.fc-badge.ok { background: #e6f7ee; color: #2d7a4f; }
+.fc-badge.stop { background: #f5f5f5; color: #999; }
+.fc-mid { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin: 9px 0 6px; }
+.fc-node { color: #2d7a4f; font-weight: 500; }
+.fc-step { color: #999; }
+.fc-bar { height: 5px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+.fc-bar i { display: block; height: 100%; background: linear-gradient(90deg,#3a9d68,#2d7a4f); border-radius: 3px; }
+.fc-bot { display: flex; gap: 10px; align-items: center; font-size: 11px; color: #999; margin-top: 9px; flex-wrap: wrap; }
+.fc-todo { background: #fff7e6; color: #fa8c16; padding: 2px 7px; border-radius: 6px; }
+.fc-late { background: #fff1f0; color: #ff4d4f; padding: 2px 7px; border-radius: 6px; }
+
+.flow-head { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.fh-title { font-size: 17px; font-weight: 700; color: #222; margin-bottom: 9px; line-height: 1.4; }
+.fh-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 12px; color: #888; }
+.fh-remark { margin-top: 10px; font-size: 13px; color: #555; background: #fafafa; padding: 8px 10px; border-radius: 8px; line-height: 1.6; }
+.fh-link { margin-top: 10px; font-size: 12px; color: #1890ff; cursor: pointer; display: inline-block; }
+
+.flow-timeline { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.ftl-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 14px; }
+.ftl-head span:last-child { color: #999; font-weight: 400; font-size: 12px; }
+.ftl-item { display: flex; gap: 10px; padding-bottom: 15px; position: relative; }
+.ftl-item:not(:last-child)::before { content: ''; position: absolute; left: 10px; top: 24px; bottom: 0; width: 2px; background: #eee; }
+.ftl-item.ok:not(:last-child)::before { background: #b7e4c9; }
+.ftl-dot { width: 22px; height: 22px; border-radius: 50%; background: #f0f0f0; color: #bbb; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; z-index: 1; }
+.ftl-item.ok .ftl-dot { background: #e6f7ee; color: #2d7a4f; }
+.ftl-item.cur .ftl-dot { background: #2d7a4f; color: #fff; box-shadow: 0 0 0 4px rgba(45,122,79,0.15); }
+.ftl-item.stop .ftl-dot { background: #fff1f0; color: #ff4d4f; }
+.ftl-body { flex: 1; padding-top: 1px; min-width: 0; }
+.ftl-name { font-size: 13px; color: #333; font-weight: 500; line-height: 1.4; }
+.ftl-item.wait .ftl-name { color: #aaa; font-weight: 400; }
+.ftl-sub { font-size: 11px; color: #999; margin-top: 3px; line-height: 1.5; }
+.ftl-sub.pending { color: #fa8c16; }
+
+.frec-head { font-size: 13px; font-weight: 600; color: #333; margin: 4px 0 8px; padding-top: 12px; border-top: 1px solid #f5f5f5; }
+.frec-item { display: flex; gap: 8px; font-size: 12px; color: #666; padding: 7px 0; border-top: 1px solid #fafafa; }
+.frec-act { flex-shrink: 0; padding: 1px 7px; border-radius: 6px; font-size: 11px; line-height: 17px; background: #f5f5f5; color: #888; }
+.frec-act.approve { background: #e6f7ee; color: #2d7a4f; }
+.frec-act.reject { background: #fff7e6; color: #fa8c16; }
+.frec-act.terminate { background: #fff1f0; color: #ff4d4f; }
+.frec-act.submit { background: #e6f7ff; color: #1890ff; }
+.frec-act.assign { background: #f9f0ff; color: #722ed1; }
+.frec-txt { flex: 1; line-height: 1.6; min-width: 0; }
+
+.flow-actions { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 24px; }
+.fa-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+.fa-input { width: 100%; border: 1px solid #e8e8e8; border-radius: 8px; padding: 9px 10px; font-size: 13px; font-family: inherit; box-sizing: border-box; outline: none; background: #fff; }
+.fa-input:focus { border-color: #2d7a4f; }
+.fa-row { display: flex; gap: 10px; margin-top: 10px; align-items: flex-start; }
+.fa-col { flex: 1; min-width: 0; }
+.fa-static { font-size: 13px; color: #333; padding: 9px 10px; background: #f7f9f8; border-radius: 8px; }
+.fa-btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.fa-btns .btn { flex: 1; min-width: 108px; padding: 11px; border-radius: 10px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-approve { background: linear-gradient(135deg,#2d7a4f,#3a9d68); color: #fff; }
+.btn-reject { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591 !important; }
+.btn-stop { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7 !important; }
+.fa-btns .btn:disabled { opacity: .45; cursor: not-allowed; }
+.fa-tip { font-size: 12px; color: #fa8c16; margin-top: 10px; line-height: 1.6; }
+.fa-done { font-size: 13px; color: #888; text-align: center; padding: 10px; }
+
+.fb-card .fb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.fb-title { font-size: 14px; font-weight: 600; color: #333; line-height: 1.4; }
+.fb-node { font-size: 12px; color: #666; margin-bottom: 8px; }
+.fb-btns { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
+.btn-sm { padding: 7px 14px; border-radius: 8px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-sm.primary { background: #e6f7ee; color: #2d7a4f; }
+.btn-sm.warn { background: #fff7e6; color: #fa8c16; }
+.fb-empty { font-size: 13px; color: #999; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+.fm-row { margin-bottom: 12px; }
+.fm-2col { display: flex; gap: 10px; }
+.fm-2col > div { flex: 1; min-width: 0; }
+.fm-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+.fm-tip { color: #bbb; margin-left: 6px; font-size: 11px; }
+.fm-input { width: 100%; border: 1px solid #e8e8e8; border-radius: 8px; padding: 9px 10px; font-size: 13px; font-family: inherit; box-sizing: border-box; outline: none; background: #fff; }
+.fm-input:focus { border-color: #2d7a4f; }
+.fm-static { font-size: 13px; color: #333; padding: 9px 10px; background: #f7f9f8; border-radius: 8px; }
+
+.nav-badge-warn { background: #fa8c16 !important; }
+
+@media (max-width: 640px) {
+  .flow-stats { grid-template-columns: repeat(2, 1fr); }
+  .fa-row { flex-direction: column; }
+  .fm-2col { flex-direction: column; }
+  .fa-btns .btn { min-width: 100%; }
+}
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -358,6 +461,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
     <div class="filter-tabs" id="tplFilters"></div>
     <div id="tplListContainer"></div>
   </div>
+
+  <!-- 流程中心页 -->
+  <div class="page" id="page-flows">
+    <div class="tpl-toolbar">
+      <div class="tpl-btn" onclick="openFlowPicker()">＋ 发起流程</div>
+      <div class="tpl-btn" onclick="toastFlowHelp()">? 使用说明</div>
+    </div>
+    <div class="flow-stats" id="flowStats"></div>
+    <div class="filter-tabs" id="flowTabs"></div>
+    <div id="flowList"></div>
+  </div>
+
+  <!-- 流程详情页 -->
+  <div class="page" id="page-flow">
+    <div class="flow-head" id="flowHead"></div>
+    <div class="flow-timeline" id="flowTimeline"></div>
+    <div class="flow-actions" id="flowActions"></div>
+  </div>
 </div>
 
 <!-- 浮动添加按钮 -->
@@ -388,6 +509,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
     <div class="modal-body" id="previewBody"></div>
     <div class="modal-footer" id="previewFooter">
       <button class="btn btn-cancel" onclick="closePreview()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 发起流程模态框 -->
+<div class="modal-overlay" id="flowModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">🚀 发起流程</div>
+      <div class="modal-close" onclick="closeFlowModal()">✕</div>
+    </div>
+    <div class="modal-body" id="flowModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeFlowModal()">取消</button>
+      <button class="btn btn-save" id="flowNextBtn" style="display:none" onclick="flowPickerNext()">下一步</button>
+      <button class="btn btn-save" id="flowSubmitBtn" onclick="submitFlowCreate()">发起并流转</button>
     </div>
   </div>
 </div>
@@ -1838,5 +1975,6 @@ window.onerror = function(msg, url, line, col, error) {
 init();
 </script>
 <script src="gls-erp.js?v=3"></script>
+<script src="gls-flow.js?v=1"></script>
 </body>
 </html>
