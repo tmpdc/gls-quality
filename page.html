@@ -614,6 +614,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .bkp-sel{border:1px solid #cfd8e3;border-radius:8px;padding:8px 10px;font-size:13px;color:#2c3e50;background:#fff}
 .bkp-tip{color:#9aa7b4;font-size:12px;margin-top:12px;line-height:1.7;background:#f7fafc;border-radius:8px;padding:10px 12px}
 @media (max-width:720px){.bkp-actions-r{justify-content:flex-start;flex-wrap:wrap}.bkp-actions{flex-direction:column;align-items:stretch}}
+
+/* ===== 报表中心图表 ===== */
+.rp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:16px}
+.rp-card{background:#fff;border:1px solid #e8eef5;border-radius:12px;padding:12px 14px}
+.rp-card-t{font-weight:600;color:#2c3e50;margin-bottom:8px;font-size:14px}
+.rp-chart{width:100%}
+@media (max-width:720px){.rp-grid{grid-template-columns:1fr}}
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -2343,13 +2350,14 @@ init();
 </script>
 <script src="gls-erp.js?v=3"></script>
 <script src="gls-flow.js?v=3"></script>
-<script src="gls-erp-core.js?v=3"></script>
+<script src="gls-erp-core.js?v=4"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="gls-inspect.js?v=2"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
-  <script src="gls-bizflow.js?v=1"></script>
+  <script src="gls-bizflow.js?v=2"></script>
   <script src="gls-backup.js?v=1"></script>
 </body>
 </html>
