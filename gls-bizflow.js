@@ -26,14 +26,11 @@
     { id: 'DONE',    name: '销售完成',            dept: '销售部', ent: null,       icon: '🎯', action: null,          next: null }
   ];
   var FLOW_AFTER = [
-    { id: 'RTN',       name: '销售退货·售后库存生成',   dept: '销售部', ent: 'soReturn', icon: '↩️', action: 'genRtn',    next: 'ANALY' },
-    { id: 'ANALY',     name: '品质部售后分析',          dept: '品质部', ent: 'afterSale', icon: '📊', action: 'genAnaly', next: 'RNV' },
-    { id: 'RNV',       name: '售后翻新工单',            dept: '生产部', ent: 'renovate',  icon: '🛠️', action: 'genRnv',   next: 'RNV_PICK' },
-    { id: 'RNV_PICK',  name: '生产补料·售后翻新',       dept: '生产部', ent: 'moPick',   icon: '🧺', action: 'genRnvPick', next: 'RNV_FIRST' },
-    { id: 'RNV_FIRST', name: '首件检验·售后翻新',       dept: '品质部', ent: null,       icon: '✅', branch: { pass: 'RNV_PATROL', fail: 'MRB' }, next: 'RNV_PATROL' },
-    { id: 'RNV_PATROL',name: '巡检·售后翻新',          dept: '品质部', ent: null,       icon: '🔍', branch: { pass: 'RNV_OQC', fail: 'MRB' }, next: 'RNV_OQC' },
-    { id: 'RNV_OQC',   name: '成品检验·售后翻新',       dept: '品质部', ent: null,       icon: '🧪', branch: { pass: 'RNV_IN', fail: 'MRB' }, next: 'RNV_IN' },
-    { id: 'RNV_IN',    name: '完工入库·售后翻新·生成成品库存', dept: '仓储部', ent: 'moIn', icon: '🏬', action: 'genRnvIn', next: null }
+    { id: 'RTN',    name: '销售退货·售后库存生成',      dept: '销售部', ent: 'soReturn', icon: '↩️', action: 'genRtn',    next: 'ANALY' },
+    { id: 'ANALY',  name: '品质部售后分析',             dept: '品质部', ent: 'afterSale', icon: '📊', action: 'genAnaly', next: 'RNV' },
+    { id: 'RNV',    name: '售后翻新工单·自动补料',      dept: '生产部', ent: 'renovate',  icon: '🛠️', action: 'genRnv',   next: 'RNV_QC' },
+    { id: 'RNV_QC', name: '翻新检验',                   dept: '品质部', ent: null,        icon: '✅', branch: { pass: 'RNV_IN', fail: 'MRB' }, next: 'RNV_IN' },
+    { id: 'RNV_IN', name: '完工入库·售后翻新·生成成品库存', dept: '仓储部', ent: 'moIn', icon: '🏬', action: 'genRnvIn', next: null }
   ];
   /* 不合格评审（MRB）结论（可视化修改口子） */
   var MRB_OPTIONS = ['退货', '挑选使用', '特采接收', '返工返修', '报废', '重新检验'];
@@ -451,21 +448,16 @@
       return;
     }
     if (act === 'genRnv') {
-      /* 售后翻新工单 */
+      /* 售后翻新工单 + 自动补料（领料出库，复用原模块） */
       var rnv = { id: uid('r'), code: erpCode('renovate'), rtnCode: f.srcCode, product: f.product, qty: f.planQty, status: '翻新中', owner: by, startDate: today(), flowId: f.id };
       var d11 = erpData(); if (!d11.renovate) d11.renovate = [];
-      d11.renovate.push(rnv); erpSave();
-      f.log.push(today() + ' ' + nowTime() + ' 售后翻新工单 ' + rnv.code + ' 已下达');
-      return;
-    }
-    if (act === 'genRnvPick') {
-      /* 翻新补料：库存扣减 */
+      d11.renovate.push(rnv);
       var out3 = { id: uid('r'), code: erpCode('stockOut'), type: '翻新领料', date: today(), status: '已出库', flowId: f.id, items: [] };
       var need3 = bomNeed(f.product, f.planQty);
       out3.items = need3.map(function (it) { return { code: it.code, name: it.name, qty: it.needQty, unit: it.unit }; });
       var d12 = erpData(); if (!d12.stockOut) d12.stockOut = [];
       d12.stockOut.push(out3); erpSave();
-      f.log.push(today() + ' ' + nowTime() + ' 翻新补料 ' + out3.code + '（库存自动扣减）');
+      f.log.push(today() + ' ' + nowTime() + ' 售后翻新工单 ' + rnv.code + ' 已下达（自动补料 ' + out3.code + '）');
       return;
     }
     if (act === 'genRnvIn') {
@@ -506,8 +498,7 @@
       RTN:     { soReturn: '已退货' },
       ANALY:   { afterSale: '已分析' },
       RNV:     { renovate: '翻新中' },
-      RNV_PICK:{ moPick: '已完成' },
-      RNV_FIRST: {}, RNV_PATROL: {}, RNV_OQC: {},
+      RNV_QC:  {},
       RNV_IN:  { renovate: '已完成', moIn: '已完工' }
     };
     var map = ST[nd.id] || {};
