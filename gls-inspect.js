@@ -9,17 +9,23 @@
 
   /* ===== 可配置区（改这里即可调整流程，不写死） ===== */
   var TYPES = {
-    IQC:    { name: '来料检验', needSupplier: true,  passFlow: '待检入库 → 仓储部确认', failFlow: '退货 / 挑选 / 特采评审' },
-    FIRST:  { name: '首件检验', needSupplier: false, passFlow: '同意量产 → 正式生产',   failFlow: '停线整改 → 重新首件' },
-    PATROL: { name: '巡检',     needSupplier: false, passFlow: '继续生产',              failFlow: '停线整改 → 批量评审' },
-    OQC:    { name: '成品检验', needSupplier: false, passFlow: '成品入库 → 仓储部',     failFlow: '不合格评审 → 返工/报废' }
+    IQC:    { name: '来料检验', needSupplier: true,  passFlow: '待检入库 → 仓储部确认' },
+    FIRST:  { name: '首件检验', needSupplier: false, passFlow: '同意量产 → 正式生产' },
+    PATROL: { name: '巡检',     needSupplier: false, passFlow: '继续生产' },
+    OQC:    { name: '成品检验', needSupplier: false, passFlow: '成品入库 → 仓储部' }
   };
+  /* 状态机：
+   * 合格单：新建 → 待审批(部门上级放行流转权限) → 已流转(到下一部门) / 已驳回(退回检验人)
+   * 不合格单：新建 → 待评审(MRB 不合格品评审) → 已流转(按 MRB 结论处理) / 已驳回(退回重检)
+   */
   var STATUS = {
-    PASSING: '待审批',
-    PASSED:  '已通过',
-    REJECTED:'已驳回',
-    FLOWED:  '已流转'
+    APPROVING: '待审批',
+    MRB:       '待评审',
+    REJECTED:  '已驳回',
+    FLOWED:    '已流转'
   };
+  // 不合格品 MRB 可选结论（可视化修改口子）
+  var MRB_OPTIONS = ['退货', '挑选使用', '特采接收', '返工返修', '报废', '重新检验'];
 
   /* ===== 工具 ===== */
   function $(id) { return document.getElementById(id); }
@@ -158,8 +164,11 @@
   }
 
   /* ===== 主页 ===== */
-  function countPending() {
-    return DB.inspections.filter(function (r) { return r.status === STATUS.PASSING; }).length;
+  function countApproving() {
+    return DB.inspections.filter(function (r) { return r.status === STATUS.APPROVING; }).length;
+  }
+  function countMrb() {
+    return DB.inspections.filter(function (r) { return r.status === STATUS.MRB; }).length;
   }
   function openHome() {
     showPage('page-insp-home');
@@ -167,7 +176,7 @@
   }
 
   function homeHTML() {
-    var pending = countPending();
+    var ap = countApproving(), mrb = countMrb();
     var h = '<div class="insp-toolbar">'
       + '<button class="insp-btn insp-btn-g" onclick="INSP.openHome()">刷新</button>'
       + '<button class="insp-btn insp-btn-p" onclick="INSP.openForm()">＋ 新建检验单</button>'
@@ -182,11 +191,16 @@
       var cnt = DB.inspections.filter(function (r) { return r.type === k; }).length;
       h += '<div class="insp-card" onclick="INSP.openForm(\'' + k + '\')">'
         + '<div class="t">' + t.name + '</div>'
-        + '<div class="d">' + t.passFlow + '<br>不合格 → ' + t.failFlow + '<br><b>本类已建单：' + cnt + '</b></div></div>';
+        + '<div class="d">合格放行 → ' + t.passFlow + '<br>不合格 → 进入 MRB 评审<br><b>本类已建单：' + cnt + '</b></div></div>';
     });
+    // 合格单的流转审批（部门上级）
     h += '<div class="insp-card" style="border-left-color:#e6a236" onclick="INSP.openApprove()">'
-      + '<div class="t">待我审批' + (pending ? '<span class="insp-badge">' + pending + '</span>' : '') + '</div>'
-      + '<div class="d">不合格单需部门上级评审<br>通过后自动流转到下一环节</div></div>';
+      + '<div class="t">流转审批' + (ap ? '<span class="insp-badge">' + ap + '</span>' : '') + '</div>'
+      + '<div class="d">合格单放行到下一部门<br>本部门上级审批通过后自动交棒</div></div>';
+    // 不合格品 MRB 评审（另一套）
+    h += '<div class="insp-card" style="border-left-color:#f56c6c" onclick="INSP.openMrb()">'
+      + '<div class="t">不合格评审' + (mrb ? '<span class="insp-badge">' + mrb + '</span>' : '') + '</div>'
+      + '<div class="d">MRB 不合格品评审<br>结论：退货/挑选/特采/返工/报废</div></div>';
     h += '<div class="insp-card" style="border-left-color:#409eff" onclick="INSP.openList()">'
       + '<div class="t">检验记录</div><div class="d">全部检验单 · 状态追溯<br>支持导出 Excel</div></div>';
     h += '</div>';
@@ -207,8 +221,10 @@
     list.forEach(function (r) {
       var t = TYPES[r.type] || { name: r.type };
       var resultCls = r.result === 'pass' ? 'insp-tag-p' : 'insp-tag-f';
-      var stCls = r.status === STATUS.PASSED ? 'insp-tag-p' : r.status === STATUS.PASSING ? 'insp-tag-w'
-        : r.status === STATUS.REJECTED ? 'insp-tag-f' : r.status === STATUS.FLOWED ? 'insp-tag-g' : 'insp-tag-g';
+      var stCls = r.status === STATUS.APPROVING ? 'insp-tag-w'
+        : r.status === STATUS.MRB ? 'insp-tag-f'
+        : r.status === STATUS.REJECTED ? 'insp-tag-g'
+        : 'insp-tag-p';
       h += '<tr><td>' + esc(r.no) + '</td><td>' + esc(t.name) + '</td><td>' + esc(r.date) + '</td>'
         + '<td><b>' + esc(r.matName) + '</b><br><span style="color:#999;font-size:12px">' + esc(r.matCode) + '</span></td>'
         + '<td>' + esc(r.batch || '—') + '</td><td>' + esc(r.qty || '—') + '</td>'
@@ -302,44 +318,45 @@
     };
 
     if (result === 'pass') {
-      rec.status = STATUS.PASSED;
-      rec.flowTo = t.passFlow;
-      rec.flowNote = '检验合格，自动流转：' + t.passFlow;
-      DB.flowLog.push({ at: now(), no: rec.no, act: '合格自动流转 → ' + t.passFlow });
-      toast('已提交：合格，自动流转到「' + t.passFlow + '」');
-    } else {
-      rec.status = STATUS.PASSING;
+      rec.status = STATUS.APPROVING;
       rec.flowTo = '';
-      rec.flowNote = '检验不合格，待部门上级评审';
-      DB.flowLog.push({ at: now(), no: rec.no, act: '不合格，进入待审批队列' });
-      toast('已提交：不合格，进入待审批');
+      rec.flowNote = '检验合格，待部门上级审批放行到：' + t.passFlow;
+      DB.flowLog.push({ at: now(), no: rec.no, act: '合格单进入流转审批队列' });
+      toast('已提交：合格，待部门上级审批放行');
+    } else {
+      rec.status = STATUS.MRB;
+      rec.flowTo = '';
+      rec.flowNote = '检验不合格，进入 MRB 评审';
+      DB.flowLog.push({ at: now(), no: rec.no, act: '不合格单进入 MRB 评审' });
+      toast('已提交：不合格，进入 MRB 评审');
     }
     DB.inspections.push(rec);
     saveDB();
     openHome();
   }
 
-  /* ===== 待审批 ===== */
+  /* ===== 流转审批（合格单，部门上级放行到下一部门） ===== */
   function openApprove() {
     showPage('page-insp-approve');
-    var list = DB.inspections.filter(function (r) { return r.status === STATUS.PASSING; });
-    var h = '<h2 style="margin:0 0 16px">待我审批（' + list.length + '）</h2>';
-    if (!list.length) h += '<div style="background:#fff;padding:30px;text-align:center;color:#999;border-radius:8px">🎉 暂无待审批单据</div>';
+    var list = DB.inspections.filter(function (r) { return r.status === STATUS.APPROVING; });
+    var h = '<h2 style="margin:0 0 16px">流转审批（' + list.length + '）</h2>';
+    if (!list.length) h += '<div style="background:#fff;padding:30px;text-align:center;color:#999;border-radius:8px">暂无待审批单据</div>';
     else {
-      h += '<p style="color:#888;font-size:13px">部门上级评审：通过后按不合格流程自动流转到下一环节；驳回则退回检验人重检。</p>';
+      h += '<p style="color:#888;font-size:13px">这是<b>合格单的流转权限审批</b>：本部门上级确认无误后放行，单据自动交棒到下一部门环节；驳回则退回检验人重检。</p>';
       list.forEach(function (r) {
-        var t = TYPES[r.type] || { name: r.type };
+        var t = TYPES[r.type] || { name: r.type, passFlow: '' };
         h += '<div style="background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-          + '<b>' + esc(r.no) + '</b><span class="insp-tag insp-tag-f">不合格 · 待审批</span></div>'
+          + '<b>' + esc(r.no) + '</b><span class="insp-tag insp-tag-w">合格 · 待放行</span></div>'
           + '<div class="insp-flow">'
           + '类型：<b>' + esc(t.name) + '</b>　日期：' + esc(r.date) + '　检验人：' + esc(r.inspector || '—') + '<br>'
           + '物料：<b>' + esc(r.matName) + '</b>（' + esc(r.matCode) + '）　批次：' + esc(r.batch || '—') + '　数量：' + esc(r.qty || '—') + '<br>'
           + '标准要求：' + esc(r.standard || '—') + '<br>'
-          + '实测记录：' + esc(r.measured || '—') + '</div>'
+          + '实测记录：' + esc(r.measured || '—') + '<br>'
+          + '拟流转去向：<b>' + esc(t.passFlow) + '</b></div>'
           + '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">'
           + '<button class="insp-btn insp-btn-r" onclick="INSP.approve(\'' + r._id + '\',\'reject\')">驳回到检验人</button>'
-          + '<button class="insp-btn insp-btn-o" onclick="INSP.approve(\'' + r._id + '\',\'pass\')">评审通过 · 自动流转</button>'
+          + '<button class="insp-btn insp-btn-p" onclick="INSP.approve(\'' + r._id + '\',\'pass\')">审批通过 · 自动流转</button>'
           + '</div></div>';
       });
     }
@@ -349,9 +366,9 @@
   function approve(id, decision) {
     var r = DB.inspections.filter(function (x) { return x._id === id; })[0];
     if (!r) return;
-    var t = TYPES[r.type] || { failFlow: '' };
+    var t = TYPES[r.type] || { passFlow: '' };
     var note = prompt(decision === 'pass'
-      ? '请填写评审意见（将随单据一起流转）：'
+      ? '请填写审批意见（将随单据流转到下一部门）：'
       : '请填写驳回原因（退回检验人）：');
     if (note === null) return;
     r.approveNote = note;
@@ -359,19 +376,77 @@
     r.approver = (JSON.parse(localStorage.getItem('gls_current_user') || '{}').realname) || '管理员';
     if (decision === 'pass') {
       r.status = STATUS.FLOWED;
-      r.flowTo = t.failFlow;
-      r.flowNote = '评审通过，自动流转：' + t.failFlow;
-      DB.flowLog.push({ at: now(), no: r.no, act: '评审通过 → ' + t.failFlow });
-      toast('已通过，自动流转到「' + t.failFlow + '」');
+      r.flowTo = t.passFlow;
+      r.flowNote = '审批通过，自动流转：' + t.passFlow;
+      DB.flowLog.push({ at: now(), no: r.no, act: '流转审批通过 → ' + t.passFlow });
+      toast('已通过，自动流转到「' + t.passFlow + '」');
     } else {
       r.status = STATUS.REJECTED;
       r.flowTo = '退回检验人重检';
-      r.flowNote = '评审驳回：' + note;
-      DB.flowLog.push({ at: now(), no: r.no, act: '评审驳回，退回检验人' });
+      r.flowNote = '审批驳回：' + note;
+      DB.flowLog.push({ at: now(), no: r.no, act: '流转审批驳回，退回检验人' });
       toast('已驳回，退回检验人');
     }
     saveDB();
     openApprove();
+  }
+
+  /* ===== 不合格品 MRB 评审（独立一套） ===== */
+  function openMrb() {
+    showPage('page-insp-mrb');
+    var list = DB.inspections.filter(function (r) { return r.status === STATUS.MRB; });
+    var h = '<h2 style="margin:0 0 16px">不合格品评审 MRB（' + list.length + '）</h2>';
+    if (!list.length) h += '<div style="background:#fff;padding:30px;text-align:center;color:#999;border-radius:8px">暂无待评审不合格单</div>';
+    else {
+      h += '<p style="color:#888;font-size:13px">这是<b>不合格品单独评审流程</b>（MRB）：由品质/工程/采购/生产共同确定处理结论，确定后按结论流转。</p>';
+      list.forEach(function (r) {
+        var t = TYPES[r.type] || { name: r.type };
+        h += '<div style="background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+          + '<b>' + esc(r.no) + '</b><span class="insp-tag insp-tag-f">不合格 · 待 MRB</span></div>'
+          + '<div class="insp-flow">'
+          + '类型：<b>' + esc(t.name) + '</b>　日期：' + esc(r.date) + '　检验人：' + esc(r.inspector || '—') + '<br>'
+          + '物料：<b>' + esc(r.matName) + '</b>（' + esc(r.matCode) + '）　批次：' + esc(r.batch || '—') + '　数量：' + esc(r.qty || '—') + '<br>'
+          + '供应商：' + esc(r.supplier || '—') + '<br>'
+          + '标准要求：' + esc(r.standard || '—') + '<br>'
+          + '实测记录：' + esc(r.measured || '—') + '</div>'
+          + '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+          + '<label style="font-size:13px;align-self:center">评审结论：</label>'
+          + '<select id="mrbOpt_' + r._id + '" style="padding:6px 10px;border:1px solid #dcdfe6;border-radius:6px">'
+          + MRB_OPTIONS.map(function (o) { return '<option>' + o + '</option>'; }).join('')
+          + '</select>'
+          + '<input id="mrbNote_' + r._id + '" placeholder="评审说明（可空）" style="flex:1;padding:6px 10px;border:1px solid #dcdfe6;border-radius:6px;min-width:200px">'
+          + '<button class="insp-btn insp-btn-r" onclick="INSP.mrbDecide(\'' + r._id + '\',\'reject\')">退回重检</button>'
+          + '<button class="insp-btn insp-btn-o" onclick="INSP.mrbDecide(\'' + r._id + '\',\'decide\')">确认结论 · 流转</button>'
+          + '</div></div>';
+      });
+    }
+    $('inspMrbBody').innerHTML = h;
+  }
+
+  function mrbDecide(id, decision) {
+    var r = DB.inspections.filter(function (x) { return x._id === id; })[0];
+    if (!r) return;
+    r.approvedAt = now();
+    r.approver = (JSON.parse(localStorage.getItem('gls_current_user') || '{}').realname) || '管理员';
+    if (decision === 'reject') {
+      r.status = STATUS.REJECTED;
+      r.flowTo = '退回检验人重检';
+      r.flowNote = 'MRB 退回重检';
+      DB.flowLog.push({ at: now(), no: r.no, act: 'MRB 退回检验人重检' });
+      toast('已退回重检');
+    } else {
+      var opt = ($('mrbOpt_' + id) && $('mrbOpt_' + id).value) || '';
+      var note = ($('mrbNote_' + id) && $('mrbNote_' + id).value) || '';
+      r.approveNote = note;
+      r.status = STATUS.FLOWED;
+      r.flowTo = opt;
+      r.flowNote = 'MRB 评审结论：' + opt + (note ? '（' + note + '）' : '');
+      DB.flowLog.push({ at: now(), no: r.no, act: 'MRB 结论 → ' + opt });
+      toast('已按「' + opt + '」流转');
+    }
+    saveDB();
+    openMrb();
   }
 
   /* ===== 检验记录 ===== */
@@ -394,7 +469,7 @@
     ft2.innerHTML = '<option value="">全部类型</option>' + Object.keys(TYPES).map(function (k) {
       return '<option value="' + k + '"' + (curT === k ? ' selected' : '') + '>' + TYPES[k].name + '</option>';
     }).join('');
-    fs2.innerHTML = '<option value="">全部状态</option>' + [STATUS.PASSING, STATUS.PASSED, STATUS.REJECTED, STATUS.FLOWED].map(function (s) {
+    fs2.innerHTML = '<option value="">全部状态</option>' + [STATUS.APPROVING, STATUS.MRB, STATUS.REJECTED, STATUS.FLOWED].map(function (s) {
       return '<option value="' + s + '"' + (curS === s ? ' selected' : '') + '>' + s + '</option>';
     }).join('');
     if (curK) $('inspFilterKw').value = curK;
@@ -483,10 +558,9 @@
           };
           var t = TYPES[type];
           if (result === 'pass') {
-            rec.status = STATUS.PASSED; rec.flowTo = t.passFlow;
-            rec.flowNote = '导入：合格自动流转';
+            rec.status = STATUS.APPROVING; rec.flowNote = '导入：合格，待流转审批';
           } else {
-            rec.status = STATUS.PASSING; rec.flowNote = '导入：不合格待审批';
+            rec.status = STATUS.MRB; rec.flowNote = '导入：不合格，待 MRB 评审';
           }
           DB.inspections.push(rec); added++;
         });
@@ -554,8 +628,8 @@
 
   window.INSP = {
     openHome: openHome,
-    openForm: openForm, openApprove: openApprove, openList: openList,
-    scanMaterial: scanMaterial, saveForm: saveForm, approve: approve,
+    openForm: openForm, openApprove: openApprove, openMrb: openMrb, openList: openList,
+    scanMaterial: scanMaterial, saveForm: saveForm, approve: approve, mrbDecide: mrbDecide,
     viewDetail: viewDetail, openImport: openImport, doImport: doImport, exportRecords: exportRecords,
     _db: function () { return DB; }
   };
