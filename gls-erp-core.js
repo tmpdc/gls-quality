@@ -664,6 +664,39 @@
     box.innerHTML = html;
   };
 
+  /* ---------- 物料档案：根据 BOM 自动生成 ---------- */
+  ERP.fromBom = function () {
+    var n = ERP.syncFromBom();
+    toast(n ? '已从 BOM 自动生成 ' + n + ' 条物料档案' : 'BOM 中的物料已全部建档，无需生成');
+    ERP.renderList();
+  };
+  ERP.syncFromBom = function () {
+    var d = getData(); if (!d) return 0;
+    if (!d.bom) d.bom = [];
+    var mats = d.material || (d.material = []);
+    var byCode = {};
+    mats.forEach(function (m) { if (m.code) byCode[String(m.code).toLowerCase()] = 1; });
+    var want = [];
+    d.bom.forEach(function (b) {
+      if (b.product) want.push({ code: b.product });
+      (b.items || []).forEach(function (it) {
+        if (it.code) want.push({ code: it.code, name: it.name, unit: it.unit });
+      });
+    });
+    var added = 0;
+    want.forEach(function (w) {
+      var c = String(w.code || '').trim();
+      if (!c || byCode[c.toLowerCase()]) return;
+      mats.push({ id: uid('r'), code: c, name: w.name || c,
+        spec: '', unit: w.unit || 'PCS', category: '', safeStock: '', price: '',
+        supplier: '', remark: '由 BOM 自动生成，请补充完整' });
+      byCode[c.toLowerCase()] = 1;
+      added++;
+    });
+    if (added) save();
+    return added;
+  };
+
   function barHtml(ent) {
     var kw = escAttr(ERP.kw || '');
     return '<div class="erp-bar">' +
@@ -673,6 +706,7 @@
         '<div class="erp-btn primary" onclick="ERP.openForm()">＋ 新增</div>') +
       '<div class="erp-btn" onclick="ERP.exportCurrent()">⬇ 导出 Excel</div>' +
       '<div class="erp-btn" onclick="ERP.openImport()">📥 导入表格</div>' +
+      (ent.key === 'material' ? '<div class="erp-btn" onclick="ERP.fromBom()">🧩 从 BOM 生成</div>' : '') +
       '</div>';
   }
 
@@ -962,6 +996,7 @@
     if (!d[key]) d[key] = [];
     if (ERP._isNew) d[key].push(rec);
     save();
+    if (key === 'bom') ERP.syncFromBom();
     ERP.closeForm();
     ERP.renderList();
     toast('已保存 · ' + ent.name);
@@ -1327,7 +1362,11 @@
             seg = seg.trim();
             if (!seg) return;
             var parts = seg.split('@');
-            var it = { code: (parts[0] || '').trim() };
+            var codeRaw = (parts[0] || '').trim();
+            var itName = '';
+            if (codeRaw.indexOf(':') >= 0) { itName = codeRaw.slice(codeRaw.indexOf(':') + 1).trim(); codeRaw = codeRaw.slice(0, codeRaw.indexOf(':')).trim(); }
+            else if (codeRaw.indexOf('：') >= 0) { itName = codeRaw.slice(codeRaw.indexOf('：') + 1).trim(); codeRaw = codeRaw.slice(0, codeRaw.indexOf('：')).trim(); }
+            var it = { code: codeRaw, name: itName };
             colDefs.forEach(function (c, idx) {
               var v = parts[idx + 1] == null ? '' : String(parts[idx + 1]).trim();
               if (v === '') return;
@@ -1345,6 +1384,7 @@
       added++;
     }
     save();
+    if (key === 'bom') ERP.syncFromBom();
     ERP.closeImport();
     ERP.renderList();
     var msg = '导入完成：新增 ' + added + (skipped ? '，跳过重复 ' + skipped : '') +
