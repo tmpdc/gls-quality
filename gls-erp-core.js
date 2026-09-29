@@ -465,7 +465,7 @@
     function touch(code, name, unit, spec) {
       if (!code) return null;
       if (!map[code]) {
-        map[code] = { code: code, name: name || code, unit: unit || '', spec: spec || '', in: 0, out: 0, safe: 0, bal: 0 };
+        map[code] = { code: code, name: name || code, unit: unit || '', spec: spec || '', cat: '原材料', aft: false, in: 0, out: 0, aftIn: 0, aftOut: 0, safe: 0, bal: 0, aftBal: 0 };
         rows.push(map[code]);
       }
       if (name && map[code].name === code) map[code].name = name;
@@ -474,23 +474,25 @@
     }
     listOf('material').forEach(function (m) {
       var g = touch(m.code, m.name, m.unit, m.spec);
-      if (g) { g.safe = num(m.safeStock); g.spec = m.spec || ''; }
+      if (g) { g.safe = num(m.safeStock); g.spec = m.spec || ''; g.cat = (m.category === '半成品' || m.category === '成品') ? m.category : '原材料'; }
     });
     listOf('stockIn').forEach(function (doc) {
       if (doc.status === '草稿' || doc.status === '已取消') return;
+      var aftDoc = doc.type === '退货入库' || doc.type === '翻新入库';
       (doc.items || []).forEach(function (it) {
         var g = touch(it.code, it.name, it.unit);
-        if (g) g.in += num(it.qty);
+        if (g) { g.in += num(it.qty); if (aftDoc) { g.aft = true; g.aftIn += num(it.qty); } }
       });
     });
     listOf('stockOut').forEach(function (doc) {
       if (doc.status === '草稿' || doc.status === '已取消') return;
+      var aftDoc = doc.type === '翻新领料';
       (doc.items || []).forEach(function (it) {
         var g = touch(it.code, it.name, it.unit);
-        if (g) g.out += num(it.qty);
+        if (g) { g.out += num(it.qty); if (aftDoc) { g.aft = true; g.aftOut += num(it.qty); } }
       });
     });
-    rows.forEach(function (r) { r.bal = r.in - r.out; });
+    rows.forEach(function (r) { r.bal = r.in - r.out; r.aftBal = r.aftIn - r.aftOut; });
     rows.sort(function (a, b) { return String(a.code).localeCompare(String(b.code)); });
     return rows;
   };
@@ -965,32 +967,48 @@
   /* ---------- 库存台账视图 ---------- */
   ERP.stockView = function () {
     var rows = ERP.buildStock();
-    var inSum = 0, outSum = 0, lowN = 0;
-    rows.forEach(function (r) {
-      inSum += r.in; outSum += r.out;
-      if (r.safe > 0 && r.bal < r.safe) lowN++;
-    });
-    var html = '<div class="erp-count">共 <b>' + rows.length + '</b> 种物料 · 入库合计 <b>' + inSum +
-      '</b> · 出库合计 <b>' + outSum + '</b>' + (lowN ? ' · <span style="color:#dc2626">' + lowN + ' 种低于安全库存</span>' : '') + '</div>';
-    html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
-      '<th style="min-width:130px">物料编码</th><th style="min-width:150px">物料名称</th>' +
-      '<th style="min-width:120px">规格型号</th><th style="min-width:70px">单位</th>' +
-      '<th style="min-width:90px">入库合计</th><th style="min-width:90px">出库合计</th>' +
-      '<th style="min-width:90px">结存</th><th style="min-width:90px">安全库存</th>' +
-      '<th style="min-width:110px">状态</th></tr></thead><tbody>';
-    if (!rows.length) {
-      html += '<tr><td colspan="9" class="erp-empty">暂无数据：先到「基础资料 → 物料档案」建档，再录「入库单 / 出库单」</td></tr>';
-    } else {
-      rows.forEach(function (r) {
-        var low = r.safe > 0 && r.bal < r.safe;
-        var tag = low ? '<span class="erp-tag danger">低于安全库存</span>'
-          : (r.bal <= 0 ? '<span class="erp-tag">无库存</span>' : '<span class="erp-tag ok">正常</span>');
-        html += '<tr><td>' + escHtml(r.code) + '</td><td>' + escHtml(r.name) + '</td><td>' + escHtml(r.spec) + '</td>' +
-          '<td>' + escHtml(r.unit) + '</td><td>' + r.in + '</td><td>' + r.out + '</td>' +
-          '<td><b>' + r.bal + '</b></td><td>' + (r.safe || '') + '</td><td>' + tag + '</td></tr>';
+    function clsOf(r) { return r.cat; }
+    var groups = [
+      { key: '原材料', label: '原材料库存', desc: '塑胶 / 五金 / 电子 / 发热 / 包材 / 辅料等' },
+      { key: '半成品', label: '半成品库存', desc: '物料档案类别为「半成品」' },
+      { key: '成品', label: '成品库存', desc: '生产成品 + 售后翻新成品 合并台账，售后翻新带印记' }
+    ];
+    function balOf(r, k) { return r.bal; }
+    function inOf(r, k) { return r.in; }
+    function outOf(r, k) { return r.out; }
+    var html = '<div class="erp-count">库存台账按类别分开：原材料 / 半成品 / 成品（售后翻新成品并入成品台账并带印记，共 <b>' + rows.length + '</b> 种物料）</div>';
+    groups.forEach(function (g) {
+      var rs = rows.filter(function (r) {
+        if (g.key === '成品') return r.cat === '成品' || r.aftIn > 0;
+        return clsOf(r) === g.key;
       });
-    }
-    html += '</tbody></table></div>';
+      var inSum = 0, outSum = 0, lowN = 0;
+      rs.forEach(function (r) { inSum += inOf(r, g.key); outSum += outOf(r, g.key); if (r.safe > 0 && balOf(r, g.key) < r.safe) lowN++; });
+      html += '<div class="erp-stock-group"><div class="erp-stock-title"><b>' + g.label + '</b>' +
+        '<span class="erp-stock-desc">' + g.desc + '</span>' +
+        '<span class="erp-stock-sum">' + rs.length + ' 种 · 入库 ' + inSum + ' · 出库 ' + outSum +
+        (lowN ? ' · <span style="color:#dc2626">' + lowN + ' 种低于安全库存</span>' : '') + '</span></div>';
+      html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
+        '<th style="min-width:130px">物料编码</th><th style="min-width:150px">物料名称</th>' +
+        '<th style="min-width:120px">规格型号</th><th style="min-width:70px">单位</th>' +
+        '<th style="min-width:90px">入库合计</th><th style="min-width:90px">出库合计</th>' +
+        '<th style="min-width:90px">结存</th><th style="min-width:90px">安全库存</th>' +
+        '<th style="min-width:110px">状态</th></tr></thead><tbody>';
+      if (!rs.length) {
+        html += '<tr><td colspan="9" class="erp-empty">暂无数据</td></tr>';
+      } else {
+        rs.forEach(function (r) {
+          var bal = balOf(r, g.key), low = r.safe > 0 && bal < r.safe;
+          var tag = low ? '<span class="erp-tag danger">低于安全库存</span>'
+            : (bal <= 0 ? '<span class="erp-tag">无库存</span>' : '<span class="erp-tag ok">正常</span>');
+          var mark = (g.key === '成品' && r.aftIn > 0) ? ' <span class="erp-tag aft" title="含退货/翻新入库 ' + r.aftIn + ' 件">售后翻新</span>' : '';
+          html += '<tr><td>' + escHtml(r.code) + '</td><td>' + escHtml(r.name) + mark + '</td><td>' + escHtml(r.spec) + '</td>' +
+            '<td>' + escHtml(r.unit) + '</td><td>' + inOf(r, g.key) + '</td><td>' + outOf(r, g.key) + '</td>' +
+            '<td><b>' + bal + '</b></td><td>' + (r.safe || '') + '</td><td>' + tag + '</td></tr>';
+        });
+      }
+      html += '</tbody></table></div></div>';
+    });
     return html;
   };
 
