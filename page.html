@@ -8,7 +8,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: #f5f6f8; color: #333; overflow-x: hidden; }
 
-.header { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; padding: 16px 20px; padding-top: calc(16px + env(safe-area-inset-top)); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(45,122,79,0.3); }
+.header { background: linear-gradient(135deg, #2d7a4f 0%, #3a9d68 100%); color: #fff; padding: 16px 20px; padding-top: calc(16px + env(safe-area-inset-top)); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 210; box-shadow: 0 2px 12px rgba(45,122,79,0.3); }
 .header .back-btn { font-size: 20px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .header .back-btn:active { background: rgba(255,255,255,0.15); }
 .header .menu-btn { font-size: 24px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
@@ -643,6 +643,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .erp-card-cnt{font-size:12px;color:#1f5a38;background:#e8f5ec;padding:4px 9px;border-radius:12px;white-space:nowrap;align-self:center;}
 @media(max-width:900px){.erp-stats{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:720px){.erp-stats{grid-template-columns:repeat(2,1fr);}.erp-cards{grid-template-columns:1fr;}}
+
+/* ===== 桌面端侧边栏常驻 + 隐藏/显示 ===== */
+@media (min-width: 769px) {
+  .sidebar { left: 0; padding-top: 76px; }
+  .main { margin-left: 280px; transition: margin-left .3s ease; }
+  .sidebar.hidden { left: -280px; }
+  .main.full { margin-left: 0; }
+  .overlay { display: none !important; }
+}
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -1776,9 +1785,17 @@ function renderSidebar() {
 }
 
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('show');
-}
+    var sb = document.getElementById('sidebar');
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    if (w > 768) {
+      var hidden = sb.classList.toggle('hidden');
+      var m = document.getElementById('mainContent');
+      if (m) m.classList.toggle('full', hidden);
+    } else {
+      sb.classList.toggle('open');
+      document.getElementById('overlay').classList.toggle('show');
+    }
+  }
 
 // ==================== 首页 ====================
 function goFlowPage() { navigateTo('flows'); }
@@ -2381,5 +2398,15 @@ init();
 <script src="gls-datahub.js?v=2"></script>
   <script src="gls-bizflow.js?v=5"></script>
   <script src="gls-backup.js?v=1"></script>
+</body>
+
+<script>
+(function () {
+  try {
+    var cur = JSON.parse(localStorage.getItem('gls_current_user') || 'null');
+    if (cur && cur.role !== 'admin' && window.ERP && ERP.openHome) ERP.openHome();
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
