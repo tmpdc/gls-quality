@@ -57,16 +57,18 @@
   var DB = { inspections: [], flowLog: [] };
   function loadDB() {
     try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        var p = JSON.parse(raw);
-        if (p && Array.isArray(p.inspections)) { DB = p; return; }
-      }
+      var p = (window.DATAHUB && DATAHUB.get('inspect')) || (function () {
+        try { var raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+      })();
+      if (p && Array.isArray(p.inspections)) { DB = p; return; }
     } catch (e) {}
     DB = { inspections: [], flowLog: [] };
   }
   function saveDB() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+    try {
+      if (window.DATAHUB) { DATAHUB.set('inspect', DB); return; }
+      localStorage.setItem(LS_KEY, JSON.stringify(DB));
+    }
     catch (e) { toast('保存失败：' + e.message, false); }
   }
   function nextNo(type) {
@@ -82,12 +84,12 @@
     return prefix + String(max + 1).padStart(3, '0');
   }
   function findMaterial(code) {
+    if (window.DATAHUB) { var r = DATAHUB.findMaterial(code); if (r) return r; }
     var mats = (window.PQS_DATA && window.PQS_DATA.materials) || [];
     code = String(code || '').trim().toLowerCase();
     for (var i = 0; i < mats.length; i++) {
       if (String(mats[i].code || '').toLowerCase() === code) return mats[i];
     }
-    // 模糊匹配名称
     for (i = 0; i < mats.length; i++) {
       if (String(mats[i].name || '').toLowerCase().indexOf(code) >= 0) return mats[i];
     }
@@ -226,7 +228,7 @@
         : r.status === STATUS.REJECTED ? 'insp-tag-g'
         : 'insp-tag-p';
       h += '<tr><td>' + esc(r.no) + '</td><td>' + esc(t.name) + '</td><td>' + esc(r.date) + '</td>'
-        + '<td><b>' + esc(r.matName) + '</b><br><span style="color:#999;font-size:12px">' + esc(r.matCode) + '</span></td>'
+        + '<td><a href="javascript:;" style="font-weight:600;color:#2c5e36;text-decoration:none;border-bottom:1px dashed #2c5e36" onclick="INSP.matDetail(\'' + esc(r.matCode) + '\')">' + esc(r.matName) + '</a><br><span style="color:#999;font-size:12px">' + esc(r.matCode) + '</span></td>'
         + '<td>' + esc(r.batch || '—') + '</td><td>' + esc(r.qty || '—') + '</td>'
         + '<td><span class="insp-tag ' + resultCls + '">' + (r.result === 'pass' ? '合格' : '不合格') + '</span></td>'
         + '<td><span class="insp-tag ' + stCls + '">' + esc(r.status) + '</span></td>'
@@ -485,6 +487,51 @@
     $('inspListBox').innerHTML = recordTable(list);
   }
 
+  /* ===== 跨板块物料详情：ERP 档案 + PQS 标准 + 检验历史 ===== */
+  function matDetail(code) {
+    var d = null;
+    if (window.DATAHUB) { try { d = DATAHUB.materialDetail(code); } catch (e) {} }
+    var box = document.createElement('div');
+    box.className = 'insp-mask';
+    var h = '<div class="insp-modal"><h3 style="margin-top:0">物料全维度 · ' + esc(code) + '</h3>';
+    if (!d || !d.found) {
+      h += '<div class="insp-std" style="border-left-color:#e6a23c"><b>未在品质资料库 / ERP 物料档案中找到该物料</b>，可先到对应板块补录。</div>';
+    } else {
+      var m = d.erp || d.pqs || {};
+      h += '<div class="insp-flow">'
+        + '物料名称：<b>' + esc(m.name || code) + '</b>'
+        + (m.spec ? '　规格型号：' + esc(m.spec) : '')
+        + (m.unit ? '　单位：' + esc(m.unit) : '')
+        + (m.category ? '　类别：' + esc(m.category) : '') + '<br>'
+        + (m.supplier ? '默认供应商：' + esc(m.supplier) + '<br>' : '');
+      if (d.pqs) {
+        h += '<br><b>【品质资料库检验标准】</b><br>'
+          + '分类：' + esc(d.pqs.cls || '—') + '　版本：' + esc(d.pqs.ver || '—') + '<br>'
+          + '关键检验要求：' + esc(d.pqs.key || '—') + '<br>'
+          + '检验手段：' + esc(d.pqs.tool || '—') + '<br>';
+      }
+      if (d.erp && !d.pqs) h += '<br><b>【ERP 物料档案】</b>（暂无检验标准，可在品质资料库补录）<br>'
+        + '安全库存：' + esc(d.erp.safeStock || '—') + '　参考单价：' + esc(d.erp.price || '—') + '　备注：' + esc(d.erp.remark || '—') + '<br>';
+      h += '<br><b>【检验历史】</b> 共 ' + d.stat.total + ' 单（合格 ' + d.stat.pass + ' / 不合格 ' + d.stat.fail + '）<br>';
+      if (d.history.length) {
+        h += '<table class="insp-table" style="margin-top:8px"><thead><tr><th>单号</th><th>类型</th><th>批次</th><th>结果</th><th>状态</th><th>日期</th></tr></thead><tbody>';
+        d.history.forEach(function (r) {
+          var t2 = TYPES[r.type] || { name: r.type };
+          h += '<tr><td>' + esc(r.no) + '</td><td>' + esc(t2.name) + '</td><td>' + esc(r.batch || '—') + '</td>'
+            + '<td><span class="insp-tag ' + (r.result === 'pass' ? 'insp-tag-p' : 'insp-tag-f') + '">' + (r.result === 'pass' ? '合格' : '不合格') + '</span></td>'
+            + '<td>' + esc(r.status) + '</td><td>' + esc(r.date) + '</td></tr>';
+        });
+        h += '</tbody></table>';
+      } else {
+        h += '<span style="color:#999">暂无检验记录</span>';
+      }
+    }
+    h += '<div style="text-align:right;margin-top:16px"><button class="insp-btn insp-btn-g" onclick="this.closest(\'.insp-mask\').remove()">关闭</button></div></div>';
+    box.innerHTML = h;
+    document.body.appendChild(box);
+    box.onclick = function (e) { if (e.target === box) box.remove(); };
+  }
+
   function viewDetail(id) {
     var r = DB.inspections.filter(function (x) { return x._id === id; })[0];
     if (!r) return;
@@ -630,7 +677,7 @@
     openHome: openHome,
     openForm: openForm, openApprove: openApprove, openMrb: openMrb, openList: openList,
     scanMaterial: scanMaterial, saveForm: saveForm, approve: approve, mrbDecide: mrbDecide,
-    viewDetail: viewDetail, openImport: openImport, doImport: doImport, exportRecords: exportRecords,
+    viewDetail: viewDetail, matDetail: matDetail, openImport: openImport, doImport: doImport, exportRecords: exportRecords,
     _db: function () { return DB; }
   };
 })();
