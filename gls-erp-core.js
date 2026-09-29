@@ -166,7 +166,37 @@
       ]
     },
 
-    /* ---------- 采购 ---------- */
+        afterSale: {
+      key: 'afterSale', name: '售后分析', icon: '📊', group: '售后管理', prefix: 'AS',
+      desc: '品质部售后分析：故障数据、原因与措施',
+      fields: [
+        { k: 'code', label: '分析编号', type: 'text', req: true, auto: true, w: '130px' },
+        { k: 'rtnCode', label: '关联退货单', type: 'text' },
+        { k: 'product', label: '产品', type: 'ref', ref: 'material', req: true },
+        { k: 'qty', label: '退货数量', type: 'number' },
+        { k: 'fault', label: '故障现象', type: 'text' },
+        { k: 'cause', label: '原因分析', type: 'textarea' },
+        { k: 'measure', label: '纠正措施', type: 'textarea' },
+        { k: 'owner', label: '分析人', type: 'text' },
+        { k: 'date', label: '分析日期', type: 'date', def: 'today' }
+      ]
+    },
+    renovate: {
+      key: 'renovate', name: '售后翻新', icon: '🛠️', group: '售后管理', prefix: 'RN',
+      desc: '售后翻新工单：翻新产品、数量与进度',
+      fields: [
+        { k: 'code', label: '翻新单号', type: 'text', req: true, auto: true, w: '130px' },
+        { k: 'rtnCode', label: '关联退货单', type: 'text' },
+        { k: 'product', label: '产品', type: 'ref', ref: 'material', req: true },
+        { k: 'qty', label: '翻新数量', type: 'number' },
+        { k: 'status', label: '状态', type: 'select', opts: ['待翻新', '翻新中', '已完成'] },
+        { k: 'owner', label: '负责人', type: 'text' },
+        { k: 'startDate', label: '开始日期', type: 'date', def: 'today' },
+        { k: 'remark', label: '备注', type: 'textarea' }
+      ]
+    },
+
+/* ---------- 采购 ---------- */
     pr: {
       key: 'pr', name: '采购申请', icon: '📋', group: '采购管理', prefix: 'PR',
       desc: '需求部门请购',
@@ -358,6 +388,14 @@
     { name: '采购管理', icon: '🛒', keys: ['pr', 'po', 'poRecv'] },
     { name: '仓储管理', icon: '🏬', keys: ['stockIn', 'stockOut', 'stockCheck'], extras: ['stock'] },
     { name: '生产管理', icon: '🏭', keys: ['mo', 'moPick', 'moIn'] },
+    { name: '品质检验', icon: '🔬', custom: [
+      { name: '进料检验', desc: 'IQC 来料检验记录', icon: '📥', click: "BIZFLOW_UI.goInsp('IQC')" },
+      { name: '首件检验', desc: 'FIRST 首件确认', icon: '✅', click: "BIZFLOW_UI.goInsp('FIRST')" },
+      { name: '巡检', desc: 'PATROL 制程巡检', icon: '🔍', click: "BIZFLOW_UI.goInsp('PATROL')" },
+      { name: '成品检验', desc: 'OQC 成品出货检验', icon: '🧪', click: "BIZFLOW_UI.goInsp('OQC')" },
+      { name: '不合格评审', desc: 'MRB 不合格品评审', icon: '⚠️', click: "BIZFLOW_UI.goMrb()" }
+    ] },
+    { name: '售后管理', icon: '🔄', keys: ['soReturn', 'afterSale', 'renovate'] },
     { name: '报表中心', icon: '📈', keys: [], extras: ['report'] }
   ];
 
@@ -539,7 +577,7 @@
 
     GROUPS.forEach(function (g) {
       var keys = (g.keys || []).concat(g.extras || []);
-      if (!keys.length) return;
+      if (!keys.length && !(g.custom || []).length) return;
       html += '<div class="erp-group"><div class="erp-group-title">' + g.icon + ' ' + g.name + '</div><div class="erp-cards">';
       keys.forEach(function (key) {
         var e2 = ENTITIES[key];
@@ -550,6 +588,13 @@
           '<div class="erp-card-main"><div class="erp-card-name">' + e2.name + '</div>' +
           '<div class="erp-card-desc">' + escHtml(e2.desc || '') + '</div></div>' +
           '<div class="erp-card-cnt">' + cnt + '</div></div>';
+      });
+      (g.custom || []).forEach(function (c) {
+        html += '<div class="erp-card" onclick="' + c.click + '">' +
+          '<div class="erp-card-icon">' + c.icon + '</div>' +
+          '<div class="erp-card-main"><div class="erp-card-name">' + escHtml(c.name) + '</div>' +
+          '<div class="erp-card-desc">' + escHtml(c.desc || '') + '</div></div>' +
+          '<div class="erp-card-cnt">→</div></div>';
       });
       html += '</div></div>';
     });

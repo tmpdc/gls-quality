@@ -549,6 +549,53 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .erp-list-head h2{margin:0;font-size:18px;}
 .erp-search{flex:1;padding:8px 12px;border:1px solid #dcdfe6;border-radius:6px;font-size:14px;}
 .btn-ghost{padding:8px 14px;background:#fff;border:1px solid #dcdfe6;border-radius:6px;cursor:pointer;}
+
+/* ===== 业务流转工作台 ===== */
+.biz-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.biz-stat{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 10px;text-align:center}
+.biz-stat .n{font-size:26px;font-weight:700;color:#1f2937}
+.biz-stat .t{font-size:12px;color:#6b7280;margin-top:2px}
+.biz-stat.run .n{color:#2563eb}.biz-stat.appr .n{color:#d97706}.biz-stat.mrb .n{color:#dc2626}.biz-stat.done .n{color:#16a34a}
+.biz-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.biz-section{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:14px}
+.biz-sec-title{font-size:16px;font-weight:600;color:#111827;margin-bottom:12px}
+.biz-sec-sub{font-size:14px;font-weight:600;color:#374151;margin:12px 0 8px}
+.biz-empty{color:#9ca3af;font-size:13px;padding:18px;text-align:center;background:#f9fafb;border-radius:8px}
+.biz-todo{border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:10px}
+.biz-todo.appr{border-left:4px solid #d97706;background:#fffaf0}
+.biz-todo.mrb{border-left:4px solid #dc2626;background:#fef2f2}
+.biz-todo-t{font-weight:600;color:#111827;font-size:14px}
+.biz-todo-s{color:#6b7280;font-size:12px;margin:4px 0 8px}
+.biz-todo-a{display:flex;gap:6px;flex-wrap:wrap}
+.biz-pano{display:flex;align-items:stretch;gap:6px;overflow-x:auto;padding-bottom:6px}
+.biz-node{flex:0 0 auto;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;min-width:110px;text-align:center}
+.biz-node-ic{font-size:18px}.biz-node-nm{font-size:12px;font-weight:600;margin-top:4px;color:#1f2937}
+.biz-node-dp{font-size:11px;color:#6b7280;margin-top:2px}
+.biz-arrow{align-self:center;color:#9ca3af;font-size:14px;flex:0 0 auto}
+.biz-tablewrap{overflow-x:auto}.biz-table{width:100%;border-collapse:collapse;font-size:13px}
+.biz-table th{background:#f3f4f6;color:#374151;text-align:left;padding:8px;border:1px solid #e5e7eb;font-weight:600}
+.biz-table td{padding:8px;border:1px solid #e5e7eb;color:#1f2937}
+.biz-st{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px}
+.biz-st.appr{background:#fef3c7;color:#92400e}.biz-st.mrb{background:#fee2e2;color:#991b1b}
+.biz-st.done{background:#d1fae5;color:#065f46}.biz-st.run{background:#dbeafe;color:#1e40af}
+.biz-ops .erp-op{margin-right:8px}
+.biz-timeline{border-left:2px solid #e5e7eb;margin:6px 0 6px 8px;padding-left:16px}
+.biz-tl-item{position:relative;padding:8px 0}
+.biz-tl-dot{position:absolute;left:-21px;top:13px;width:10px;height:10px;border-radius:50%;background:#d1d5db}
+.biz-tl-item.done .biz-tl-dot{background:#16a34a}
+.biz-tl-item.cur .biz-tl-dot{background:#2563eb;box-shadow:0 0 0 4px #dbeafe}
+.biz-tl-name{font-size:13px;font-weight:600;color:#111827}
+.biz-tl-ok{color:#16a34a;font-size:12px;font-weight:400}
+.biz-tl-cur{color:#2563eb;font-size:12px;font-weight:400}
+.biz-tl-meta{font-size:11px;color:#9ca3af;margin-top:2px}
+.biz-log-item{font-size:12px;color:#4b5563;padding:5px 0;border-bottom:1px dashed #f3f4f6}
+.biz-msg{border:1px solid #e5e7eb;border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer}
+.biz-msg.read{background:#f9fafb;opacity:.75}
+.biz-msg-t{font-size:13px;color:#111827}.biz-msg-m{font-size:11px;color:#9ca3af;margin-top:3px}
+.biz-help p{font-size:13px;color:#4b5563;line-height:1.8;margin:6px 0}
+.biz-detail-info{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-size:13px;color:#374151;margin:10px 0;line-height:1.9}
+.biz-detail-actions{margin:10px 0}
+@media(max-width:768px){.biz-stats{grid-template-columns:repeat(2,1fr)}}
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -703,7 +750,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   </div>
 
 
-<div id="page-pqs-home" class="page"><div id="pqsHome"></div></div>
+<!-- 业务流转工作台 -->
+  <div class="page" id="page-bizflow">
+    <div id="bizflowHome"></div>
+  </div>
+  <div id="page-pqs-home" class="page"><div id="pqsHome"></div></div>
 <div id="page-pqs-list" class="page"><div id="pqsListBody"></div></div>
 <div id="page-pqs-manage" class="page"><div id="pqsManageBody"></div></div>
 <div id="page-insp-home" class="page"><div id="inspHomeBody"></div></div>
@@ -2269,11 +2320,12 @@ init();
 </script>
 <script src="gls-erp.js?v=3"></script>
 <script src="gls-flow.js?v=3"></script>
-<script src="gls-erp-core.js?v=2"></script>
+<script src="gls-erp-core.js?v=3"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="gls-inspect.js?v=2"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
+  <script src="gls-bizflow.js?v=1"></script>
 </body>
 </html>
