@@ -57,6 +57,46 @@
   function curUser() {
     try { return JSON.parse(localStorage.getItem('gls_current_user') || 'null') || {}; } catch (e) { return {}; }
   }
+  /* ===== 审批人绑定：按账号部门 + 角色（部门主管/超管） ===== */
+  function accountOf(username) {
+    try {
+      var a = window.DATAHUB ? DATAHUB.get('accounts', null) : null;
+      var users = (a && a.users) || [];
+      for (var i = 0; i < users.length; i++) if (users[i].username === username) return users[i];
+    } catch (e) {}
+    return null;
+  }
+  function deptManagers(dept) {
+    var out = [];
+    try {
+      var a = window.DATAHUB ? DATAHUB.get('accounts', null) : null;
+      var users = (a && a.users) || [];
+      users.forEach(function (u) {
+        if (u.status === 'disabled') return;
+        if (u.role === 'manager' && u.department === dept) out.push(u);
+      });
+    } catch (e) {}
+    if (!out.length) out.push({ username: dept + '领导', realname: dept + '领导' });
+    return out;
+  }
+  function canApprove(f) {
+    var u = curUser(); if (!u || !u.username) return false;
+    if (u.role === 'admin') return true;
+    var acc = accountOf(u.username);
+    if (!acc) return false;
+    var nd = curNode(f);
+    return acc.role === 'manager' && acc.department === nd.dept;
+  }
+  function canMrb() {
+    var u = curUser(); if (!u || !u.username) return false;
+    if (u.role === 'admin') return true;
+    var acc = accountOf(u.username);
+    return !!(acc && acc.role === 'manager' && acc.department === '品质部');
+  }
+  function notifyDept(dept, text, flowId) {
+    var users = deptManagers(dept);
+    users.forEach(function (u) { notify(u.realname || u.username, text, flowId); });
+  }
   function toast(msg, ok) {
     if (window.ERP && ERP.toast) { ERP.toast(msg, ok); return; }
     try { alert(msg); } catch (e) {}
@@ -208,12 +248,16 @@
       }
     }
     f.status = FLOW_STATUS.APPR;
-    f.approver = nd.dept + '领导';
+    var apprs = deptManagers(nd.dept);
+    f.approver = apprs.map(function (u) { return u.realname || u.username; }).join('、');
+    f.approverDept = nd.dept;
     f._submitBy = by;
     f._submitAt = today() + ' ' + nowTime();
-    f.log.push(f._submitAt + ' ' + by + ' 完成「' + nd.name + '」，提交' + nd.dept + '领导审批');
+    f.log.push(f._submitAt + ' ' + by + ' 完成「' + nd.name + '」，提交' + nd.dept + '审批');
     save();
-    notify(nd.dept + '领导', '【待审批】流程 ' + f.no + ' 环节「' + nd.name + '」待您审批', f.id);
+    apprs.forEach(function (u) {
+      notify(u.realname || u.username, '【待审批】流程 ' + f.no + ' 环节「' + nd.name + '」待您审批', f.id);
+    });
   }
 
   /* 部门上级领导审批：通过 → 执行节点动作并自动流转下一环节；驳回 → 退回 */
@@ -221,6 +265,7 @@
     var f = getFlow(fid);
     if (!f || f.status !== FLOW_STATUS.APPR) { toast('当前无待审批事项', false); return; }
     var nd = curNode(f);
+    if (!canApprove(f)) { toast('仅「' + nd.dept + '」部门主管或超管可审批此单', false); return; }
     var by = curUser().realname || curUser().username || '';
     if (pass) {
       f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '通过' });
@@ -264,7 +309,7 @@
     f.status = FLOW_STATUS.RUN;
     f.log.push(today() + ' ' + nowTime() + ' 自动流转至下一环节「' + nnd.name + '」（' + nnd.dept + '）');
     save();
-    notify(nnd.dept, '流程 ' + f.no + ' 已流转至「' + nnd.name + '」，请处理并提交审批', f.id);
+    notifyDept(nnd.dept, '流程 ' + f.no + ' 已流转至「' + nnd.name + '」，请处理并提交审批', f.id);
   }
 
   /* 节点动作：齐套检查 / 自动生成下一环节单据 / 库存自动更新 */
@@ -482,6 +527,8 @@
 
   /* MRB 不合格评审结论（独立一套）：决定流转去向 */
   function mrbDecide(fid, conclusion) {
+    if (!canMrb()) { toast('仅品质部主管或超管可进行不合格评审', false); return; }
+
     var f = getFlow(fid);
     if (!f || f.status !== FLOW_STATUS.MRB) { toast('当前不在评审状态', false); return; }
     var nd = curNode(f);
@@ -523,13 +570,21 @@
     db: db, flows: flows, notices: notices, getFlow: getFlow,
     startFromSo: startFromSo, startFromRtn: startFromRtn,
     submit: submit, approve: approve, mrbDecide: mrbDecide,
-    curNode: curNode, bomNeed: bomNeed, stockBal: stockBal,
+    curNode: curNode, bomNeed: bomNeed, stockBal: stockBal, canApprove: canApprove, canMrb: canMrb,
+    deptManagers: deptManagers, accountOf: accountOf, notifyDept: notifyDept,
     notify: notify, markRead: function (id) {
       var ns = notices();
       for (var i = 0; i < ns.length; i++) if (ns[i].id === id) ns[i].read = true;
       save();
     },
-    unread: function () { return notices().filter(function (n) { return !n.read; }).length; }
+    unread: function () {
+      var u = curUser(); if (!u || !u.username) return 0;
+      if (u.role === 'admin') return notices().filter(function (n) { return !n.read; }).length;
+      var acc = accountOf(u.username);
+      var meSet = [u.username, u.realname];
+      if (acc) { meSet.push(acc.department); if (acc.realname) meSet.push(acc.realname); }
+      return notices().filter(function (n) { return !n.read && meSet.indexOf(n.to) >= 0; }).length;
+    }
   };
 })();
 
@@ -583,8 +638,8 @@
       else if (f.status === B.FLOW_STATUS.DONE) stats.done++;
     });
     /* 我的待审批：管理员可审全部，普通用户审自己提交的？审批人=部门领导(role=admin 或 leader) */
-    var myTodo = flows.filter(function (f) { return f.status === B.FLOW_STATUS.APPR && (isAdmin() || f.approver === myName + '（领导）'); });
-    var myMrb = flows.filter(function (f) { return f.status === B.FLOW_STATUS.MRB && (isAdmin() || true); });
+    var myTodo = flows.filter(function (f) { return f.status === B.FLOW_STATUS.APPR && B.canApprove(f); });
+    var myMrb = flows.filter(function (f) { return f.status === B.FLOW_STATUS.MRB && B.canMrb(); });
 
     var h = '<div class="biz-stats">'
       + stat(stats.run, '流转中', 'run') + stat(stats.appr, '待审批', 'appr')
@@ -613,7 +668,7 @@
     apprList.forEach(function (f) {
       var nd = B.curNode(f);
       h += '<div class="biz-todo appr"><div class="biz-todo-t">【待审批】' + esc(f.no) + ' · ' + esc(f.title) + '</div>'
-        + '<div class="biz-todo-s">当前环节：' + esc(nd ? nd.name : '') + ' · 提交人：' + esc(f._submitBy || '') + '</div>'
+        + '<div class="biz-todo-s">当前环节：' + esc(nd ? nd.name : '') + ' · 提交人：' + esc(f._submitBy || '') + ' · 审批人：' + esc(f.approver || '') + '</div>'
         + '<div class="biz-todo-a">'
         + '<span class="erp-btn primary" onclick="BIZFLOW.approve(\'' + f.id + '\', true)">✓ 通过并流转</span>'
         + '<span class="erp-btn danger" onclick="BIZFLOW.approve(\'' + f.id + '\', false)">✕ 驳回</span>'
@@ -851,7 +906,9 @@
   /* ---- 侧边栏入口（业务流转） ---- */
   function updateBadge() {
     var f = B.flows();
-    var n = f.filter(function (x) { return x.status === B.FLOW_STATUS.APPR || x.status === B.FLOW_STATUS.MRB; }).length;
+    var n = f.filter(function (x) {
+      return (x.status === B.FLOW_STATUS.APPR && B.canApprove(x)) || (x.status === B.FLOW_STATUS.MRB && B.canMrb());
+    }).length;
     var el = document.getElementById('bizNavBadge');
     if (el) { if (n > 0) { el.style.display = 'inline-block'; el.textContent = n; } else el.style.display = 'none'; }
     return n;
