@@ -75,6 +75,9 @@
         { k: 'address', label: '地址', type: 'text' },
         { k: 'level', label: '等级', type: 'select', opts: GRADES },
         { k: 'supplyCat', label: '供货类别', type: 'select', opts: CATS },
+        { k: 'supplyCode', label: '供应产品编码', type: 'text', w: '130px' },
+        { k: 'supplyName', label: '供应产品名称', type: 'text' },
+        { k: 'supplySpec', label: '产品规格/型号', type: 'text' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
     },
