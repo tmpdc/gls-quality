@@ -44,7 +44,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 #page-detail.active { padding-bottom: 88px; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
+  .todo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .todo-card { border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .todo-card.approve { background: #fff; border-left: 4px solid #f5a623; }
+  .todo-card.mrb { background: #fff; border-left: 4px solid #e74c3c; }
+  .todo-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .todo-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: #333; }
+  .todo-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5a623; flex: none; }
+  .todo-card.mrb .todo-dot { background: #e74c3c; }
+  .todo-badge { background: #e74c3c; color: #fff; border-radius: 10px; font-size: 12px; padding: 1px 8px; margin-left: 6px; }
+  .todo-btn { font-size: 13px; color: #2d7a4f; cursor: pointer; font-weight: 500; flex: none; }
+  .todo-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: #fafafa; border-radius: 8px; margin-bottom: 6px; cursor: pointer; }
+  .todo-row:hover { background: #f0f7f3; }
+  .todo-no { font-weight: 600; font-size: 13px; color: #333; flex: none; }
+  .todo-mat { flex: 1; margin: 0 8px; font-size: 13px; color: #555; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .todo-sub { color: #999; font-size: 12px; }
+  .todo-date { font-size: 12px; color: #999; white-space: nowrap; flex: none; }
+  .todo-empty { padding: 18px 10px; text-align: center; color: #aaa; font-size: 13px; background: #fafafa; border-radius: 8px; }
+  .res-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-right: 8px; flex: none; }
+  .res-tag.pass { background: #e6f7ee; color: #2d7a4f; }
+  .res-tag.fail { background: #fdecec; color: #c0392b; }
+  @media (max-width: 768px) { .todo-grid { grid-template-columns: 1fr; } .stats-row { grid-template-columns: repeat(2, 1fr); } .quick-grid { grid-template-columns: repeat(2, 1fr); } }
 .stat-card { background: #fff; border-radius: 14px; padding: 14px 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; transition: transform 0.15s; }
 .stat-card:active { transform: scale(0.97); }
 .stat-card .stat-num { font-size: 22px; font-weight: 700; color: #2d7a4f; line-height: 1.2; }
@@ -567,6 +588,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <div class="main" id="mainContent">
   <!-- 首页 -->
   <div class="page active" id="page-home">
+    <div class="todo-grid" id="homeTodo"></div>
     <div class="stats-row" id="homeStats"></div>
     <div class="home-search-entry" onclick="showSearch()">
       <span style="font-size:16px;margin-right:9px;">🔍</span>
@@ -1656,65 +1678,110 @@ function toggleSidebar() {
 }
 
 // ==================== 首页 ====================
+function goFlowPage() { navigateTo('flows'); }
+
 function renderHome() {
   if (!appData) appData = getDefaultData();
-  
-  // 统计
-  let total = 0, pending = 0, urgent = 0, done = 0;
-  MODULES.forEach(m => {
-    const items = appData[m.id] || [];
-    items.forEach(item => {
-      total++;
-      if (item.status === 'pending') pending++;
-      if (item.status === 'urgent') urgent++;
-      if (item.status === 'done') done++;
-    });
-  });
-  
-  document.getElementById('homeStats').innerHTML = `
-    <div class="stat-card" onclick="navigateTo('dashboard')"><div class="stat-num">${total}</div><div class="stat-label">总记录</div></div>
-    <div class="stat-card" onclick="filterByStatus('pending')"><div class="stat-num warn">${pending}</div><div class="stat-label">待处理</div></div>
-    <div class="stat-card" onclick="filterByStatus('urgent')"><div class="stat-num danger">${urgent}</div><div class="stat-label">紧急</div></div>
-    <div class="stat-card" onclick="filterByStatus('done')"><div class="stat-num blue">${done}</div><div class="stat-label">已完成</div></div>
-  `;
-  
-  // 快捷入口
-  let quickHtml = '';
-  MODULES.slice(0, 8).forEach(m => {
-    quickHtml += `<div class="quick-item" onclick="navigateTo('module', '${m.id}')"><div class="quick-icon">${m.icon}</div><div class="quick-text">${m.name}</div></div>`;
-  });
-  document.getElementById('quickGrid').innerHTML = quickHtml;
-  
-  // 最近更新（按创建时间倒序取前5条）
-  let allItems = [];
-  MODULES.forEach(m => {
-    const items = appData[m.id] || [];
-    items.forEach(item => {
-      allItems.push({ ...item, moduleId: m.id, moduleName: m.name, moduleIcon: m.icon });
-    });
-  });
-  allItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  const recent = allItems.slice(0, 5);
-  
-  if (recent.length === 0) {
-    document.getElementById('recentList').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无数据</div></div>';
+
+  // 统一数据中心读取（检验工作台 / 品质资料库 / 账号）
+  function hubGet(sec, fb) { try { return (window.DATAHUB && DATAHUB.get(sec)) || fb; } catch (e) { return fb; } }
+  var insp = hubGet('inspect', { inspections: [], flowLog: [] });
+  var list = (insp.inspections || []).slice();
+  var pqs = hubGet('pqs', null);
+  var mats = (pqs && pqs.material) || [];
+  var cur = null; try { cur = JSON.parse(localStorage.getItem('gls_current_user') || 'null'); } catch (e) {}
+  var isAdmin = !!(cur && cur.role === 'admin');
+  function _e(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  // 真实业务统计
+  var appr = list.filter(function (r) { return r.status === '待审批'; });
+  var mrb = list.filter(function (r) { return r.status === '待评审'; });
+  var total = list.length;
+  var now = new Date();
+  var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  var monthList = list.filter(function (r) { return String(r.date || '').indexOf(ym) === 0; });
+  var passN = list.filter(function (r) { return r.result === 'pass'; }).length;
+  var rate = total ? Math.round(passN / total * 100) : 0;
+
+  // ===== A. 待办处理（流转审批 + 不合格评审） =====
+  function todoRow(r) {
+    var t = (window.INSP && INSP._t) ? INSP._t(r.type) : null;
+    var tName = (t && t.name) || r.type;
+    return '<div class="todo-row" onclick="INSP.viewDetail(\'' + r._id + '\')">'
+      + '<span class="todo-no">' + _e(r.no) + '</span>'
+      + '<span class="todo-mat">' + _e(r.matName) + ' <span class="todo-sub">' + _e(tName) + ' · ' + _e(r.inspector || '') + '</span></span>'
+      + '<span class="todo-date">' + _e(r.date) + '</span></div>';
+  }
+  function todoCard(kind, title, rows, btn, fn, empty) {
+    var body = rows.length ? rows.map(todoRow).join('') : '<div class="todo-empty">' + empty + '</div>';
+    return '<div class="todo-card ' + kind + '"><div class="todo-head">'
+      + '<div class="todo-title"><span class="todo-dot"></span>' + title
+      + '<span class="todo-badge">' + rows.length + '</span></div>'
+      + '<div class="todo-btn" onclick="' + fn + '">' + btn + '</div></div>'
+      + body + '</div>';
+  }
+  var todoHtml = todoCard('approve', '流转审批（合格单）', appr.slice(0, 3), '进入审批 ›', 'INSP.openApprove()', '暂无待审批单据')
+    + todoCard('mrb', '不合格评审（MRB）', mrb.slice(0, 3), '进入评审 ›', 'INSP.openMrb()', '暂无待评审单据');
+  document.getElementById('homeTodo').innerHTML = todoHtml;
+
+  // ===== B. 统计卡（真实业务数据） =====
+  // 流程待办（流程引擎数据：running 且属于当前用户/超管）
+  var flows = (appData && Array.isArray(appData.flows)) ? appData.flows : [];
+  var fTodo = flows.filter(function (f) {
+    return f && f.status === 'running' && (!f.assignee || f.assignee === (cur && cur.username) || isAdmin);
+  }).length;
+  document.getElementById('homeStats').innerHTML = [
+    '<div class="stat-card" onclick="INSP.openApprove()"><div class="stat-num warn">' + appr.length + '</div><div class="stat-label">流转审批待办</div></div>',
+    '<div class="stat-card" onclick="INSP.openMrb()"><div class="stat-num danger">' + mrb.length + '</div><div class="stat-label">不合格评审待办</div></div>',
+    '<div class="stat-card" onclick="INSP.openList()"><div class="stat-num">' + total + '</div><div class="stat-label">检验单总数</div></div>',
+    '<div class="stat-card" onclick="INSP.openList()"><div class="stat-num blue">' + monthList.length + '</div><div class="stat-label">本月检验</div></div>',
+    '<div class="stat-card" onclick="INSP.openHome()"><div class="stat-num">' + rate + '%</div><div class="stat-label">检验合格率</div></div>',
+    '<div class="stat-card" id="homeFlowStat" onclick="goFlowPage()"><div class="stat-num warn">' + fTodo + '</div><div class="stat-label">流程待办</div></div>'
+  ].join('');
+
+  // ===== C. 快捷入口 =====
+  var quicks = [
+    { icon: '📦', name: '来料检验', fn: "INSP.openForm('IQC')" },
+    { icon: '🔍', name: '首件检验', fn: "INSP.openForm('FIRST')" },
+    { icon: '⚙️', name: '巡检', fn: "INSP.openForm('PATROL')" },
+    { icon: '✅', name: '成品检验', fn: "INSP.openForm('OQC')" },
+    { icon: '📚', name: '品质资料库', fn: 'PQS.openHome()' },
+    { icon: '📋', name: '模板中心', fn: "navigateTo('templates')" },
+    { icon: '📁', name: '体系文件', fn: "navigateTo('module', 'documents')" }
+  ];
+  if (isAdmin) {
+    quicks.push({ icon: '👤', name: '账号管理', fn: "location.href='account-admin/index.html'" });
   } else {
-    let listHtml = '';
-    recent.forEach(item => {
-      const status = STATUSES.find(s => s.id === item.status) || STATUSES[0];
-      listHtml += `
-        <div class="list-item" onclick="navigateTo('detail', '${item.moduleId}', '${item.id}')">
-          <div class="item-icon ${item.moduleId === 'suppliers' ? 'blue' : item.moduleId === 'incoming' ? 'orange' : item.moduleId === 'abnormal' ? 'red' : item.moduleId === 'risk' ? 'orange' : 'green'}">${item.moduleIcon}</div>
-          <div class="item-content">
-            <div class="item-title">${item.name}</div>
-            <div class="item-desc">${item.moduleName} · ${item.description || '暂无描述'}</div>
-          </div>
-          <span class="item-status ${status.color}">${status.name}</span>
-          <span class="item-arrow">›</span>
-        </div>
-      `;
+    quicks.push({ icon: '🔔', name: '知识查询', fn: "navigateTo('module', 'knowledge')" });
+  }
+  document.getElementById('quickGrid').innerHTML = quicks.map(function (q) {
+    var erp = (q.name === '模板中心') ? ' data-erp="quick"' : '';
+    return '<div class="quick-item"' + erp + ' onclick="' + q.fn + '"><div class="quick-icon">' + q.icon + '</div><div class="quick-text">' + q.name + '</div></div>';
+  }).join('');
+
+  // ===== D. 最近动态（真实检验单） =====
+  var sorted = list.slice().sort(function (a, b) { return String(b.createdAt || '').localeCompare(String(a.createdAt || '')); });
+  var recent = sorted.slice(0, 6);
+  if (!recent.length) {
+    document.getElementById('recentList').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">暂无检验记录，点上方「来料检验」扫第一单</div></div>';
+  } else {
+    var lh = '';
+    recent.forEach(function (r) {
+      var tName = (window.INSP && INSP._t) ? (INSP._t(r.type) || {}).name : r.type;
+      var st = r.status || '';
+      var stCls = st === '已流转' ? 'done' : (st === '已驳回' ? 'urgent' : (st === '待审批' || st === '待评审' ? 'pending' : 'doing'));
+      var stName = st || '新建';
+      var icon = r.type === 'IQC' ? '📦' : (r.type === 'OQC' ? '✅' : (r.type === 'PATROL' ? '⚙️' : '🔍'));
+      var iconCls = r.type === 'IQC' ? 'orange' : (r.type === 'OQC' ? 'green' : (r.type === 'PATROL' ? 'purple' : 'cyan'));
+      lh += '<div class="list-item" onclick="INSP.viewDetail(\'' + r._id + '\')">'
+        + '<div class="item-icon ' + iconCls + '">' + icon + '</div>'
+        + '<div class="item-content"><div class="item-title">' + _e(r.no) + ' · ' + _e(r.matName) + '</div>'
+        + '<div class="item-desc">' + _e(tName) + ' · ' + _e(r.matCode) + ' · ' + _e(r.date) + (r.inspector ? ' · ' + _e(r.inspector) : '') + '</div></div>'
+        + '<span class="res-tag ' + (r.result === 'pass' ? 'pass' : 'fail') + '">' + (r.result === 'pass' ? '合格' : '不合格') + '</span>'
+        + '<span class="item-status ' + stCls + '">' + _e(stName) + '</span>'
+        + '<span class="item-arrow">›</span></div>';
     });
-    document.getElementById('recentList').innerHTML = listHtml;
+    document.getElementById('recentList').innerHTML = lh;
   }
 }
 
@@ -2205,8 +2272,8 @@ init();
 <script src="gls-erp-core.js?v=1"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="gls-inspect.js?v=1"></script>
+<script src="gls-inspect.js?v=2"></script>
 <script src="gls-pqs.js?v=2"></script>
-<script src="gls-datahub.js?v=1"></script>
+<script src="gls-datahub.js?v=2"></script>
 </body>
 </html>
