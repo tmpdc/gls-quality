@@ -273,6 +273,7 @@
       /* 执行节点动作（自动建单/库存/齐套检查） */
       var act = nd.action || (nd.branch ? null : null);
       if (act) { try { nodeAction(f, nd, act); } catch (e) { f.log.push('节点动作异常: ' + e.message); } }
+      try { applyStatus(f, nd); } catch (e) {}
       advance(f);
     } else {
       f.status = FLOW_STATUS.REJ;
@@ -326,6 +327,8 @@
       var d = erpData();
       if (!d.mo) d.mo = [];
       f._lack = lack.length > 0;
+      var moRec = findMo(f);
+      if (moRec) { moRec.status = lack.length ? '待料' : '生产中'; erpSave(); }
       if (lack.length) {
         f.log.push(today() + ' ' + nowTime() + ' 齐套检查：缺料 ' + lack.length + ' 项（' + lack.map(function (l) { return l.name + ' 缺' + l.lack + l.unit; }).join('；') + '）');
         /* 自动生成采购申请（草稿），明细=缺料清单 */
@@ -474,6 +477,57 @@
       f.log.push(today() + ' ' + nowTime() + ' 翻新完工入库 ' + st4.code + '（生成成品库存数据）');
       return;
     }
+  }
+
+
+  /* ===== 单据状态随流转自动显示（保留手动选择：表单状态列仍可改） ===== */
+  function findMo(f) {
+    if (f.moId) { var m0 = findRecById('mo', f.moId); if (m0) return m0; }
+    var m1 = findFlowDoc('mo', f);
+    if (m1) return m1;
+    var arr = erpList('mo');
+    for (var i = 0; i < arr.length; i++) {
+      if (String(arr[i].product || '') === String(f.product || '') && arr[i].status !== '已完工' && arr[i].status !== '已关闭') return arr[i];
+    }
+    return null;
+  }
+  function applyStatus(f, nd) {
+    var ST = {
+      SO:      { so: '进行中' },
+      MO:      {},
+      PR:      { pr: '已确认' },
+      PO:      { po: '已下单' },
+      PO_RECV: { poRecv: '已收货', po: '已收货' },
+      IQC:     {}, IN: {},
+      PICK:    { moPick: '已完成' },
+      FIRST:   {}, PATROL: {}, OQC: {},
+      MO_IN:   { moIn: '已完工' },
+      SHIP:    { so: '已发货', soShip: '已发货' },
+      RTN:     { soReturn: '已退货' },
+      ANALY:   { afterSale: '已分析' },
+      RNV:     { renovate: '翻新中' },
+      RNV_PICK:{ moPick: '已完成' },
+      RNV_FIRST: {}, RNV_PATROL: {}, RNV_OQC: {},
+      RNV_IN:  { renovate: '已完成', moIn: '已完工' }
+    };
+    var map = ST[nd.id] || {};
+    var d = erpData();
+    function putFlow(key, st) {
+      var rec = findFlowDoc(key, f);
+      if (rec) rec.status = st;
+    }
+    for (var k in map) {
+      var st2 = map[k];
+      if (k === 'so') { if (f.soId) { var so0 = findRecById('so', f.soId); if (so0) so0.status = st2; } }
+      else if (k === 'soReturn') { if (f.srcId) { var r0 = findRecById('soReturn', f.srcId); if (r0) r0.status = st2; } }
+      else putFlow(k, st2);
+    }
+    var mo2 = findMo(f);
+    if (mo2) {
+      if (nd.id === 'PICK' && mo2.status !== '已完工') mo2.status = '生产中';
+      if (nd.id === 'MO_IN') mo2.status = '已完工';
+    }
+    erpSave();
   }
 
   /* BOM 需求计算：产品物料结构 × 计划数量 × (1+损耗率) */
