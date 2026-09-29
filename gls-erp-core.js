@@ -639,12 +639,13 @@
       rows = rows.filter(function (r) { return JSON.stringify(r).toLowerCase().indexOf(low2) >= 0; });
     }
     var cols = ent.fields.filter(function (f) { return f.type !== 'items' && f.type !== 'textarea'; });
+    var showFlow = (key === 'so' || key === 'soReturn') && rows.some(function (r) { return r.flowStatus; });
     var html = barHtml(ent);
     html += '<div class="erp-count">共 <b>' + rows.length + '</b> 条' +
       (kw ? ' · 关键词「' + escHtml(kw) + '」' : '') + '</div>';
     html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>';
     cols.forEach(function (f) { html += '<th style="min-width:' + (f.w || '110px') + '">' + f.label + '</th>'; });
-    html += '<th style="min-width:120px">操作</th></tr></thead><tbody>';
+    html += (showFlow ? '<th style="min-width:80px">流程</th>' : '') + '<th style="min-width:120px">操作</th></tr></thead><tbody>';
     if (!rows.length) {
       html += '<tr><td colspan="' + (cols.length + 1) + '" class="erp-empty">暂无数据，点「＋ 新增」开始录入</td></tr>';
     } else {
@@ -654,7 +655,10 @@
           var v = cellVal(ent, r, f);
           html += '<td>' + escHtml(v) + '</td>';
         });
+        if (showFlow) html += '<td>' + ERP.flowTag(r) + '</td>';
         html += '<td class="erp-ops">' +
+          ((key === 'so' || key === 'soReturn') && !r.flowStatus ?
+            '<span class="erp-op" onclick="ERP.startFlow(\'' + r.id + '\')">发起流程</span>' : '') +
           '<span class="erp-op" onclick="ERP.openForm(\'' + r.id + '\')">编辑</span>' +
           '<span class="erp-op danger" onclick="ERP.delRow(\'' + r.id + '\')">删除</span>' +
           '</td></tr>';
@@ -711,6 +715,24 @@
   }
 
   /* ---------- 删除 ---------- */
+  ERP.startFlow = function (id) {
+    var key = ERP.current;
+    try {
+      if (key === 'so' && window.BIZFLOW && BIZFLOW.startFromSo) BIZFLOW.startFromSo(id);
+      else if (key === 'soReturn' && window.BIZFLOW && BIZFLOW.startFromRtn) BIZFLOW.startFromRtn(id);
+      else { toast('该模块暂不支持自动流转', false); return; }
+      ERP.renderList();
+    } catch (e) { toast('发起流程失败：' + e.message, false); }
+  };
+  ERP.flowTag = function (r) {
+    if (!r || !r.flowStatus) return '<span class="erp-tag" style="background:#f0f0f0;color:#999">未发起</span>';
+    var map = { '流转中': ['流转中', '#1f5a38', '#e8f5ec'], '待审批': ['待审批', '#b45309', '#fef3c7'],
+      '待评审': ['待评审', '#b91c1c', '#fee2e2'], '已完成': ['已完成', '#166534', '#dcfce7'],
+      '已驳回': ['已驳回', '#b91c1c', '#fee2e2'], '已关闭': ['已关闭', '#6b7280', '#f3f4f6'] };
+    var m = map[r.flowStatus] || ['流转中', '#1f5a38', '#e8f5ec'];
+    return '<span class="erp-tag" style="background:' + m[2] + ';color:' + m[1] + '">' + m[0] + '</span>';
+  };
+
   ERP.delRow = function (id) {
     var key = ERP.current, ent = ENTITIES[key];
     if (!ent) return;
@@ -997,6 +1019,10 @@
     if (ERP._isNew) d[key].push(rec);
     save();
     if (key === 'bom') ERP.syncFromBom();
+    try {
+      if (ERP._isNew && key === 'so' && window.BIZFLOW && BIZFLOW.startFromSo) BIZFLOW.startFromSo(rec.id);
+      if (ERP._isNew && key === 'soReturn' && window.BIZFLOW && BIZFLOW.startFromRtn) BIZFLOW.startFromRtn(rec.id);
+    } catch (e) { console.error('自动发起流程失败:', e); }
     ERP.closeForm();
     ERP.renderList();
     toast('已保存 · ' + ent.name);
