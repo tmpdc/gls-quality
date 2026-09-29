@@ -178,7 +178,8 @@
         { k: 'cause', label: '原因分析', type: 'textarea' },
         { k: 'measure', label: '纠正措施', type: 'textarea' },
         { k: 'owner', label: '分析人', type: 'text' },
-        { k: 'date', label: '分析日期', type: 'date', def: 'today' }
+        { k: 'date', label: '分析日期', type: 'date', def: 'today' },
+        { k: 'status', label: '状态', type: 'select', opts: ['待分析', '已分析', '已完成'], def: '待分析' }
       ]
     },
     renovate: {
@@ -336,7 +337,7 @@
         { k: 'startDate', label: '开工日期', type: 'date', def: 'today' },
         { k: 'dueDate', label: '完工日期', type: 'date' },
         { k: 'line', label: '生产线别', type: 'text' },
-        { k: 'status', label: '状态', type: 'select', opts: ['待下达', '生产中', '已完工', '已关闭'], def: '待下达' },
+        { k: 'status', label: '状态', type: 'select', opts: ['待下达', '待料', '生产中', '已完工', '已关闭'], def: '待下达' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
     },
