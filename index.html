@@ -574,7 +574,10 @@ function doLogin() {
   }
 
   showToast('登录成功，欢迎回来！', 'success');
-  setTimeout(() => enterAdmin(), 500);
+  setTimeout(() => {
+    if (account.role === 'admin') { enterAdmin(); }
+    else { window.location.href = 'page.html'; }
+  }, 500);
 }
 
 function showLoginError(msg) {
@@ -946,7 +949,8 @@ if (session) {
   const accounts = getAccounts();
   const valid = accounts.find(a => a.id === session.id && a.status === 'active');
   if (valid) {
-    enterAdmin();
+    if (session.role === 'admin') { enterAdmin(); }
+    else { window.location.href = 'page.html'; }
   } else {
     localStorage.removeItem(SESSION_KEY);
   }
