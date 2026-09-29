@@ -617,6 +617,7 @@
         '<input class="erp-search" id="erpKw" placeholder="搜索本模块…" value="' + kw + '" oninput="ERP.doSearch(this.value)">' +
         '<div class="erp-btn primary" onclick="ERP.openForm()">＋ 新增</div>') +
       '<div class="erp-btn" onclick="ERP.exportCurrent()">⬇ 导出 Excel</div>' +
+      '<div class="erp-btn" onclick="ERP.openImport()">📥 导入表格</div>' +
       '</div>';
   }
 
@@ -865,6 +866,9 @@
         '<span class="erp-addrow" onclick="ERP.addItemRow()">＋ 添加明细行</span></div>' +
         '<div id="erpItemsBox"></div></div>';
     }
+    var _ft = $('erpModal') ? $('erpModal').querySelector('.modal-footer') : null;
+    if (_ft) _ft.innerHTML = '<button class="btn btn-cancel" onclick="ERP.closeForm()">取消</button>' +
+      '<button class="btn btn-save" onclick="ERP.saveForm()">保存</button>';
     var t = $('erpFormTitle');
     if (t) t.textContent = (ERP._isNew ? '新增' : '编辑') + ' · ' + ent.name;
     var b = $('erpFormBody');
@@ -1059,6 +1063,204 @@
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 600);
   }
+
+
+  /* ==================== 表格批量导入（基础资料/业务单据通用） ==================== */
+  function _tplHeaders(ent) {
+    var hs = [];
+    ent.fields.forEach(function (f) {
+      if (f.type === 'items' || f.type === 'textarea') return;
+      hs.push(f.label);
+    });
+    if (itemField(ent)) hs.push('物料明细');
+    return hs;
+  }
+
+  ERP.downloadTpl = function () {
+    var key = ERP.current, ent = ENTITIES[key];
+    if (!ent || ent.view) return;
+    var hs = _tplHeaders(ent);
+    var h = '<table border="1"><tr>';
+    hs.forEach(function (c) { h += '<th>' + c + '</th>'; });
+    h += '</tr><tr>';
+    hs.forEach(function (c) {
+      var cell = (c === '物料明细') ? '物料编码@单台用量@损耗率，多组用 ; 分隔' : '';
+      h += '<td>' + cell + '</td>';
+    });
+    h += '</tr></table>';
+    try {
+      if (typeof global.exportHtmlTableToXlsx === 'function') {
+        global.exportHtmlTableToXlsx(h, ent.name + '-导入模板.xlsx', ent.name);
+        toast('已下载导入模板');
+        return;
+      }
+    } catch (e) {}
+    toast('模板导出模块未就绪，请刷新页面', false);
+  };
+
+  ERP._impRows = null;
+  ERP.openImport = function () {
+    var key = ERP.current, ent = ENTITIES[key];
+    if (!ent || ent.view) return;
+    ERP._impRows = null;
+    var t = $('erpFormTitle'); if (t) t.textContent = '表格导入 · ' + ent.name;
+    var b = $('erpFormBody');
+    if (!b) return;
+    b.innerHTML = ''
+      + '<div style="margin-bottom:12px;color:#666;font-size:13px">批量导入 <b>' + escHtml(ent.name) + '</b>：'
+      + '可 <b>选择 Excel 文件</b>，或从 Excel 复制表格后 <b>直接粘贴</b> 到下方。'
+      + '第一行必须是表头（' + escHtml(_tplHeaders(ent).join(' / ')) + '）。'
+      + '编码留空自动编号；已存在的记录自动跳过。</div>'
+      + '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">'
+      + '<span class="erp-btn" onclick="ERP.downloadTpl()">⬇ 下载导入模板</span>'
+      + '<label class="erp-btn primary" style="cursor:pointer">📄 选择 Excel 文件'
+      + '<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="ERP.readFile(this)"></label>'
+      + '</div>'
+      + '<div style="margin-bottom:6px;color:#888;font-size:12px">或直接粘贴（从 Excel 复制后 Ctrl+V）：</div>'
+      + '<textarea id="erpImpText" rows="6" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="从 Excel 复制数据后粘贴到这里…"></textarea>'
+      + '<div style="margin-top:8px;display:flex;gap:8px;align-items:center">'
+      + '<span class="erp-btn" onclick="ERP.parseImport()">解析预览</span>'
+      + '<span id="erpImpInfo" style="color:#888;font-size:12px"></span></div>'
+      + '<div id="erpImpPreview" style="margin-top:10px"></div>';
+    var ft = $('erpModal') ? $('erpModal').querySelector('.modal-footer') : null;
+    if (ft) ft.innerHTML = ''
+      + '<button class="btn btn-cancel" onclick="ERP.closeImport()">取消</button>'
+      + '<button class="btn btn-save" onclick="ERP.doImport()">确认导入</button>';
+    var m = $('erpModal');
+    if (m) m.classList.add('show');
+  };
+
+  ERP.closeImport = function () {
+    var m = $('erpModal'); if (m) m.classList.remove('show');
+    var ft = $('erpModal') ? $('erpModal').querySelector('.modal-footer') : null;
+    if (ft) ft.innerHTML = '<button class="btn btn-cancel" onclick="ERP.closeForm()">取消</button>' +
+      '<button class="btn btn-save" onclick="ERP.saveForm()">保存</button>';
+    ERP._impRows = null;
+  };
+
+  ERP.readFile = function (inp) {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    if (typeof XLSX === 'undefined') { toast('Excel 解析组件未加载，请刷新页面', false); return; }
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      try {
+        var data = new Uint8Array(ev.target.result);
+        var wb = XLSX.read(data, { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        ERP._impRows = rows;
+        ERP.showPreview();
+      } catch (e) { toast('文件解析失败：' + e.message, false); }
+    };
+    reader.readAsArrayBuffer(f);
+  };
+
+  ERP.parseImport = function () {
+    var txt = $('erpImpText') ? $('erpImpText').value : '';
+    if (!txt.trim()) { toast('请先粘贴数据', false); return; }
+    var lines = txt.replace(/\r/g, '').split('\n').filter(function (l) { return l.trim(); });
+    var rows = lines.map(function (l) { return l.split('\t'); });
+    ERP._impRows = rows;
+    ERP.showPreview();
+  };
+
+  ERP.showPreview = function () {
+    var key = ERP.current, ent = ENTITIES[key], rows = ERP._impRows;
+    var info = $('erpImpInfo'), box = $('erpImpPreview');
+    if (!rows || !rows.length) { if (info) info.textContent = '未解析到数据'; return; }
+    if (info) info.textContent = '共 ' + (rows.length - 1) + ' 行数据（首行为表头）';
+    var hs = _tplHeaders(ent);
+    var h = '<div style="max-height:240px;overflow:auto"><table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:12px;width:100%">';
+    h += '<tr style="background:#f0f7f3">';
+    hs.forEach(function (c) { h += '<th>' + escHtml(c) + '</th>'; });
+    h += '</tr>';
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i];
+      h += '<tr>';
+      hs.forEach(function (c, ci) { h += '<td>' + escHtml(r[ci] == null ? '' : r[ci]) + '</td>'; });
+      h += '</tr>';
+    }
+    h += '</table></div>';
+    if (box) box.innerHTML = h;
+  };
+
+  ERP.doImport = function () {
+    var key = ERP.current, ent = ENTITIES[key];
+    if (!ent || ent.view) return;
+    var rows = ERP._impRows;
+    if (!rows || rows.length < 2) { toast('没有可导入的数据', false); return; }
+    var hs = _tplHeaders(ent);
+    var header = rows[0].map(function (c) { return String(c == null ? '' : c).trim(); });
+    var colIdx = {};
+    hs.forEach(function (label) { var idx = header.indexOf(label); if (idx >= 0) colIdx[label] = idx; });
+    var miss = hs.filter(function (label) { return colIdx[label] === undefined; });
+    if (miss.length === hs.length) { toast('表头无法识别，请先「下载导入模板」填写', false); return; }
+
+    var d = getData();
+    if (!d[key]) d[key] = [];
+    var exist = {};
+    d[key].forEach(function (r) {
+      if (r.code) exist[String(r.code).toLowerCase()] = 1;
+      if (r.name) exist['n:' + String(r.name).toLowerCase()] = 1;
+    });
+
+    var added = 0, skipped = 0, empty = 0, errs = [];
+    var itemsField = itemField(ent);
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i];
+      var rec = { id: uid('r') };
+      var hasVal = false, reqMiss = [];
+      ent.fields.forEach(function (f) {
+        if (f.type === 'items' || f.type === 'textarea') return;
+        var idx = colIdx[f.label];
+        var v = idx === undefined ? '' : String(row[idx] == null ? '' : row[idx]).trim();
+        if (v) hasVal = true;
+        if (f.k === 'code' && !v) return;
+        if (f.type === 'number') rec[f.k] = (v === '' ? '' : num(v));
+        else rec[f.k] = v;
+        if (f.req && !v && f.k !== 'code') reqMiss.push(f.label);
+      });
+      if (!hasVal) { empty++; continue; }
+      var codeV = String(rec.code || '').toLowerCase();
+      if (codeV && exist[codeV]) { skipped++; continue; }
+      if (rec.name && exist['n:' + String(rec.name).toLowerCase()]) { skipped++; continue; }
+      if (reqMiss.length) { errs.push('第' + (i + 1) + '行缺：' + reqMiss.join(',')); continue; }
+      if (!rec.code) rec.code = ERP._nextCode(ent);
+      if (itemsField) {
+        var itIdx = colIdx['物料明细'];
+        var raw = itIdx === undefined ? '' : String(row[itIdx] == null ? '' : row[itIdx]).trim();
+        rec[itemsField.k] = [];
+        if (raw) {
+          raw.split(/[;；]/).forEach(function (seg) {
+            seg = seg.trim();
+            if (!seg) return;
+            var parts = seg.split('@');
+            var it = {
+              code: parts[0] || '',
+              qty: parts[1] != null && parts[1] !== '' ? num(parts[1]) : '',
+              loss: parts[2] != null && parts[2] !== '' ? num(parts[2]) : '',
+              remark: ''
+            };
+            var m = findRec('material', it.code);
+            if (m) it.unit = m.unit || '';
+            rec[itemsField.k].push(it);
+          });
+        }
+      }
+      d[key].push(rec);
+      exist[String(rec.code).toLowerCase()] = 1;
+      if (rec.name) exist['n:' + String(rec.name).toLowerCase()] = 1;
+      added++;
+    }
+    save();
+    ERP.closeImport();
+    ERP.renderList();
+    var msg = '导入完成：新增 ' + added + (skipped ? '，跳过重复 ' + skipped : '') +
+      (empty ? '，空行 ' + empty : '') + (errs.length ? '，失败 ' + errs.length : '');
+    toast(msg);
+    if (errs.length) setTimeout(function () { alert('导入失败明细（最多显示10条）：\n' + errs.slice(0, 10).join('\n')); }, 120);
+  };
 
   ERP.exportCurrent = function () {
     var key = ERP.current, ent = ENTITIES[key];
