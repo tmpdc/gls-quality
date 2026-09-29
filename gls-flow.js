@@ -545,9 +545,8 @@
   }
 
   function userSelectHtml(f, selected) {
-    var opts = '';
-    var u = curUser();
-    var sel = selected || f.assignee || u.username;
+    var opts = '<option value="">自动 · 指派给该环节部门领导</option>';
+    var sel = selected || '';
     activeAccounts().forEach(function (a) {
       opts += '<option value="' + escAttr(a.username) + '"' + (a.username === sel ? ' selected' : '') + '>' +
         escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
@@ -565,11 +564,14 @@
       '<div class="fa-label">处理意见（可选）</div>' +
       '<textarea id="flowOpinion" class="fa-input" placeholder="填写处理说明 / 审批意见…" rows="2"></textarea>';
 
+    var _ld = leaderOfNode(f, n);
     var nextBox =
-      '<div class="fa-row"><div class="fa-col"><div class="fa-label">下一节点处理人</div>' +
+      '<div class="fa-row"><div class="fa-col"><div class="fa-label">下一环节处理人' +
+      '<span class="fm-tip">留空则自动指派该环节部门领导</span></div>' +
       userSelectHtml(f) + '</div>' +
-      '<div class="fa-col"><div class="fa-label">当前节点</div>' +
-      '<div class="fa-static">' + escHtml(n.name) + (n.dept ? ' · ' + escHtml(n.dept) : '') + '</div></div></div>';
+      '<div class="fa-col"><div class="fa-label">当前节点 / 负责部门</div>' +
+      '<div class="fa-static">' + escHtml(n.name) + (n.dept ? ' · ' + escHtml(n.dept) : '') +
+      (_ld ? '<div class="fa-ld">部门领导：' + escHtml(userLabel(_ld)) + '</div>' : '') + '</div></div></div>';
 
     var dis = can ? '' : ' disabled';
     var tip = can ? '' : '<div class="fa-tip">当前节点处理人为 ' + escHtml(userLabel(f.assignee)) + '，你不是该节点处理人，无法操作（超级管理员可代审）</div>';
@@ -602,7 +604,8 @@
       return head + opinionBox +
         '<div class="fa-label" style="margin-top:12px;">选择走向</div>' +
         '<div class="fa-btns">' + btns + '</div>' +
-        '<div class="fa-row" style="margin-top:12px;"><div class="fa-col"><div class="fa-label">下一节点处理人</div>' +
+        '<div class="fa-row" style="margin-top:12px;"><div class="fa-col"><div class="fa-label">下一环节处理人' +
+        '<span class="fm-tip">留空则自动指派该环节部门领导</span></div>' +
         userSelectHtml(f) + '</div></div>' +
         '<div class="fa-btns" style="margin-top:10px;"><button class="btn btn-plain"' + dis + ' onclick="flowReject()">↩ 退回上一节点</button></div>' +
         tip;
@@ -685,7 +688,8 @@
       } catch (e) {}
     } else {
       f.curId = toNode.id;
-      f.assignee = nextUser || f.assignee || u.username;
+      var _autoLd = leaderOfNode(f, toNode);
+      f.assignee = nextUser || _autoLd || f.assignee || u.username;
       if (toNode.type === 'review') {
         var ok = okTargetOf(f, fromNode);
         f.reviewCtx = {
@@ -698,9 +702,16 @@
       }
     }
     f.updatedAt = Date.now();
+    if (toNode) {
+      notifyNode(f, toNode, fromNode ? fromNode.name : '');
+    } else {
+      notify(f.initiator, '【流程办结】' + f.title,
+        '流程已办结，最后环节：' + (fromNode ? fromNode.name : ''), f.id);
+    }
     saveFlows();
     renderFlowDetail();
     refreshBadges();
+    refreshNoticeBadge();
     toast(toNode ? ('已流转到「' + toNode.name + '」') : '流程已办结');
   }
 
@@ -756,7 +767,9 @@
       f.curId = '';
       f.reviewCtx = null;
       f.updatedAt = Date.now();
-      saveFlows(); renderFlowDetail(); refreshBadges();
+      notify(f.initiator, '【流程终止】' + f.title,
+        '评审结论：报废/退货。环节：' + n.name + (v.opinion ? '，意见：' + v.opinion : ''), f.id);
+      saveFlows(); renderFlowDetail(); refreshBadges(); refreshNoticeBadge();
       toast('流程已终止（报废/退货）');
       return;
     }
@@ -789,7 +802,9 @@
     f.curId = '';
     f.reviewCtx = null;
     f.updatedAt = Date.now();
-    saveFlows(); renderFlowDetail(); refreshBadges();
+    notify(f.initiator, '【流程终止】' + f.title,
+      '流程已终止。环节：' + (n ? n.name : '') + (v.opinion ? '，意见：' + v.opinion : ''), f.id);
+    saveFlows(); renderFlowDetail(); refreshBadges(); refreshNoticeBadge();
     toast('流程已终止');
   };
 
@@ -992,6 +1007,7 @@
     var _pid = pending.itemId || '';
     getFlows().push(f);
     saveFlows();
+    try { notifyNode(f, startNode, ''); } catch (e) {}
     global.closeFlowModal();
     refreshBadges();
     if ($('page-flows') && $('page-flows').classList.contains('active')) renderFlowsPage();
@@ -1064,6 +1080,300 @@
     } catch (e) {}
   }
 
+
+  /* ==================== 部门领导 ==================== */
+  function firstDept(s) {
+    if (!s) return '';
+    return String(s).split(/[\/、,，|]/)[0].trim();
+  }
+
+  function getLeaders() {
+    if (typeof appData === 'undefined' || !appData) return {};
+    if (!appData.deptLeaders || typeof appData.deptLeaders !== 'object') appData.deptLeaders = {};
+    return appData.deptLeaders;
+  }
+
+  function guessLeader(dept) {
+    var accs = getAccounts();
+    for (var i = 0; i < accs.length; i++) {
+      if (accs[i].dept === dept && accs[i].role === 'manager' && accs[i].status !== 'disabled') return accs[i].username;
+    }
+    for (var j = 0; j < accs.length; j++) {
+      if (accs[j].dept === dept && accs[j].status !== 'disabled') return accs[j].username;
+    }
+    return '';
+  }
+
+  function leaderOfDept(dept) {
+    var d = firstDept(dept);
+    if (!d) return '';
+    var L = getLeaders();
+    return L[d] || guessLeader(d);
+  }
+
+  function leaderOfNode(f, node) {
+    if (!node) return '';
+    if (f && f.nodeLeaders && f.nodeLeaders[node.id]) return f.nodeLeaders[node.id];
+    return leaderOfDept(node.dept);
+  }
+
+  function allDepts() {
+    var set = {};
+    getAccounts().forEach(function (a) { if (a.dept) set[a.dept] = 1; });
+    TEMPLATES.forEach(function (t) {
+      Object.keys(t.graph.nodes).forEach(function (k) {
+        var d = firstDept(t.graph.nodes[k].dept);
+        if (d) set[d] = 1;
+      });
+    });
+    getFlows().forEach(function (f) {
+      var g = graphOf(f); if (!g) return;
+      Object.keys(g.nodes).forEach(function (k) {
+        var d = firstDept(g.nodes[k].dept);
+        if (d) set[d] = 1;
+      });
+    });
+    return Object.keys(set);
+  }
+
+  /* ==================== 消息通知 ==================== */
+  function getNotices() {
+    if (typeof appData === 'undefined' || !appData) return [];
+    if (!Array.isArray(appData.notices)) appData.notices = [];
+    return appData.notices;
+  }
+
+  function notify(to, title, body, flowId) {
+    if (!to) return 0;
+    var list = getNotices(), now = Date.now();
+    for (var i = list.length - 1; i >= 0 && i > list.length - 30; i--) {
+      if (list[i].to === to && list[i].flowId === flowId && list[i].title === title && (now - list[i].at) < 60000) return 0;
+    }
+    list.push({ id: uid('ntc_'), to: to, from: curUser().username, title: title,
+      body: body || '', flowId: flowId || '', at: now, read: false });
+    if (list.length > 300) list.splice(0, list.length - 300);
+    saveFlows();
+    return 1;
+  }
+
+  function myNotices() {
+    var u = curUser().username;
+    return getNotices().filter(function (n) { return n.to === u; })
+      .sort(function (a, b) { return b.at - a.at; });
+  }
+
+  function unreadCount() {
+    return myNotices().filter(function (n) { return !n.read; }).length;
+  }
+
+  var soundOn = false;
+
+  function beep() {
+    if (!soundOn) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      var ctx = new AC();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.16, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.30);
+      o.start(); o.stop(ctx.currentTime + 0.32);
+      setTimeout(function () { try { ctx.close(); } catch (e) {} }, 700);
+    } catch (e) {}
+  }
+
+  function pushDesktop(title, body) {
+    try {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      new Notification(title, { body: body || '', tag: 'gls-flow-' + Date.now() });
+    } catch (e) {}
+  }
+
+  global.enableNotice = function () {
+    requestPermission();
+    soundOn = true;
+    beep();
+    toast('桌面提醒与提示音已开启');
+  };
+
+  function requestPermission() {
+    try {
+      if (typeof Notification === 'undefined') { toast('当前浏览器不支持桌面通知', 'error'); return; }
+      if (Notification.permission === 'default') Notification.requestPermission();
+    } catch (e) {}
+  }
+
+  // 流转到节点后：通知处理人 + 该部门领导
+  function notifyNode(f, node, fromName) {
+    if (!node || f.status !== 'running') return 0;
+    var targets = {};
+    if (f.assignee) targets[f.assignee] = 1;
+    var ld = leaderOfNode(f, node);
+    if (ld) targets[ld] = 1;
+    var title = '【流程待办】' + f.title;
+    var body = '当前环节：' + node.name + (node.dept ? '（' + firstDept(node.dept) + '）' : '') +
+      (fromName ? '，由「' + fromName + '」流转而来' : '') + '，请及时评审处理。';
+    var n = 0;
+    Object.keys(targets).forEach(function (u) { n += notify(u, title, body, f.id); });
+    if (n) { pushDesktop(title, body); beep(); }
+    return n;
+  }
+
+  /* ==================== 消息中心 ==================== */
+  global.openNotices = function () {
+    switchFlowPage('notices', '消息中心');
+    renderNotices();
+  };
+
+  function renderNotices() {
+    var el = $('noticeList');
+    if (!el) return;
+    var list = myNotices();
+    var unread = list.filter(function (n) { return !n.read; }).length;
+
+    var head = $('noticeHead');
+    if (head) {
+      var permTxt = '';
+      try {
+        if (typeof Notification !== 'undefined') {
+          permTxt = Notification.permission === 'granted' ? '桌面提醒已开启'
+            : (Notification.permission === 'denied' ? '桌面提醒被浏览器拒绝' : '桌面提醒未开启');
+        } else { permTxt = '当前浏览器不支持桌面通知'; }
+      } catch (e) {}
+      head.innerHTML =
+        '<div class="nt-head-row"><span class="nt-count">未读 <b>' + unread + '</b> / 共 ' + list.length + ' 条</span>' +
+        '<span class="nt-acts">' +
+          '<span class="nt-btn" onclick="enableNotice()">🔔 开启提醒</span>' +
+          (unread ? '<span class="nt-btn" onclick="markAllRead()">全部已读</span>' : '') +
+        '</span></div>' +
+        '<div class="nt-perm">' + escHtml(permTxt) + ' · 数据存本机浏览器，同一台电脑切换账号即可看到各自身份的消息</div>';
+    }
+
+    if (!list.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔔</div>' +
+        '<div class="empty-text">暂无消息</div>' +
+        '<div style="font-size:12px;color:#bbb;margin-top:8px;">流程流转到需你评审的环节时，这里会收到提醒</div></div>';
+      return;
+    }
+    var html = '';
+    list.forEach(function (n) {
+      html += '<div class="nt-item' + (n.read ? '' : ' unread') + '" onclick="openNotice(\'' + escAttr(n.id) + '\')">' +
+        '<div class="nt-dot"></div>' +
+        '<div class="nt-body">' +
+          '<div class="nt-title">' + escHtml(n.title) + '</div>' +
+          '<div class="nt-txt">' + escHtml(n.body) + '</div>' +
+          '<div class="nt-time">来自 ' + escHtml(userLabel(n.from)) + ' · ' + fmtTime(n.at) + '</div>' +
+        '</div></div>';
+    });
+    el.innerHTML = html;
+  }
+
+  global.openNotice = function (id) {
+    var list = getNotices();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) {
+        list[i].read = true;
+        saveFlows();
+        refreshNoticeBadge();
+        if (list[i].flowId && findFlow(list[i].flowId)) { global.openFlow(list[i].flowId); return; }
+        break;
+      }
+    }
+    renderNotices();
+  };
+
+  global.markAllRead = function () {
+    var u = curUser().username;
+    getNotices().forEach(function (n) { if (n.to === u) n.read = true; });
+    saveFlows();
+    refreshNoticeBadge();
+    renderNotices();
+    toast('已全部标记为已读');
+  };
+
+  function refreshNoticeBadge() {
+    var n = unreadCount();
+    try {
+      var dot = $('noticeDot');
+      if (dot) {
+        dot.textContent = n > 9 ? '9+' : (n || '');
+        dot.style.display = n > 0 ? '' : 'none';
+      }
+      document.querySelectorAll('#sidebarNav .nav-item').forEach(function (el) {
+        if (el.textContent.indexOf('消息中心') < 0) return;
+        var b = el.querySelector('.nav-badge');
+        if (n > 0) {
+          if (!b) { b = document.createElement('span'); b.className = 'nav-badge'; el.appendChild(b); }
+          b.textContent = n; b.style.display = '';
+        } else if (b) { b.style.display = 'none'; }
+      });
+    } catch (e) {}
+  }
+
+  /* ==================== 部门领导设置 ==================== */
+  global.openDeptConfig = function () {
+    var depts = allDepts().sort();
+    var L = getLeaders();
+    var rows = '';
+    var accOpts = '';
+    activeAccounts().forEach(function (a) {
+      accOpts += '<option value="' + escAttr(a.username) + '">' +
+        escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
+    });
+    depts.forEach(function (d) {
+      var sel = L[d] || guessLeader(d);
+      var opts = '<option value="">— 未设置 —</option>';
+      activeAccounts().forEach(function (a) {
+        opts += '<option value="' + escAttr(a.username) + '"' + (a.username === sel ? ' selected' : '') + '>' +
+          escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
+      });
+      rows += '<div class="fe-row"><div class="dp-name">' + escHtml(d) + '</div>' +
+        '<select class="fe-input dp-sel" data-dept="' + escAttr(d) + '">' + opts + '</select></div>';
+    });
+    if (!rows) rows = '<div class="fa-done">暂无可配置的部门</div>';
+
+    var box = $('flowModalBody');
+    if (box) box.innerHTML =
+      '<div class="fm-row"><div class="fm-label">各部门上级领导' +
+      '<span class="fm-tip">流程流转到某部门环节时，自动指派给该部门领导评审</span></div>' +
+      '<div class="fe-list">' + rows + '</div></div>' +
+      '<div class="fm-hint">已在进行的流程不受影响，新流转的环节按此指派。部门来自账号资料与流程节点。</div>';
+    showModal('⚙ 部门领导设置');
+  };
+
+  global.saveDeptConfig = function () {
+    var L = getLeaders();
+    var sels = document.querySelectorAll('#flowModalBody .dp-sel');
+    Array.prototype.forEach.call(sels, function (el) {
+      var d = el.getAttribute('data-dept');
+      if (!d) return;
+      if (el.value) L[d] = el.value; else delete L[d];
+    });
+    saveFlows();
+    global.closeFlowModal();
+    toast('部门领导已保存');
+    if ($('page-flows') && $('page-flows').classList.contains('active')) renderFlowsPage();
+  };
+
+  /* ==================== 使用说明 ==================== */
+  global.toastFlowHelp = function () {
+    var html = '<div class="help-doc">' +
+      '<p><b>1. 怎么发起</b><br>在业务卡片详情页点「🚀 发起流程」，或在流程中心点「＋ 发起流程」选内置模板 / 业务卡片。</div>' +
+      '<p><b>2. 环节从哪来</b><br>「主机生产全流程」是按公司实际业务流程内置的；选业务卡片则自动读取该卡片的流程步骤拆分。</p>' +
+      '<p><b>3. 部门领导评审</b><br>每个环节绑定负责部门，流转到该环节时<b>自动指派给该部门领导</b>评审；如需调整，在「⚙ 部门领导」里设置。</p>' +
+      '<p><b>4. 自动流转</b><br>领导评审通过后自动进入下一部门环节；分支环节（齐套/合格等）选择走向后流转；末环节通过即办结。</p>' +
+      '<p><b>5. 消息提醒</b><br>每次流转会自动通知<b>该环节处理人与部门领导</b>，右上角 🔔 显示未读数；在消息中心点「🔔 开启提醒」可开启桌面通知与提示音。</p>' +
+      '<p><b>6. 不合格怎么办</b><br>评审处理有三个结论：返工返修（回到原检验环节重检）、让步接收（继续走合格路径）、报废/退货（终止流程）。</p>' +
+      '<p><b>7. 多人怎么用</b><br>同一台电脑、同一浏览器下，退出后换账号登录，即可看到各自身份的待办与消息。</p>' +
+      '</div>';
+    var box = $('flowModalBody');
+    if (box) box.innerHTML = html;
+    showModal('流程中心使用说明');
+  };
+
   /* ==================== 启动 ==================== */
   function boot() {
     try { migrateAll(); } catch (e) {}
@@ -1077,10 +1387,14 @@
           var nav = $('sidebarNav');
           if (nav && nav.innerHTML.indexOf('流程中心') < 0) {
             var n = countTodo();
+            var un = unreadCount();
             var html = '<div class="nav-section">流程协作</div>' +
               '<div class="nav-item" onclick="navigateTo(\'flows\'); toggleSidebar()">' +
               '<span class="nav-icon">⚡</span><span class="nav-text">流程中心</span>' +
-              (n > 0 ? '<span class="nav-badge nav-badge-warn">' + n + '</span>' : '') + '</div>';
+              (n > 0 ? '<span class="nav-badge nav-badge-warn">' + n + '</span>' : '') + '</div>' +
+              '<div class="nav-item" onclick="navigateTo(\'notices\'); toggleSidebar()">' +
+              '<span class="nav-icon">🔔</span><span class="nav-text">消息中心</span>' +
+              (un > 0 ? '<span class="nav-badge">' + un + '</span>' : '') + '</div>';
             var secs = nav.querySelectorAll('.nav-section');
             var done = false;
             for (var i = 0; i < secs.length; i++) {
@@ -1098,7 +1412,10 @@
     if (typeof _nav === 'function') {
       global.navigateTo = function (page) {
         var r = _nav.apply(this, arguments);
-        try { if (page === 'flows') { renderFlowsPage(); refreshBadges(); } } catch (e) {}
+        try {
+          if (page === 'flows') { renderFlowsPage(); refreshBadges(); }
+          if (page === 'notices') { renderNotices(); refreshNoticeBadge(); }
+        } catch (e) {}
         return r;
       };
     }
@@ -1136,6 +1453,9 @@
       try { if (typeof renderSidebar === 'function') renderSidebar(); } catch (e) {}
       try { if ($('page-flows') && $('page-flows').classList.contains('active')) renderFlowsPage(); } catch (e) {}
       refreshBadges();
+      refreshNoticeBadge();
+      var _un = unreadCount();
+      if (_un > 0) toast('你有 ' + _un + ' 条新消息，点右上角 🔔 查看');
     }, 600);
   }
 
