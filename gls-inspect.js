@@ -678,6 +678,7 @@
     openForm: openForm, openApprove: openApprove, openMrb: openMrb, openList: openList,
     scanMaterial: scanMaterial, saveForm: saveForm, approve: approve, mrbDecide: mrbDecide,
     viewDetail: viewDetail, matDetail: matDetail, openImport: openImport, doImport: doImport, exportRecords: exportRecords,
-    _db: function () { return DB; }
+    _db: function () { return DB; },
+    _t: function (t) { return TYPES[t] || null; }
   };
 })();
