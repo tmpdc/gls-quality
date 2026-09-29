@@ -497,6 +497,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .erp-rep-title{font-size:14px;font-weight:600;color:#1f5a38;margin-bottom:8px;}
 @media (max-width:640px){.erp-form{grid-template-columns:1fr;}.erp-cards{grid-template-columns:1fr;}}
 
+
+/* ===== PQS 品质资料库 ===== */
+.pqs-searchbar{margin:16px 0;}
+.pqs-searchbar input{width:100%;padding:10px 14px;border:1px solid #dcdfe6;border-radius:8px;font-size:14px;box-sizing:border-box;}
+.pqs-section{margin:20px 0;}
+.pqs-section h3{margin:0 0 10px;font-size:15px;color:#303133;}
+.pqs-bullet{padding-left:20px;line-height:1.9;color:#606266;margin:0;}
+.pqs-key{font-size:12px;color:#606266;max-width:420px;line-height:1.6;}
+.pqs-range{font-family:Consolas,monospace;color:#e6a23c;font-weight:600;white-space:nowrap;}
+.pqs-badge-red{background:#fef0f0;color:#f56c6c;}
+
+/* ===== PQS 独立布局 ===== */
+#page-pqs-home, #page-pqs-list{padding:20px;box-sizing:border-box;max-width:1400px;margin:0 auto;}
+#page-pqs-home .erp-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;}
+#page-pqs-home .stat-card{background:#fff;border-radius:10px;padding:18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+#page-pqs-home .stat-num{font-size:26px;font-weight:700;color:#2c5e36;}
+#page-pqs-home .stat-label{font-size:13px;color:#888;margin-top:4px;}
+#page-pqs-home .erp-card-grid,#page-pqs-list .erp-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:20px;}
+#page-pqs-home .erp-card,#page-pqs-list .erp-card{background:#fff;border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:.2s;}
+#page-pqs-home .erp-card:hover,#page-pqs-list .erp-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);}
+#page-pqs-home .erp-card-icon,#page-pqs-list .erp-card-icon{font-size:28px;}
+#page-pqs-home .erp-card-name,#page-pqs-list .erp-card-name{font-weight:600;}
+#page-pqs-home .erp-card-desc,#page-pqs-list .erp-card-desc{font-size:12px;color:#888;margin-top:4px;}
+#page-pqs-home .erp-card-count,#page-pqs-list .erp-card-count{margin-left:auto;background:#ecf5ff;color:#409eff;padding:2px 10px;border-radius:10px;font-size:13px;}
+.erp-table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.erp-table th,.erp-table td{padding:10px 12px;text-align:left;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top;}
+.erp-table th{background:#fafafa;font-weight:600;color:#333;}
+.erp-list-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.erp-list-head h2{margin:0;font-size:18px;}
+.erp-search{flex:1;padding:8px 12px;border:1px solid #dcdfe6;border-radius:6px;font-size:14px;}
+.btn-ghost{padding:8px 14px;background:#fff;border:1px solid #dcdfe6;border-radius:6px;cursor:pointer;}
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -646,6 +677,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   <!-- ERP 列表页 -->
   <div class="page" id="page-erp-list">
     <div id="erpListBody"></div>
+
   </div>
 
 </div>
@@ -2162,6 +2194,11 @@ init();
 <script src="gls-erp.js?v=3"></script>
 <script src="gls-flow.js?v=3"></script>
 <script src="gls-erp-core.js?v=1"></script>
+<script src="pqs-data.js?v=1"></script>
+<script src="gls-pqs.js?v=1"></script>
 
+
+<div id="page-pqs-home" class="page"><div id="pqsHome"></div></div>
+<div id="page-pqs-list" class="page"><div id="pqsListBody"></div></div>
 </body>
 </html>
