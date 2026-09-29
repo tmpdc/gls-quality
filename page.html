@@ -596,6 +596,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .biz-detail-info{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-size:13px;color:#374151;margin:10px 0;line-height:1.9}
 .biz-detail-actions{margin:10px 0}
 @media(max-width:768px){.biz-stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== 数据备份页 ===== */
+.bkp-head{margin-bottom:16px}
+.bkp-sub{color:#8b95a5;font-size:13px;margin-top:4px;line-height:1.6}
+.bkp-card{background:#fff;border:1px solid #e8eef5;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.bkp-card-t{font-weight:600;color:#2c3e50;margin-bottom:12px;font-size:15px}
+.bkp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.bkp-stat{background:#f6f9fc;border-radius:10px;padding:10px 8px;text-align:center}
+.bkp-num{font-size:20px;font-weight:700;color:#1f7a4d}
+.bkp-lbl{font-size:12px;color:#7d8a99;margin-top:2px}
+.bkp-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.bkp-actions-r{display:flex;gap:10px;align-items:center;flex:1;justify-content:flex-end}
+.bkp-btn{border:0;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;font-weight:500}
+.bkp-btn-dl{background:#1f7a4d;color:#fff}
+.bkp-btn-up{background:#2d6cdf;color:#fff}
+.bkp-sel{border:1px solid #cfd8e3;border-radius:8px;padding:8px 10px;font-size:13px;color:#2c3e50;background:#fff}
+.bkp-tip{color:#9aa7b4;font-size:12px;margin-top:12px;line-height:1.7;background:#f7fafc;border-radius:8px;padding:10px 12px}
+@media (max-width:720px){.bkp-actions-r{justify-content:flex-start;flex-wrap:wrap}.bkp-actions{flex-direction:column;align-items:stretch}}
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -753,6 +771,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <!-- 业务流转工作台 -->
   <div class="page" id="page-bizflow">
     <div id="bizflowHome"></div>
+  </div>
+
+<!-- 数据备份与恢复 -->
+  <div class="page" id="page-backup">
+    <div id="backupHome"></div>
   </div>
   <div id="page-pqs-home" class="page"><div id="pqsHome"></div></div>
 <div id="page-pqs-list" class="page"><div id="pqsListBody"></div></div>
@@ -2327,5 +2350,6 @@ init();
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
   <script src="gls-bizflow.js?v=1"></script>
+  <script src="gls-backup.js?v=1"></script>
 </body>
 </html>
