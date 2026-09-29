@@ -621,7 +621,11 @@
     if (!box) return;
     if (!ent) { box.innerHTML = '<div class="erp-empty">请从 ERP 工作台进入</div>'; return; }
     if (ent.view === 'stock') { box.innerHTML = barHtml(ent) + ERP.stockView(); return; }
-    if (ent.view === 'report') { box.innerHTML = barHtml(ent) + ERP.reportView(); return; }
+    if (ent.view === 'report') {
+      box.innerHTML = barHtml(ent) + ERP.reportView();
+      if (window.echarts) setTimeout(function () { ERP.renderCharts(); }, 80);
+      return;
+    }
 
     var rows = listOf(key), kw = (ERP.kw || '').trim();
     if (kw) {
@@ -1008,6 +1012,17 @@
   ERP.reportView = function () {
     var html = '';
 
+    /* ===== 图表区 ===== */
+    html += '<div class="rp-grid">'
+      + rpBox('rpSaleTrend', '销售订单金额趋势（近 12 个月）')
+      + rpBox('rpBuySup', '采购金额统计（按供应商）')
+      + rpBox('rpStockTop', '库存结存 TOP 10')
+      + rpBox('rpMoStatus', '生产工单状态分布')
+      + rpBox('rpInspRate', '检验合格率（按类型）')
+      + rpBox('rpMrbConcl', '不合格评审结论分布')
+      + rpBox('rpAfterFault', '售后故障 TOP')
+      + '</div>';
+
     // 1. 库存结存
     var st = ERP.buildStock();
     var stRows = st.map(function (r) { return [r.code, r.name, r.unit, String(r.in), String(r.out), String(r.bal), (r.safe || '')]; });
@@ -1111,6 +1126,14 @@
 
 
   /* ==================== 表格批量导入（基础资料/业务单据通用） ==================== */
+  /* 明细列提示：物料编码@数量@单价…（按实体明细字段动态生成） */
+  function itemHint(ent) {
+    var f = itemField(ent);
+    if (!f || !f.cols) return '物料编码@数量';
+    var defs = f.cols.filter(function (c) { return c.k !== 'code' && c.type !== 'calc' && !c.autoFrom; });
+    return '物料编码' + defs.map(function (c) { return '@' + c.label; }).join('');
+  }
+
   function _tplHeaders(ent) {
     var hs = [];
     ent.fields.forEach(function (f) {
@@ -1129,7 +1152,7 @@
     hs.forEach(function (c) { h += '<th>' + c + '</th>'; });
     h += '</tr><tr>';
     hs.forEach(function (c) {
-      var cell = (c === '物料明细') ? '物料编码@单台用量@损耗率，多组用 ; 分隔' : '';
+      var cell = (c === '物料明细') ? itemHint(ent) + '，多组用 ; 分隔' : '';
       h += '<td>' + cell + '</td>';
     });
     h += '</tr></table>';
@@ -1277,18 +1300,19 @@
         var raw = itIdx === undefined ? '' : String(row[itIdx] == null ? '' : row[itIdx]).trim();
         rec[itemsField.k] = [];
         if (raw) {
+          var colDefs = itemsField.cols.filter(function (c) { return c.k !== 'code' && c.type !== 'calc' && !c.autoFrom; });
           raw.split(/[;；]/).forEach(function (seg) {
             seg = seg.trim();
             if (!seg) return;
             var parts = seg.split('@');
-            var it = {
-              code: parts[0] || '',
-              qty: parts[1] != null && parts[1] !== '' ? num(parts[1]) : '',
-              loss: parts[2] != null && parts[2] !== '' ? num(parts[2]) : '',
-              remark: ''
-            };
+            var it = { code: (parts[0] || '').trim() };
+            colDefs.forEach(function (c, idx) {
+              var v = parts[idx + 1] == null ? '' : String(parts[idx + 1]).trim();
+              if (v === '') return;
+              if (c.type === 'number') it[c.k] = num(v); else it[c.k] = v;
+            });
             var m = findRec('material', it.code);
-            if (m) it.unit = m.unit || '';
+            if (m) { it.name = m.name || ''; it.unit = m.unit || ''; }
             rec[itemsField.k].push(it);
           });
         }
@@ -1305,6 +1329,134 @@
       (empty ? '，空行 ' + empty : '') + (errs.length ? '，失败 ' + errs.length : '');
     toast(msg);
     if (errs.length) setTimeout(function () { alert('导入失败明细（最多显示10条）：\n' + errs.slice(0, 10).join('\n')); }, 120);
+  };
+
+
+  function rpBox(id, title) {
+    return '<div class="rp-card"><div class="rp-card-t">' + title + '</div><div id="' + id + '" class="rp-chart" style="height:260px">'
+      + '<div style="color:#9aa7b4;font-size:13px;padding:60px 0;text-align:center">数据不足或组件未加载</div></div></div>';
+  }
+
+  /* ===== 报表图表渲染（ECharts） ===== */
+  ERP.renderCharts = function () {
+    if (!window.echarts) return;
+    function el(id) { return document.getElementById(id); }
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+    function opt(id, option) {
+      var dom = el(id);
+      if (!dom) return;
+      var c = echarts.getInstanceByDom(dom);
+      if (c) c.dispose();
+      c = echarts.init(dom);
+      c.setOption(option);
+      return c;
+    }
+    var charts = [];
+    var GREEN = '#1f7a4d', GRAY = '#c4ccd6';
+
+    /* 1. 销售订单金额趋势 */
+    (function () {
+      var months = [], amt = {};
+      for (var i = 11; i >= 0; i--) { var d = new Date(); d.setMonth(d.getMonth() - i); months.push(d.getFullYear() + '-' + pad2(d.getMonth() + 1)); amt[months[months.length - 1]] = 0; }
+      listOf('so').forEach(function (so) { var m = String(so.orderDate || '').slice(0, 7); if (amt[m] !== undefined) amt[m] += num(so.amount); });
+      charts.push(opt('rpSaleTrend', {
+        grid: { left: 50, right: 16, top: 26, bottom: 30 },
+        xAxis: { type: 'category', data: months, axisLabel: { rotate: 30, fontSize: 10 } },
+        yAxis: { type: 'value' },
+        tooltip: { trigger: 'axis' },
+        series: [{ type: 'bar', data: months.map(function (m) { return amt[m]; }), itemStyle: { color: GREEN }, barWidth: '55%' }]
+      }));
+    })();
+
+    /* 2. 采购金额按供应商 */
+    (function () {
+      var bm = {};
+      listOf('po').forEach(function (po) { var k = po.supplier || '(未指定)'; bm[k] = (bm[k] || 0) + num(po.amount); });
+      var keys = Object.keys(bm).sort(function (a, b) { return bm[b] - bm[a]; }).slice(0, 10);
+      charts.push(opt('rpBuySup', {
+        grid: { left: 90, right: 20, top: 16, bottom: 26 },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: keys, axisLabel: { fontSize: 11 } },
+        tooltip: { trigger: 'axis' },
+        series: [{ type: 'bar', data: keys.map(function (k) { return bm[k]; }), itemStyle: { color: '#2d6cdf' }, barWidth: '55%' }]
+      }));
+    })();
+
+    /* 3. 库存结存 TOP 10 */
+    (function () {
+      var st = ERP.buildStock().slice().sort(function (a, b) { return b.bal - a.bal; }).slice(0, 10);
+      charts.push(opt('rpStockTop', {
+        grid: { left: 90, right: 20, top: 16, bottom: 26 },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: st.map(function (r) { return r.name || r.code; }), axisLabel: { fontSize: 11 } },
+        tooltip: { trigger: 'axis' },
+        series: [{ type: 'bar', data: st.map(function (r) { return r.bal; }), itemStyle: { color: '#e6a23c' }, barWidth: '55%' }]
+      }));
+    })();
+
+    /* 4. 生产工单状态分布 */
+    (function () {
+      var sm = {};
+      listOf('mo').forEach(function (m) { var k = m.status || '未设置'; sm[k] = (sm[k] || 0) + 1; });
+      var keys = Object.keys(sm);
+      charts.push(opt('rpMoStatus', {
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0, fontSize: 11 },
+        series: [{ type: 'pie', radius: ['38%', '62%'], center: ['50%', '45%'],
+          data: keys.map(function (k) { return { name: k, value: sm[k] }; }),
+          label: { fontSize: 11 }, itemStyle: { borderColor: '#fff', borderWidth: 1 } }]
+      }));
+    })();
+
+    /* 5. 检验合格率（按类型） */
+    (function () {
+      var insp = []; try { var d = window.DATAHUB && DATAHUB.get('inspect'); insp = (d && d.inspections) || []; } catch (e) {}
+      var types = ['IQC', 'FIRST', 'PATROL', 'OQC'];
+      var names = { IQC: '进料', FIRST: '首件', PATROL: '巡检', OQC: '成品' };
+      var data = types.map(function (t) {
+        var arr = insp.filter(function (r) { return r.type === t; });
+        var pass = arr.filter(function (r) { return r.result === 'pass'; }).length;
+        return arr.length ? Math.round(pass / arr.length * 100) : 0;
+      });
+      charts.push(opt('rpInspRate', {
+        grid: { left: 50, right: 20, top: 26, bottom: 30 },
+        xAxis: { type: 'category', data: types.map(function (t) { return names[t]; }), axisLabel: { fontSize: 11 } },
+        yAxis: { type: 'value', max: 100 },
+        tooltip: { trigger: 'axis' },
+        series: [{ type: 'bar', data: data, itemStyle: { color: '#1f7a4d' }, barWidth: '45%', label: { show: true, position: 'top', fontSize: 11, formatter: '{c}%' } }]
+      }));
+    })();
+
+    /* 6. 不合格评审结论分布 */
+    (function () {
+      var insp = []; try { var d = window.DATAHUB && DATAHUB.get('inspect'); insp = (d && d.inspections) || []; } catch (e) {}
+      var sm = {};
+      insp.forEach(function (r) { if (r.flowTo && String(r.flowTo).indexOf('MRB') >= 0) { var k = r.flowTo.replace('MRB 评审结论：', ''); sm[k] = (sm[k] || 0) + 1; } });
+      var keys = Object.keys(sm);
+      charts.push(opt('rpMrbConcl', {
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0, fontSize: 10 },
+        series: [{ type: 'pie', radius: ['38%', '62%'], center: ['50%', '45%'],
+          data: keys.map(function (k) { return { name: k, value: sm[k] }; }),
+          label: { fontSize: 10 }, itemStyle: { borderColor: '#fff', borderWidth: 1 } }]
+      }));
+    })();
+
+    /* 7. 售后故障 TOP */
+    (function () {
+      var fm = {};
+      (listOf('afterSale') || []).forEach(function (a) { var k = String(a.fault || '(未填)').trim(); if (!k) k = '(未填)'; fm[k] = (fm[k] || 0) + num(a.qty || 1); });
+      var keys = Object.keys(fm).sort(function (a, b) { return fm[b] - fm[a]; }).slice(0, 8);
+      charts.push(opt('rpAfterFault', {
+        grid: { left: 110, right: 20, top: 16, bottom: 26 },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: keys, axisLabel: { fontSize: 10 } },
+        tooltip: { trigger: 'axis' },
+        series: [{ type: 'bar', data: keys.map(function (k) { return fm[k]; }), itemStyle: { color: '#8a5cd6' }, barWidth: '55%' }]
+      }));
+    })();
+
+    window.addEventListener('resize', function () { charts.forEach(function (c) { if (c) c.resize(); }); });
   };
 
   ERP.exportCurrent = function () {
