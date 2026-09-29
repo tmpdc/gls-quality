@@ -58,7 +58,7 @@
 
   function getAccounts() {
     try {
-      var a = JSON.parse(localStorage.getItem('gls_accounts') || '[]');
+      var a = (window.DATAHUB && DATAHUB.get('accounts')) || JSON.parse(localStorage.getItem('gls_accounts') || '[]');
       return Array.isArray(a) ? a : [];
     } catch (e) { return []; }
   }
