@@ -401,6 +401,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .fbox-s { font-size: 11px; color: #999; margin-top: 5px; }
 .fm-hint { font-size: 11px; color: #bbb; line-height: 1.7; margin-top: 8px; }
 
+/* ===== 消息提醒 ===== */
+#noticeBtn { position: relative; }
+.notice-dot { position: absolute; top: 1px; right: 1px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #ff4d4f; color: #fff; font-size: 10px; line-height: 16px; text-align: center; box-sizing: border-box; }
+.notice-head { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.nt-head-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nt-count { font-size: 13px; color: #666; }
+.nt-count b { color: #fa8c16; font-size: 15px; }
+.nt-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.nt-btn { font-size: 12px; padding: 6px 12px; border-radius: 8px; background: #e6f7ee; color: #2d7a4f; cursor: pointer; font-weight: 600; }
+.nt-perm { font-size: 11px; color: #bbb; margin-top: 9px; line-height: 1.6; }
+.nt-item { display: flex; gap: 10px; background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.nt-item.unread { border-left: 3px solid #fa8c16; }
+.nt-dot { width: 8px; height: 8px; border-radius: 50%; background: #e0e0e0; flex-shrink: 0; margin-top: 6px; }
+.nt-item.unread .nt-dot { background: #fa8c16; box-shadow: 0 0 0 3px rgba(250,140,22,.15); }
+.nt-body { flex: 1; min-width: 0; }
+.nt-title { font-size: 13px; font-weight: 600; color: #555; line-height: 1.5; }
+.nt-item.unread .nt-title { color: #222; }
+.nt-txt { font-size: 12px; color: #777; margin-top: 4px; line-height: 1.6; }
+.nt-time { font-size: 11px; color: #bbb; margin-top: 6px; }
+
+/* ===== 部门领导设置 ===== */
+.dp-name { width: 96px; font-size: 12px; color: #444; flex-shrink: 0; }
+.dp-sel { flex: 1; }
+.fa-ld { font-size: 11px; color: #5b8a6f; margin-top: 4px; }
+.help-doc { font-size: 13px; line-height: 1.9; color: #444; }
+.help-doc p { margin: 0 0 10px; }
+
+
 @media (max-width: 640px) {
   .flow-stats { grid-template-columns: repeat(2, 1fr); }
   .fa-row { flex-direction: column; }
@@ -411,6 +439,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   .fg-dept { font-size: 10px; }
   .fe-name { flex: 1; }
   .fa-btns .btn { min-width: 100%; }
+  .nt-head-row { flex-direction: column; align-items: flex-start; }
+  .dp-name { width: 76px; }
 }
 </style>
 <script src="system_docs.js"></script>
@@ -426,6 +456,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   <div class="menu-btn" onclick="toggleSidebar()">☰</div>
   <div class="title" id="pageTitle">质量管理工作台</div>
   <div class="actions">
+    <div class="action-btn" onclick="openNotices()" id="noticeBtn">🔔<span class="notice-dot" id="noticeDot" style="display:none"></span></div>
     <div class="action-btn" onclick="showSearch()" id="searchBtn">🔍</div>
   </div>
 </div>
@@ -527,10 +558,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
     <div id="tplListContainer"></div>
   </div>
 
+  <!-- 消息中心页 -->
+  <div class="page" id="page-notices">
+    <div class="notice-head" id="noticeHead"></div>
+    <div id="noticeList"></div>
+  </div>
+
   <!-- 流程中心页 -->
   <div class="page" id="page-flows">
     <div class="tpl-toolbar">
       <div class="tpl-btn" onclick="openFlowPicker()">＋ 发起流程</div>
+      <div class="tpl-btn" onclick="openDeptConfig()">⚙ 部门领导</div>
       <div class="tpl-btn" onclick="toastFlowHelp()">? 使用说明</div>
     </div>
     <div class="flow-stats" id="flowStats"></div>
@@ -2040,6 +2078,6 @@ window.onerror = function(msg, url, line, col, error) {
 init();
 </script>
 <script src="gls-erp.js?v=3"></script>
-<script src="gls-flow.js?v=2"></script>
+<script src="gls-flow.js?v=3"></script>
 </body>
 </html>
