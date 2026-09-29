@@ -134,18 +134,20 @@
   }
   function loadDB() {
     try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        var p = JSON.parse(raw);
-        if (p && p.material) return ensureIds(p);
-      }
+      var p = (window.DATAHUB && DATAHUB.get('pqs')) || (function () {
+        try { var raw = localStorage.getItem(LS_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+      })();
+      if (p && p.material) return ensureIds(p);
     } catch (e) { }
     var db = ensureIds(seedDB());
-    try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) { }
+    try { if (window.DATAHUB) DATAHUB.set('pqs', db); else localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch (e) { }
     return db;
   }
   function saveDB() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); return true; }
+    try {
+      if (window.DATAHUB) { DATAHUB.set('pqs', DB); return true; }
+      localStorage.setItem(LS_KEY, JSON.stringify(DB)); return true;
+    }
     catch (e) { toast('保存失败：' + e.message, false); return false; }
   }
   function rows(cat) { return DB[cat] || (DB[cat] = []); }
