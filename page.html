@@ -442,6 +442,61 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   .nt-head-row { flex-direction: column; align-items: flex-start; }
   .dp-name { width: 76px; }
 }
+
+/* ===== ERP 子系统 ===== */
+.erp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0;}
+.erp-stat{background:#fff;border-radius:10px;padding:16px;text-align:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.erp-stat .n{font-size:26px;font-weight:700;color:#1f5a38;}
+.erp-stat.warn .n{color:#d97706;}
+.erp-stat.danger .n{color:#dc2626;}
+.erp-stat .t{font-size:12px;color:#666;margin-top:4px;}
+.erp-group{margin:18px 0;}
+.erp-group-title{font-size:14px;font-weight:600;color:#1f5a38;margin:0 0 10px;padding-left:2px;}
+.erp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.erp-card{background:#fff;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:all .15s;}
+.erp-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);}
+.erp-card-icon{font-size:26px;}
+.erp-card-main{flex:1;min-width:0;}
+.erp-card-name{font-size:14px;font-weight:600;color:#222;}
+.erp-card-desc{font-size:11px;color:#888;margin-top:3px;line-height:1.4;}
+.erp-card-cnt{font-size:12px;color:#1f5a38;background:#e8f5ec;padding:3px 8px;border-radius:10px;white-space:nowrap;}
+.erp-bar{display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;}
+.erp-btn{padding:8px 14px;border-radius:8px;background:#fff;border:1px solid #ddd;cursor:pointer;font-size:13px;white-space:nowrap;}
+.erp-btn:hover{background:#f5f5f5;}
+.erp-btn.primary{background:#1f5a38;color:#fff;border-color:#1f5a38;}
+.erp-btn.back{background:#f0f0f0;}
+.erp-search{flex:1;min-width:160px;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;}
+.erp-count{font-size:13px;color:#666;margin:8px 0;}
+.erp-tablewrap{overflow-x:auto;background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.erp-table{width:100%;border-collapse:collapse;font-size:13px;}
+.erp-table th{background:#f5f7f6;padding:10px 8px;text-align:left;font-weight:600;color:#444;border-bottom:2px solid #e5e7eb;white-space:nowrap;}
+.erp-table td{padding:9px 8px;border-bottom:1px solid #f0f0f0;}
+.erp-table tr:hover td{background:#fafbfb;}
+.erp-empty{text-align:center;color:#999;padding:30px !important;}
+.erp-ops{white-space:nowrap;}
+.erp-op{color:#1f5a38;cursor:pointer;margin-right:10px;}
+.erp-op.danger{color:#dc2626;}
+.erp-op:hover{text-decoration:underline;}
+.erp-tag{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;background:#f0f0f0;color:#666;}
+.erp-tag.ok{background:#e8f5ec;color:#1f5a38;}
+.erp-tag.danger{background:#fde8e8;color:#dc2626;}
+.erp-form{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+.erp-f{display:flex;flex-direction:column;gap:4px;}
+.erp-f label{font-size:12px;color:#555;}
+.erp-f label i{color:#dc2626;font-style:normal;}
+.erp-in{padding:8px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;}
+.erp-in.sm{padding:5px 8px;font-size:12px;}
+.erp-in:focus{outline:none;border-color:#1f5a38;}
+.erp-readonly{background:#f5f5f5;}
+.erp-items{margin-top:14px;}
+.erp-items-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:600;font-size:14px;}
+.erp-addrow{color:#1f5a38;cursor:pointer;font-size:13px;font-weight:normal;}
+.erp-addrow:hover{text-decoration:underline;}
+.erp-calc{font-weight:600;color:#1f5a38;}
+.erp-rep{margin:14px 0;}
+.erp-rep-title{font-size:14px;font-weight:600;color:#1f5a38;margin-bottom:8px;}
+@media (max-width:640px){.erp-form{grid-template-columns:1fr;}.erp-cards{grid-template-columns:1fr;}}
+
 </style>
 <script src="system_docs.js"></script>
 <script src="knowledge_index.js"></script>
@@ -582,6 +637,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
     <div class="flow-timeline" id="flowTimeline"></div>
     <div class="flow-actions" id="flowActions"></div>
   </div>
+
+  <!-- ERP 主页 -->
+  <div class="page" id="page-erp-home">
+    <div id="erpHome"></div>
+  </div>
+
+  <!-- ERP 列表页 -->
+  <div class="page" id="page-erp-list">
+    <div id="erpListBody"></div>
+  </div>
+
 </div>
 
 <!-- 浮动添加按钮 -->
@@ -598,6 +664,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeForm()">取消</button>
       <button class="btn btn-save" onclick="saveForm()">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ERP 表单模态框 -->
+<div class="modal-overlay" id="erpModal">
+  <div class="modal" style="max-width:980px;">
+    <div class="modal-header">
+      <div class="modal-title" id="erpFormTitle">新增</div>
+      <div class="modal-close" onclick="ERP.closeForm()">✕</div>
+    </div>
+    <div class="modal-body" id="erpFormBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="ERP.closeForm()">取消</button>
+      <button class="btn btn-save" onclick="ERP.saveForm()">保存</button>
     </div>
   </div>
 </div>
@@ -2079,5 +2161,7 @@ init();
 </script>
 <script src="gls-erp.js?v=3"></script>
 <script src="gls-flow.js?v=3"></script>
+<script src="gls-erp-core.js?v=1"></script>
+
 </body>
 </html>
