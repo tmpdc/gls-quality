@@ -325,7 +325,7 @@
       if (!d.mo) d.mo = [];
       f._lack = lack.length > 0;
       var moRec = findMo(f);
-      if (moRec) { moRec.status = lack.length ? '待料' : '生产中'; erpSave(); }
+      if (moRec) { moRec.status = lack.length ? '待料' : '待生产'; erpSave(); }
       if (lack.length) {
         f.log.push(today() + ' ' + nowTime() + ' 齐套检查：缺料 ' + lack.length + ' 项（' + lack.map(function (l) { return l.name + ' 缺' + l.lack + l.unit; }).join('；') + '）');
         /* 自动生成采购申请（草稿），明细=缺料清单 */
