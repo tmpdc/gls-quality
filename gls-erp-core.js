@@ -337,7 +337,7 @@
         { k: 'startDate', label: '开工日期', type: 'date', def: 'today' },
         { k: 'dueDate', label: '完工日期', type: 'date' },
         { k: 'line', label: '生产线别', type: 'text' },
-        { k: 'status', label: '状态', type: 'select', opts: ['待下达', '待料', '生产中', '已完工', '已关闭'], def: '待下达' },
+        { k: 'status', label: '状态', type: 'select', opts: ['待下达', '待料', '待生产', '生产中', '已完工', '已关闭'], def: '待下达' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
     },
