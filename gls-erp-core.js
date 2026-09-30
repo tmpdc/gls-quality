@@ -540,6 +540,7 @@
   };
 
   ERP.openList = function (key) {
+    if (key === '__appr') { ERP.openApprovals(); return; }
     var ent = ENTITIES[key];
     if (!ent) { toast('未找到该功能'); return; }
     ERP.current = key;
@@ -572,11 +573,21 @@
     listOf('mo').forEach(function (m) { if (m.status === '生产中') running++; });
     var waitSo = 0;
     listOf('so').forEach(function (m) { if (m.status === '待处理') waitSo++; });
+    var apprN = 0;
+    try {
+      if (window.BIZFLOW) {
+        BIZFLOW.flows().forEach(function (f) {
+          if (f.status !== '待审批') return;
+          try { if (BIZFLOW.canApprove(f)) apprN++; } catch (e) {}
+        });
+      }
+    } catch (e) {}
 
     var html = '<div class="erp-stats">' +
       statCard(st.length, '在管物料', '', 'stock') +
       statCard(docs, '业务单据', '', '') +
       statCard(waitSo, '待处理订单', waitSo ? 'warn' : '', 'so') +
+      statCard(apprN, '待我审批', apprN ? 'warn' : '', '__appr') +
       statCard(running, '在产工单', '', 'mo') +
       statCard(low, '低于安全库存', low ? 'danger' : '', 'stock') +
       '</div>';
@@ -625,6 +636,7 @@
   ERP.renderList = function () {
     var key = ERP.current, ent = ENTITIES[key], box = $('erpListBody');
     if (!box) return;
+    if (key === '__appr') { box.innerHTML = ERP.approvalView(); return; }
     if (!ent) { box.innerHTML = '<div class="erp-empty">请从 ERP 工作台进入</div>'; return; }
     if (ent.view === 'stock') { box.innerHTML = barHtml(ent) + ERP.stockView(); return; }
     if (ent.view === 'report') {
@@ -738,9 +750,72 @@
         if (f.status === '流转中') {
           h += '<span class="erp-op" onclick="ERP.submitFlow(\'' + r.id + '\')">提交审批</span>';
         }
+        if (f.status === '待审批') {
+          var ca = false;
+          try { ca = BIZFLOW.canApprove(f); } catch (e) {}
+          if (ca) {
+            h += '<span class="erp-op" onclick="ERP.approveFlow(\'' + r.id + '\', 1)">✓ 通过</span>' +
+              '<span class="erp-op danger" onclick="ERP.approveFlow(\'' + r.id + '\', 0)">驳回</span>';
+          }
+        }
       }
     } catch (e) {}
     return h;
+  };
+  ERP.openApprovals = function () {
+    ERP.current = '__appr';
+    ERP.kw = '';
+    showEl('page-erp-list');
+    setTitle('我的审批');
+    var f = $('fabAdd'); if (f) f.style.display = 'none';
+    var s = $('searchBtn'); if (s) s.style.display = 'none';
+    ERP.renderList();
+    window.scrollTo(0, 0);
+  };
+  ERP.approvalView = function () {
+    var out = [];
+    try {
+      if (window.BIZFLOW) {
+        BIZFLOW.flows().forEach(function (f) {
+          if (f.status !== '待审批') return;
+          var ok = false;
+          try { ok = BIZFLOW.canApprove(f); } catch (e) {}
+          if (ok) out.push(f);
+        });
+      }
+    } catch (e) {}
+    var html = '<div class="erp-bar"><span class="erp-back" onclick="ERP.openHome()">← 返回</span>' +
+      '<b>待我审批（' + out.length + '）</b></div>';
+    if (!out.length) {
+      html += '<div class="erp-empty">暂无待我审批的流程</div>';
+      return html;
+    }
+    html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
+      '<th>流程号</th><th>事项</th><th>当前环节</th><th>提交人</th><th>提交时间</th><th style="min-width:180px">操作</th>' +
+      '</tr></thead><tbody>';
+    out.forEach(function (f) {
+      var nd = null;
+      try { nd = BIZFLOW.curNode(f); } catch (e) {}
+      html += '<tr>' +
+        '<td>' + escHtml(f.no || '') + '</td>' +
+        '<td>' + escHtml(f.title || '') + '</td>' +
+        '<td>' + escHtml(nd ? nd.name : '') + '</td>' +
+        '<td>' + escHtml(f._submitBy || '') + '</td>' +
+        '<td>' + escHtml(f._submitAt || '') + '</td>' +
+        '<td class="erp-ops">' +
+        '<span class="erp-op" onclick="ERP.approveFlow(\'' + f.id + '\', 1)">✓ 通过并流转</span>' +
+        '<span class="erp-op danger" onclick="ERP.approveFlow(\'' + f.id + '\', 0)">驳回</span>' +
+        '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  };
+  ERP.approveFlow = function (id, pass) {
+    try {
+      if (!window.BIZFLOW) { toast('流程引擎未就绪', false); return; }
+      BIZFLOW.approve(id, !!pass);
+      ERP.renderList();
+    } catch (e) { toast('审批失败：' + e.message, false); }
   };
   ERP.startFlow = function (id) {
     var key = ERP.current;
