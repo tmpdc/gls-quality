@@ -655,7 +655,7 @@
           var v = cellVal(ent, r, f);
           html += '<td>' + escHtml(v) + '</td>';
         });
-        if (showFlow) html += '<td>' + ERP.flowTag(r) + '</td>';
+        if (showFlow) html += '<td>' + ERP.flowCell(r, key) + '</td>';
         html += '<td class="erp-ops">' +
           ((key === 'so' || key === 'soReturn') && !r.flowStatus ?
             '<span class="erp-op" onclick="ERP.startFlow(\'' + r.id + '\')">发起流程</span>' : '') +
@@ -715,6 +715,33 @@
   }
 
   /* ---------- 删除 ---------- */
+  ERP.submitFlow = function (id) {
+    var key = ERP.current, rec = null;
+    var arr = listOf(key);
+    for (var i = 0; i < arr.length; i++) if (arr[i].id === id) { rec = arr[i]; break; }
+    if (!rec || !rec.flowId) { toast('该单据尚未发起流程', false); return; }
+    try {
+      var f = BIZFLOW.getFlow(rec.flowId);
+      if (!f) { toast('流程不存在', false); return; }
+      BIZFLOW.submit(rec.flowId);
+      ERP.renderList();
+    } catch (e) { toast('提交失败：' + e.message, false); }
+  };
+  ERP.flowCell = function (r, key) {
+    if (!r || !r.flowStatus) return ERP.flowTag(r);
+    var h = ERP.flowTag(r);
+    try {
+      var f = window.BIZFLOW && BIZFLOW.getFlow(r.flowId);
+      if (f) {
+        var nd = BIZFLOW.curNode(f);
+        if (nd) h += '<div class="erp-flownode">环节：' + escHtml(nd.name) + '（' + escHtml(nd.dept) + '）</div>';
+        if (f.status === '流转中') {
+          h += '<span class="erp-op" onclick="ERP.submitFlow(\'' + r.id + '\')">提交审批</span>';
+        }
+      }
+    } catch (e) {}
+    return h;
+  };
   ERP.startFlow = function (id) {
     var key = ERP.current;
     try {
