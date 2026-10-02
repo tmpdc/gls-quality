@@ -2255,6 +2255,7 @@ function renderDetail() {
     `;
   });
   document.getElementById('detailSections').innerHTML = html;
+  if (window.glsFixTableWidth) glsFixTableWidth(document.getElementById('detailSections'));
 }
 
 // ===== 各模块"本卡档案明细"字段库（项目|内容） =====
@@ -2580,6 +2581,34 @@ function supplierMatInfo(item) {
   }
   return h + '</table></div></div>';
 }
+
+// 多列表格防压扁：按列数给 min-width，窄屏改为横向滚动（保持原表比例不被压缩）
+window.glsFixTableWidth = function (root) {
+  try {
+    var scope = root || document;
+    var tables = scope.querySelectorAll('table');
+    Array.prototype.forEach.call(tables, function (tb) {
+      if (tb.getAttribute('data-minw') === '1') return;
+      var maxCols = 0;
+      Array.prototype.forEach.call(tb.rows, function (r) {
+        var n = 0;
+        Array.prototype.forEach.call(r.cells, function (c) { n += (c.colSpan || 1); });
+        if (n > maxCols) maxCols = n;
+      });
+      if (maxCols >= 5) {
+        // 每列至少 62px，保证 12 列表格在手机上横向滚动而不是被压扁
+        var w = Math.max(560, maxCols * 62);
+        tb.style.minWidth = w + 'px';
+        var wrap = tb.parentNode;
+        if (wrap && wrap.style) {
+          wrap.style.overflowX = 'auto';
+          wrap.style.webkitOverflowScrolling = 'touch';
+        }
+        tb.setAttribute('data-minw', '1');
+      }
+    });
+  } catch (e) {}
+};
 
 // 记录模板折叠开关
 window.toggleTplBox = function (el) {
