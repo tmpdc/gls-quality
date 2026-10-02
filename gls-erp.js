@@ -41,6 +41,27 @@
     try { eval(name + ' = value'); } catch (e2) {}
   }
 
+  /* ==================== 用户导入模板（持久化） ==================== */
+  var USER_TPL_KEY = 'gls_user_templates';
+
+  function getUserTpls() {
+    try { return JSON.parse(localStorage.getItem(USER_TPL_KEY) || '[]') || []; } catch (e) { return []; }
+  }
+
+  function setUserTpls(arr) {
+    try { localStorage.setItem(USER_TPL_KEY, JSON.stringify(arr)); return true; }
+    catch (e) {
+      toast('保存失败：浏览器本地空间不足，请删除部分导入模板后重试', 'error');
+      return false;
+    }
+  }
+
+  function tplModuleOf(modId) {
+    var m = null;
+    try { m = MODULES.filter(function (x) { return x.id === modId; })[0]; } catch (e) {}
+    return m || (MODULES && MODULES[0]) || { id: 'other', name: '自定义模板', icon: '⭐' };
+  }
+
   /* ==================== 数据收集 ==================== */
   function getAllTemplates() {
     var out = [], seen = {};
@@ -64,6 +85,14 @@
           });
         });
       }
+      getUserTpls().forEach(function (t) {
+        if (!t || !t.id || seen[t.id]) return;
+        t.isUser = true;
+        var m = tplModuleOf(t.moduleId);
+        t.moduleId = m.id;
+        out.push({ tpl: t, moduleId: m.id, moduleName: m.name, moduleIcon: m.icon, isUser: true });
+        seen[t.id] = 1;
+      });
     } catch (e) { console.error('收集模板失败:', e); }
     return out;
   }
@@ -338,13 +367,19 @@
       html += '<div class="search-group-title"><span>' + m.icon + ' ' + escHtml(m.name) +
         '</span><span class="cnt">' + arr.length + ' 个模板</span></div>';
       arr.forEach(function (x) {
+        var isU = !!x.isUser || !!x.tpl.isUser;
         html += '<div class="tpl-card">' +
-          '<div class="tpl-name">' + escHtml(x.tpl.name) + '</div>' +
+          '<div class="tpl-name">' + escHtml(x.tpl.name) +
+          (isU ? '<span class="mini-btn" style="margin-left:6px;padding:1px 6px;font-size:11px;background:#eef2ff;color:#4338ca">自定义</span>' : '') +
+          '</div>' +
           '<div class="tpl-desc">' + escHtml(x.tpl.description || '标准空白模板') + '</div>' +
           '<div class="tpl-actions">' +
           '<span class="mini-btn" onclick="openTemplatePreview(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\')">👁 预览</span>' +
           '<span class="mini-btn blue" onclick="exportTemplate(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\')">⬇ 导出 Excel</span>' +
-          '<span class="mini-btn gray" onclick="editTemplateItem(\'' + escAttr(x.moduleId) + '\',\'' + escAttr(x.tpl.id) + '\')">✏️ 编辑</span>' +
+          (isU
+            ? '<span class="mini-btn gray" onclick="editUserTpl(\'' + escAttr(x.tpl.id) + '\')">✏️ 改名</span>' +
+              '<span class="mini-btn" style="color:#dc2626" onclick="deleteUserTpl(\'' + escAttr(x.tpl.id) + '\')">🗑 删除</span>'
+            : '<span class="mini-btn gray" onclick="editTemplateItem(\'' + escAttr(x.moduleId) + '\',\'' + escAttr(x.tpl.id) + '\')">✏️ 编辑</span>') +
           '</div></div>';
       });
     });
@@ -421,6 +456,587 @@
     var ok = global.exportTemplatesAsZip(items);
     toast(ok ? '正在打包 ' + items.length + ' 个模板，请稍候…' : '导出失败',
       ok ? 'success' : 'error');
+  };
+
+  /* ==================== 模板导入（WPS / Excel） ==================== */
+  var _tplImpHtml = '', _tplImpName = '';
+
+  function moduleOptions(sel) {
+    var h = '';
+    try {
+      MODULES.forEach(function (m) {
+        h += '<option value="' + escAttr(m.id) + '"' + (m.id === sel ? ' selected' : '') + '>' +
+          m.name + '</option>';
+      });
+    } catch (e) {}
+    return h;
+  }
+
+  /* 把一列/一行文本切成二维数组（制表符 / 逗号 / 分号） */
+  function textToRows(txt) {
+    var rows = [];
+    String(txt || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').forEach(function (line) {
+      if (!line.length) return;
+      var cells = (line.indexOf('\t') >= 0) ? line.split('\t') : (line.indexOf(',') >= 0 ? line.split(',') : line.split(';'));
+      rows.push(cells.map(function (c) { return c.replace(/^"|"$/g, '').trim(); }));
+    });
+    return rows;
+  }
+
+  /* 判断是否数字 */
+  function isNum(v) {
+    if (v === '' || v === null || v === undefined) return false;
+    return /^-?\d+(\.\d+)?%?$/.test(String(v).replace(/,/g, ''));
+  }
+
+  /* 二维数组 → 带边框的表格 HTML（第一行作表头） */
+  function rowsToHtml(rows, title) {
+    if (!rows.length) return '';
+    var cols = 0;
+    rows.forEach(function (r) { cols = Math.max(cols, r.length); });
+    var h = '';
+    if (title) h += '<div style="margin:10px 0 6px 0;"><b style="color:#1e40af;font-size:14px;">' + escHtml(title) + '</b></div>';
+    h += '<table style="border-collapse:collapse;font-size:11px;width:100%;table-layout:fixed;">';
+    rows.forEach(function (r, ri) {
+      h += '<tr style="height:22px;">';
+      for (var c = 0; c < cols; c++) {
+        var v = (r[c] === undefined || r[c] === null) ? '' : String(r[c]);
+        var head = (ri === 0);
+        var st = 'font-family:宋体;font-size:10.5pt;border:1px solid #000;padding:3px;vertical-align:middle;' +
+          'word-break:break-all;white-space:pre-wrap;' +
+          (head ? 'font-weight:bold;text-align:center;background:#f3f4f6;' : (isNum(v) ? 'text-align:center;' : 'text-align:left;'));
+        h += '<td style="' + st + '">' + escHtml(v) + '</td>';
+      }
+      h += '</tr>';
+    });
+    return h + '</table>';
+  }
+
+  /* SheetJS 工作表 → 带合并单元格/列宽的表格 HTML */
+  function sheetToHtml(ws, title) {
+    if (!ws || !ws['!ref']) return '';
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var merges = ws['!merges'] || [];
+    var map = {}, covered = {};
+    merges.forEach(function (m) {
+      var rs = m.e.r - m.s.r + 1, cs = m.e.c - m.s.c + 1;
+      map[m.s.r + ',' + m.s.c] = { rs: rs, cs: cs };
+      for (var r = m.s.r; r <= m.e.r; r++) {
+        for (var c = m.s.c; c <= m.e.c; c++) {
+          if (!(r === m.s.r && c === m.s.c)) covered[r + ',' + c] = 1;
+        }
+      }
+    });
+    var cols = (range.e.c - range.s.c + 1);
+    var h = '';
+    if (title) h += '<div style="margin:10px 0 6px 0;"><b style="color:#1e40af;font-size:14px;">' + escHtml(title) + '</b></div>';
+    h += '<table style="border-collapse:collapse;font-size:11px;width:100%;table-layout:fixed;">';
+    // 列宽
+    var colsInfo = ws['!cols'] || [];
+    if (colsInfo.length) {
+      h += '<colgroup>';
+      for (var i = 0; i < cols; i++) {
+        var w = colsInfo[i] && colsInfo[i].wpx ? colsInfo[i].wpx : (colsInfo[i] && colsInfo[i].wch ? colsInfo[i].wch * 7 : 0);
+        h += w ? '<col style="width:' + Math.round(w) + 'px">' : '<col>';
+      }
+      h += '</colgroup>';
+    }
+    for (var r2 = range.s.r; r2 <= range.e.r; r2++) {
+      h += '<tr style="height:22px;">';
+      for (var c2 = range.s.c; c2 <= range.e.c; c2++) {
+        var key = r2 + ',' + c2;
+        if (covered[key]) continue;
+        var m2 = map[key] || {};
+        var cell = ws[XLSX.utils.encode_cell({ r: r2, c: c2 })];
+        var v = '';
+        if (cell) v = (cell.w !== undefined && cell.w !== null && cell.w !== '') ? cell.w : (cell.v === undefined || cell.v === null ? '' : cell.v);
+        var head = (r2 === range.s.r);
+        var st = 'font-family:宋体;font-size:10.5pt;border:1px solid #000;padding:3px;vertical-align:middle;' +
+          'word-break:break-all;white-space:pre-wrap;' +
+          (head ? 'font-weight:bold;text-align:center;background:#f3f4f6;' : (isNum(v) ? 'text-align:center;' : 'text-align:left;'));
+        h += '<td' + (m2.cs ? ' colspan="' + m2.cs + '"' : '') + (m2.rs ? ' rowspan="' + m2.rs + '"' : '') +
+          ' style="' + st + '">' + escHtml(v) + '</td>';
+      }
+      h += '</tr>';
+    }
+    return h + '</table>';
+  }
+
+  /* 清洗 WPS/网页复制来的 HTML，仅保留表格 */
+  function cleanImportedHtml(html) {
+    var box = document.createElement('div');
+    box.innerHTML = String(html || '');
+    var kill = box.querySelectorAll('script,meta,link,iframe,object,embed,img,svg,input,button,textarea,select,style,form');
+    for (var i = 0; i < kill.length; i++) kill[i].parentNode.removeChild(kill[i]);
+    var all = box.querySelectorAll('*');
+    for (var j = 0; j < all.length; j++) {
+      var el = all[j], at = el.attributes;
+      for (var k = at.length - 1; k >= 0; k--) {
+        var n = at[k].name.toLowerCase();
+        if (n.indexOf('on') === 0) el.removeAttribute(at[k].name);
+        else if (n === 'class' || n === 'id' || n === 'contenteditable' || n === 'data-sheets-value' || n === 'data-sheets-userformat') {
+          el.removeAttribute(at[k].name);
+        }
+      }
+    }
+    var t = box.querySelector('table');
+    if (t) {
+      t.setAttribute('style', 'border-collapse:collapse;font-size:11px;width:100%;table-layout:fixed;');
+      return t.outerHTML;
+    }
+    var rows = [];
+    var trs = box.querySelectorAll('tr');
+    if (trs.length) {
+      for (var m = 0; m < trs.length; m++) {
+        var tds = trs[m].querySelectorAll('td,th'), row = [];
+        for (var n2 = 0; n2 < tds.length; n2++) row.push((tds[n2].textContent || '').trim());
+        rows.push(row);
+      }
+      return rowsToHtml(rows, '');
+    }
+    var txt = '';
+    var ps = box.querySelectorAll('p,div');
+    for (var q = 0; q < ps.length; q++) {
+      var s2 = (ps[q].textContent || '').trim();
+      if (s2) txt += (txt ? '\n' : '') + s2;
+    }
+    if (!txt) txt = (box.textContent || '').trim();
+    return txt ? '<div style="font-size:11pt;line-height:1.9;white-space:pre-wrap;font-family:宋体;">' + escHtml(txt) + '</div>' : '';
+  }
+
+  function showImpResult(msg) {
+    var box = $('tplImpPrev');
+    if (!box) return;
+    box.innerHTML = _tplImpHtml
+      ? '<div style="font-size:12px;color:#059669;margin-bottom:6px;">✓ ' + escHtml(msg || '已解析，预览如下（可保存为模板）') + '</div>' +
+        '<div class="tpl-preview-wrap" style="max-height:320px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;padding:8px;background:#fff">' + _tplImpHtml + '</div>'
+      : '<div style="font-size:12px;color:#dc2626;">未解析到表格内容</div>';
+    var nb = $('tplImpName');
+    if (nb && !nb.value && _tplImpName) nb.value = _tplImpName;
+  }
+
+  global.openTplImport = function () {
+    _tplImpHtml = ''; _tplImpName = '';
+    var pt = $('previewTitle'); if (pt) pt.textContent = '导入表格为模板（WPS / Excel）';
+    var pb = $('previewBody');
+    if (!pb) return;
+    pb.innerHTML = ''
+      + '<div style="font-size:13px;color:#374151;line-height:1.9;margin-bottom:10px;">'
+      + '三种方式任选：<b>WPS/Excel 里选中区域复制 → 点「从剪贴板导入」</b>（最快，格式保留）；'
+      + '或直接<b>选择 Excel 文件</b>；或把表格<b>粘贴</b>到下方文本框后解析。</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+      + '<span class="erp-btn primary" onclick="tplImpFromClipboard()">📋 从剪贴板导入</span>'
+      + '<label class="erp-btn" style="cursor:pointer">📄 选择 Excel 文件'
+      + '<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="tplImpReadFile(this)"></label>'
+      + '<span class="erp-btn" onclick="tplImpFromText()">🔤 解析下方文本</span>'
+      + '</div>'
+      + '<textarea id="tplImpText" rows="5" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" '
+      + 'placeholder="在 WPS / Excel 里复制表格后，点这里 Ctrl+V 粘贴，再点「解析下方文本」…"></textarea>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+      + '<label style="font-size:12px;color:#6b7280">模板名称<input id="tplImpName" type="text" placeholder="如：杯盖进料检验记录" '
+      + 'style="width:100%;box-sizing:border-box;margin-top:4px;padding:6px;border:1px solid #d1d5db;border-radius:6px"></label>'
+      + '<label style="font-size:12px;color:#6b7280">归属模块<select id="tplImpModule" '
+      + 'style="width:100%;box-sizing:border-box;margin-top:4px;padding:6px;border:1px solid #d1d5db;border-radius:6px">'
+      + moduleOptions('') + '</select></label>'
+      + '</div>'
+      + '<label style="display:block;font-size:12px;color:#6b7280;margin-top:8px">模板说明（可空）<input id="tplImpDesc" type="text" '
+      + 'placeholder="如：来料检验记录模板" style="width:100%;box-sizing:border-box;margin-top:4px;padding:6px;border:1px solid #d1d5db;border-radius:6px"></label>'
+      + '<div id="tplImpPrev" style="margin-top:10px"></div>';
+    var pf = $('previewFooter');
+    if (pf) pf.innerHTML = '<button class="btn btn-cancel" onclick="closePreview()">取消</button>' +
+      '<button class="btn btn-save" onclick="tplImportSave()">保存为模板</button>';
+    var pm = $('previewModal'); if (pm) pm.classList.add('show');
+  };
+
+  global.tplImpReadFile = function (input) {
+    var f = input && input.files && input.files[0];
+    if (!f) return;
+    _tplImpName = f.name.replace(/\.(xlsx|xls|csv)$/i, '');
+    var rd = new FileReader();
+    rd.onload = function (e) {
+      try {
+        if (typeof XLSX === 'undefined') { toast('表格解析库未加载，请刷新页面', 'error'); return; }
+        var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var h = sheetToHtml(ws, _tplImpName);
+        if (!h) { toast('文件里没有识别到表格内容', 'error'); return; }
+        _tplImpHtml = h;
+        var n = $('tplImpName'); if (n && !n.value) n.value = _tplImpName;
+        showImpResult('已解析文件：' + f.name + '（共 ' + wb.SheetNames.length + ' 个工作表，取第一个）');
+      } catch (err) {
+        toast('解析失败：' + (err && err.message ? err.message : err), 'error');
+      }
+    };
+    rd.readAsArrayBuffer(f);
+  };
+
+  global.tplImpFromClipboard = function () {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+      toast('当前浏览器不支持读取剪贴板，请改用「选择 Excel 文件」或在文本框粘贴', 'error');
+      return;
+    }
+    navigator.clipboard.read().then(function (items) {
+      var jobs = [];
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (it.types.indexOf('text/html') >= 0) jobs.push(it.getType('text/html').then(function (b) { return { k: 'html', b: b }; }));
+        else if (it.types.indexOf('text/plain') >= 0) jobs.push(it.getType('text/plain').then(function (b) { return { k: 'text', b: b }; }));
+      }
+      if (!jobs.length) { toast('剪贴板里没有文本内容', 'error'); return; }
+      return Promise.all(jobs);
+    }).then(function (arr) {
+      if (!arr || !arr.length) return;
+      var h = null, plain = null;
+      arr.forEach(function (x) {
+        if (x.k === 'html' && h === null) h = x.b;
+        if (x.k === 'text' && plain === null) plain = x.b;
+      });
+      var use = h ? 'html' : 'plain';
+      var job = use === 'html' ? h.text() : plain.text();
+      Promise.resolve(job).then(function (txt) {
+        _tplImpHtml = (use === 'html') ? cleanImportedHtml(txt) : rowsToHtml(textToRows(txt), '');
+        if (!_tplImpHtml) { toast('剪贴板内容里没有识别到表格', 'error'); return; }
+        showImpResult('已从剪贴板导入（' + (use === 'html' ? '保留原格式' : '纯文本表格') + '）');
+      });
+    }).catch(function (e) {
+      toast('无法读取剪贴板（' + (e && e.name ? e.name : '') + '），请在文本框里 Ctrl+V 粘贴后点「解析下方文本」', 'error');
+    });
+  };
+
+  global.tplImpFromText = function () {
+    var t = $('tplImpText');
+    var v = t ? t.value : '';
+    if (!v.trim()) { toast('请先粘贴表格内容', 'error'); return; }
+    _tplImpHtml = rowsToHtml(textToRows(v), '');
+    if (!_tplImpHtml) { toast('没有识别到表格内容', 'error'); return; }
+    showImpResult('已解析粘贴文本');
+  };
+
+  global.tplImportSave = function () {
+    if (!_tplImpHtml) { toast('请先导入或粘贴表格内容', 'error'); return; }
+    var nameEl = $('tplImpName'), modEl = $('tplImpModule'), descEl = $('tplImpDesc');
+    var name = (nameEl && nameEl.value.trim()) || _tplImpName || '未命名模板';
+    var modId = (modEl && modEl.value) || '';
+    var arr = getUserTpls();
+    var dup = null;
+    for (var i = 0; i < arr.length; i++) { if (arr[i].name === name) { dup = arr[i]; break; } }
+    var rec;
+    if (dup) {
+      dup.recordTemplate = _tplImpHtml;
+      dup.moduleId = modId || dup.moduleId;
+      dup.description = (descEl && descEl.value.trim()) || dup.description;
+      dup.updatedAt = Date.now();
+      rec = dup;
+    } else {
+      rec = {
+        id: 'utpl_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        name: name,
+        description: (descEl && descEl.value.trim()) || 'WPS/Excel 导入模板',
+        recordTemplate: _tplImpHtml,
+        isTemplate: true,
+        isUser: true,
+        moduleId: modId || tplModuleOf('').id,
+        createdAt: Date.now()
+      };
+      arr.push(rec);
+    }
+    if (!setUserTpls(arr)) return;
+    _tplImpHtml = ''; _tplImpName = '';
+    closePreview();
+    renderTemplatesPage();
+    toast(dup ? '已更新模板：' + name : '已导入模板：' + name, 'success');
+  };
+
+  global.editUserTpl = function (id) {
+    var arr = getUserTpls(), it = null;
+    for (var i = 0; i < arr.length; i++) if (arr[i].id === id) { it = arr[i]; break; }
+    if (!it) { toast('未找到该模板', 'error'); return; }
+    var nn = prompt('模板名称', it.name);
+    if (nn === null) return;
+    nn = String(nn).trim();
+    if (!nn) { toast('名称不能为空', 'error'); return; }
+    it.name = nn;
+    var dd = prompt('模板说明', it.description || '');
+    if (dd !== null) it.description = String(dd).trim();
+    it.updatedAt = Date.now();
+    if (!setUserTpls(arr)) return;
+    renderTemplatesPage();
+    toast('已保存', 'success');
+  };
+
+  global.deleteUserTpl = function (id) {
+    var arr = getUserTpls(), it = null;
+    for (var i = 0; i < arr.length; i++) if (arr[i].id === id) { it = arr[i]; break; }
+    if (!it) { toast('未找到该模板', 'error'); return; }
+    if (!confirm('删除模板「' + it.name + '」？删除后不可恢复。')) return;
+    arr = arr.filter(function (x) { return x.id !== id; });
+    if (!setUserTpls(arr)) return;
+    renderTemplatesPage();
+    toast('已删除模板：' + it.name, 'success');
+  };
+
+  /* ==================== 技术资料库（图纸 / 文档 / PDF / 表格） ==================== */
+  var FILE_DB = 'gls_files_db', FILE_STORE = 'files', _fileCache = [];
+  var fileFilter = 'all', fileKw = '';
+
+  function fileDb(cb) {
+    try {
+      var rq = indexedDB.open(FILE_DB, 1);
+      rq.onupgradeneeded = function (e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(FILE_STORE)) db.createObjectStore(FILE_STORE, { keyPath: 'id' });
+      };
+      rq.onsuccess = function (e) { cb(e.target.result, null); };
+      rq.onerror = function (e) { cb(null, e); };
+    } catch (e) { cb(null, e); }
+  }
+
+  function fileAll(cb) {
+    fileDb(function (db, err) {
+      if (!db) { cb([]); return; }
+      try {
+        var tx = db.transaction(FILE_STORE, 'readonly');
+        var rq = tx.objectStore(FILE_STORE).getAll();
+        rq.onsuccess = function () { cb(rq.result || []); };
+        rq.onerror = function () { cb([]); };
+      } catch (e) { cb([]); }
+    });
+  }
+
+  function filePut(rec, cb) {
+    fileDb(function (db, err) {
+      if (!db) { toast('浏览器不支持本地文件库（IndexedDB 不可用）', 'error'); cb && cb(false); return; }
+      try {
+        var tx = db.transaction(FILE_STORE, 'readwrite');
+        tx.objectStore(FILE_STORE).put(rec);
+        tx.oncomplete = function () { cb && cb(true); };
+        tx.onerror = function () { toast('保存失败：本地空间可能不足', 'error'); cb && cb(false); };
+      } catch (e) { toast('保存失败：' + e.message, 'error'); cb && cb(false); }
+    });
+  }
+
+  function fileDel(id, cb) {
+    fileDb(function (db) {
+      if (!db) { cb && cb(false); return; }
+      try {
+        var tx = db.transaction(FILE_STORE, 'readwrite');
+        tx.objectStore(FILE_STORE).delete(id);
+        tx.oncomplete = function () { cb && cb(true); };
+      } catch (e) { cb && cb(false); }
+    });
+  }
+
+  function fileCat(name, type) {
+    var n = String(name || '').toLowerCase();
+    var ext = n.indexOf('.') >= 0 ? n.split('.').pop() : '';
+    if (['dwg', 'dxf', 'step', 'stp', 'iges', 'igs', 'stl', 'prt', 'sldprt', 'sldasm', 'x_t', 'obj', '3mf', 'jt'].indexOf(ext) >= 0) return '2d3d';
+    if (ext === 'pdf') return 'pdf';
+    if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tif', 'tiff'].indexOf(ext) >= 0) return 'img';
+    if (['xls', 'xlsx', 'csv', 'et', 'ett'].indexOf(ext) >= 0) return 'sheet';
+    if (['doc', 'docx', 'wps', 'txt', 'md', 'rtf', 'ppt', 'pptx', 'dps'].indexOf(ext) >= 0) return 'doc';
+    return 'other';
+  }
+
+  var FILE_CATS = [
+    { id: 'all', name: '全部' },
+    { id: '2d3d', name: '2D/3D 图纸' },
+    { id: 'pdf', name: 'PDF' },
+    { id: 'img', name: '图片' },
+    { id: 'sheet', name: '表格' },
+    { id: 'doc', name: '文档' },
+    { id: 'other', name: '其他' }
+  ];
+
+  function fileSize(n) {
+    if (!n && n !== 0) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + ' MB';
+    return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
+  function fileIcon(cat) {
+    if (cat === '2d3d') return '📐';
+    if (cat === 'pdf') return '📕';
+    if (cat === 'img') return '🖼';
+    if (cat === 'sheet') return '📊';
+    if (cat === 'doc') return '📄';
+    return '📎';
+  }
+
+  function fileTime(t) {
+    try {
+      var d = new Date(t);
+      function p2(x) { return (x < 10 ? '0' : '') + x; }
+      return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+    } catch (e) { return ''; }
+  }
+
+  global.setFileFilter = function (f) { fileFilter = f; renderFilesPage(); };
+  global.setFileKw = function (v) { fileKw = String(v || ''); renderFilesPage(); };
+
+  global.renderFilesPage = function () {
+    var box = $('filesList');
+    if (!box) return;
+    var fh = '';
+    FILE_CATS.forEach(function (c) {
+      fh += '<div class="filter-tab' + (fileFilter === c.id ? ' active' : '') +
+        '" onclick="setFileFilter(\'' + c.id + '\')">' + c.name + '</div>';
+    });
+    var fEl = $('fileFilters');
+    if (fEl) fEl.innerHTML = fh;
+    box.innerHTML = '<div class="empty-state"><div class="empty-icon">🗂</div><div class="empty-text">正在读取本地文件库…</div></div>';
+    fileAll(function (arr) {
+      _fileCache = arr || [];
+      renderFileList();
+    });
+  };
+
+  function renderFileList() {
+    var box = $('filesList');
+    if (!box) return;
+    var arr = _fileCache.slice().sort(function (a, b) { return (b.time || 0) - (a.time || 0); });
+    var total = 0;
+    _fileCache.forEach(function (f) { total += (f.size || 0); });
+    var cntEl = $('fileStat');
+    if (cntEl) cntEl.textContent = '共 ' + _fileCache.length + ' 个文件 · 占用 ' + fileSize(total);
+    var list = arr.filter(function (f) {
+      if (fileFilter !== 'all' && f.cat !== fileFilter) return false;
+      if (fileKw) {
+        var kw = fileKw.toLowerCase();
+        var t = (f.name + ' ' + (f.material || '') + ' ' + (f.note || '') + ' ' + (f.owner || '')).toLowerCase();
+        if (t.indexOf(kw) < 0) return false;
+      }
+      return true;
+    });
+    if (!list.length) {
+      box.innerHTML = '<div class="empty-state"><div class="empty-icon">🗂</div>' +
+        '<div class="empty-text">' + (_fileCache.length ? '没有符合条件的文件' : '还没有文件，点上方「📤 上传文件」加入图纸 / PDF / 文档 / 表格') + '</div></div>';
+      return;
+    }
+    var html = '';
+    list.forEach(function (f) {
+      html += '<div class="tpl-card" style="display:flex;flex-direction:column;gap:6px">' +
+        '<div class="tpl-name" style="display:flex;align-items:center;gap:6px">' +
+        '<span style="font-size:18px">' + fileIcon(f.cat) + '</span>' +
+        '<span style="flex:1;word-break:break-all">' + escHtml(f.name) + '</span></div>' +
+        '<div class="tpl-desc">' + fileSize(f.size) + ' · ' + escHtml(fileTime(f.time)) +
+        (f.owner ? ' · ' + escHtml(f.owner) : '') + '</div>' +
+        ((f.material || f.note) ? '<div class="tpl-desc" style="color:#4338ca">关联：' +
+          escHtml(f.material || '') + (f.note ? '　' + escHtml(f.note) : '') + '</div>' : '') +
+        '<div class="tpl-actions">' +
+        '<span class="mini-btn" onclick="filesPreview(\'' + escAttr(f.id) + '\')">👁 预览</span>' +
+        '<span class="mini-btn blue" onclick="filesDownload(\'' + escAttr(f.id) + '\')">⬇ 下载</span>' +
+        '<span class="mini-btn gray" onclick="filesSetRel(\'' + escAttr(f.id) + '\')">🔗 关联</span>' +
+        '<span class="mini-btn" style="color:#dc2626" onclick="filesDelete(\'' + escAttr(f.id) + '\')">🗑 删除</span>' +
+        '</div></div>';
+    });
+    box.innerHTML = html;
+  }
+
+  global.filesUpload = function (input) {
+    var fs = input && input.files ? Array.prototype.slice.call(input.files) : [];
+    if (!fs.length) return;
+    var rec = null, ok = 0, fail = 0, total = fs.length;
+    var owner = '';
+    try { owner = (JSON.parse(localStorage.getItem('gls_current_user') || '{}').realname) || ''; } catch (e) {}
+    toast('正在导入 ' + total + ' 个文件…', '');
+    var idx = 0;
+    function next() {
+      if (idx >= fs.length) {
+        if (input) input.value = '';
+        renderFilesPage();
+        toast('导入完成：成功 ' + ok + ' 个' + (fail ? '，失败 ' + fail + ' 个' : ''), fail ? 'error' : 'success');
+        return;
+      }
+      var f = fs[idx++];
+      var r = {
+        id: 'f_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        name: f.name,
+        size: f.size,
+        type: f.type || '',
+        cat: fileCat(f.name, f.type),
+        time: Date.now(),
+        owner: owner,
+        material: '',
+        note: '',
+        blob: f
+      };
+      filePut(r, function (good) { if (good) ok++; else fail++; next(); });
+    }
+    next();
+  };
+
+  function fileById(id) {
+    for (var i = 0; i < _fileCache.length; i++) if (_fileCache[i].id === id) return _fileCache[i];
+    return null;
+  }
+
+  global.filesPreview = function (id) {
+    var f = fileById(id);
+    if (!f) { toast('文件不存在，请刷新后重试', 'error'); return; }
+    var pt = $('previewTitle'); if (pt) pt.textContent = f.name;
+    var pb = $('previewBody'); if (!pb) return;
+    if (!f.blob) { pb.innerHTML = '<div style="padding:20px;color:#dc2626">文件内容缺失，请重新上传</div>'; }
+    else if (f.cat === 'img') {
+      pb.innerHTML = '<img src="' + URL.createObjectURL(f.blob) + '" style="max-width:100%;border:1px solid #e5e7eb;border-radius:6px">';
+    } else if (f.cat === 'pdf') {
+      pb.innerHTML = '<iframe src="' + URL.createObjectURL(f.blob) + '" style="width:100%;height:70vh;border:1px solid #e5e7eb;border-radius:6px"></iframe>';
+    } else if (f.cat === 'sheet' || f.cat === 'doc') {
+      pb.innerHTML = '<div style="padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;color:#374151;font-size:13px;line-height:2">' +
+        fileIcon(f.cat) + ' <b>' + escHtml(f.name) + '</b>（' + fileSize(f.size) + '）<br>' +
+        '此类文件不支持在线预览，点下方「下载」用本机 WPS / Office 打开。<br>' +
+        '提示：WPS 表格类文件可在「模板中心 → 导入表格」里直接转成带格式模板。</div>';
+    } else {
+      pb.innerHTML = '<div style="padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;color:#374151;font-size:13px;line-height:2">' +
+        '📐 <b>' + escHtml(f.name) + '</b>（' + fileSize(f.size) + '）<br>' +
+        '图纸文件（DWG/STEP 等）不支持网页预览，点下方「下载」用本机 CAD / 看图软件打开。</div>';
+    }
+    var pf = $('previewFooter');
+    if (pf) pf.innerHTML = '<button class="btn btn-cancel" onclick="closePreview()">关闭</button>' +
+      '<button class="btn btn-save" onclick="filesDownload(\'' + escAttr(id) + '\')">⬇ 下载</button>';
+    var pm = $('previewModal'); if (pm) pm.classList.add('show');
+  };
+
+  global.filesDownload = function (id) {
+    var f = fileById(id);
+    if (!f || !f.blob) { toast('文件不存在', 'error'); return; }
+    try {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(f.blob);
+      a.download = f.name || 'download';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { document.body.removeChild(a); }, 800);
+    } catch (e) { toast('下载失败：' + e.message, 'error'); }
+  };
+
+  global.filesDelete = function (id) {
+    var f = fileById(id);
+    if (!f) { toast('文件不存在', 'error'); return; }
+    if (!confirm('删除文件「' + f.name + '」？删除后不可恢复。')) return;
+    fileDel(id, function (ok) {
+      if (!ok) { toast('删除失败', 'error'); return; }
+      _fileCache = _fileCache.filter(function (x) { return x.id !== id; });
+      renderFileList();
+      toast('已删除：' + f.name, 'success');
+    });
+  };
+
+  global.filesSetRel = function (id) {
+    var f = fileById(id);
+    if (!f) { toast('文件不存在', 'error'); return; }
+    var m = prompt('关联物料 / 产品（编码或名称，可留空）', f.material || '');
+    if (m === null) return;
+    var n = prompt('备注（如：杯体组件 2D 图 版本B）', f.note || '');
+    if (n === null) return;
+    f.material = String(m).trim();
+    f.note = String(n).trim();
+    filePut(f, function (ok) {
+      if (!ok) return;
+      renderFileList();
+      toast('已保存关联', 'success');
+    });
   };
 
   global.toastTplHelp = function () {
@@ -629,6 +1245,12 @@
           renderTemplatesPage();
           return;
         }
+        if (page === 'files') {
+          switchPage('files', '技术资料库');
+          try { currentPage = 'files'; } catch (e) {}
+          renderFilesPage();
+          return;
+        }
         return _nav.apply(this, arguments);
       };
       newNav.__erpPatched = true;
@@ -754,6 +1376,10 @@
       '<div class="nav-item" data-erp="side" onclick="navigateTo(\'templates\'); toggleSidebar()">' +
       '<span class="nav-icon">📋</span><span class="nav-text">模板中心</span>' +
       (cnt ? '<span class="nav-badge" style="background:#7dd3a0;color:#1f5a38">' + cnt + '</span>' : '') +
+      '</div>' +
+      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'files\'); toggleSidebar()">' +
+      '<span class="nav-icon">🗂</span><span class="nav-text">技术资料库</span>' +
+      '<span class="nav-badge" style="background:#dbeafe;color:#1d4ed8">图纸/PDF</span>' +
       '</div>';
     if (target) target.insertAdjacentHTML('beforebegin', html);
     else nav.insertAdjacentHTML('beforeend', html);
