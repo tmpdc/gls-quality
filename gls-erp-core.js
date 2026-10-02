@@ -37,16 +37,17 @@
     /* ---------- 基础资料 ---------- */
     material: {
       key: 'material', name: '物料档案', icon: '📦', group: '基础资料', prefix: 'M',
-      desc: '料号、规格、单位、安全库存、参考单价',
+      desc: '料号、规格、适用产品、单位、安全库存、参考单价',
       fields: [
         { k: 'code', label: '物料编码', type: 'text', req: true, auto: true, w: '130px' },
-        { k: 'name', label: '物料名称', type: 'text', req: true },
-        { k: 'spec', label: '规格型号', type: 'text' },
-        { k: 'unit', label: '单位', type: 'select', opts: UNITS, def: 'PCS' },
-        { k: 'category', label: '类别', type: 'select', opts: CATS },
-        { k: 'safeStock', label: '安全库存', type: 'number' },
-        { k: 'price', label: '参考单价', type: 'number' },
-        { k: 'supplier', label: '默认供应商', type: 'text' },
+        { k: 'name', label: '物料名称', type: 'text', req: true, w: '120px' },
+        { k: 'products', label: '适用产品', type: 'text', w: '150px' },
+        { k: 'spec', label: '规格型号', type: 'text', w: '130px' },
+        { k: 'unit', label: '单位', type: 'select', opts: UNITS, def: 'PCS', w: '60px' },
+        { k: 'category', label: '类别', type: 'select', opts: CATS, w: '80px' },
+        { k: 'safeStock', label: '安全库存', type: 'number', w: '85px' },
+        { k: 'price', label: '参考单价', type: 'number', w: '80px' },
+        { k: 'supplier', label: '默认供应商', type: 'text', w: '90px' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
     },
@@ -419,6 +420,9 @@
   var $ = ERP.$, escHtml = ERP.escHtml, escAttr = ERP.escAttr, toast = ERP.toast;
   var num = ERP.num, money = ERP.money, uid = ERP.uid;
   function p2(n) { return n < 10 ? '0' + n : '' + n; }
+  /* 物料档案：按产品筛选/分组的状态（空值 = 全部） */
+  if (ERP.prod === undefined) ERP.prod = '';
+  if (ERP.groupProd === undefined) ERP.groupProd = false;
 
   /* ---------- 数据层 ---------- */
   function getData() {
@@ -650,18 +654,59 @@
       var low2 = kw.toLowerCase();
       rows = rows.filter(function (r) { return JSON.stringify(r).toLowerCase().indexOf(low2) >= 0; });
     }
+    /* 物料档案：按产品筛选 */
+    if (key === 'material' && ERP.prod) {
+      rows = rows.filter(function (r) {
+        var ps = String(r.products || '').trim();
+        if (ERP.prod === '__none__') return !ps;
+        return ps.indexOf(ERP.prod) >= 0;
+      });
+    }
     var cols = ent.fields.filter(function (f) { return f.type !== 'items' && f.type !== 'textarea'; });
     var showFlow = (key === 'so' || key === 'soReturn') && rows.some(function (r) { return r.flowStatus; });
+    /* 物料档案：按产品分组（一个物料挂多个产品时，在每组都会出现） */
+    var seq = rows, _grpCount = 0;
+    if (key === 'material' && ERP.groupProd) {
+      var buckets = {}, order = [];
+      rows.forEach(function (r) {
+        var ps = prodArr(r.products);
+        if (!ps.length) ps = ['（未归属产品）'];
+        ps.forEach(function (p) {
+          if (!buckets[p]) { buckets[p] = []; order.push(p); }
+          buckets[p].push(r);
+        });
+      });
+      order.sort(function (a, b) {
+        var ua = a.indexOf('未归属') >= 0, ub = b.indexOf('未归属') >= 0;
+        if (ua !== ub) return ua ? 1 : -1;
+        return a.localeCompare(b, 'zh');
+      });
+      seq = [];
+      order.forEach(function (p) {
+        seq.push({ __grp: p + '　·　' + buckets[p].length + ' 条' });
+        buckets[p].forEach(function (r) { seq.push(r); });
+      });
+      _grpCount = order.length;
+    }
     var html = barHtml(ent);
+    var colSpanAll = cols.length + 1 + (showFlow ? 1 : 0);
     html += '<div class="erp-count">共 <b>' + rows.length + '</b> 条' +
-      (kw ? ' · 关键词「' + escHtml(kw) + '」' : '') + '</div>';
+      (kw ? ' · 关键词「' + escHtml(kw) + '」' : '') +
+      (key === 'material' && ERP.prod ? ' · 产品「' + escHtml(ERP.prod === '__none__' ? '未归属产品' : ERP.prod) + '」' : '') +
+      (key === 'material' && ERP.groupProd ? ' · 已按产品分组（' + _grpCount + ' 组）' : '') + '</div>';
     html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>';
     cols.forEach(function (f) { html += '<th style="min-width:' + (f.w || '110px') + '">' + f.label + '</th>'; });
     html += (showFlow ? '<th style="min-width:80px">流程</th>' : '') + '<th style="min-width:120px">操作</th></tr></thead><tbody>';
     if (!rows.length) {
-      html += '<tr><td colspan="' + (cols.length + 1) + '" class="erp-empty">暂无数据，点「＋ 新增」开始录入</td></tr>';
+      html += '<tr><td colspan="' + colSpanAll + '" class="erp-empty">' +
+        (key === 'material' && ERP.prod ? '该产品下暂无物料' : '暂无数据，点「＋ 新增」开始录入') + '</td></tr>';
     } else {
-      rows.forEach(function (r) {
+      seq.forEach(function (r) {
+        if (r.__grp) {
+          html += '<tr><td colspan="' + colSpanAll + '" style="background:#eef6f0;font-weight:700;'
+            + 'color:#1f3b2d;padding:8px 12px;border-bottom:1px solid #dbe6df">' + escHtml(r.__grp) + '</td></tr>';
+          return;
+        }
         html += '<tr>';
         cols.forEach(function (f) {
           var v = cellVal(ent, r, f);
@@ -680,6 +725,78 @@
     box.innerHTML = html;
   };
 
+  /* ---------- 物料档案：产品归集（一个物料可挂在多个产品下） ---------- */
+  var PROD_SEP = /[，,、;；\/]/;
+  function prodArr(v) {
+    return String(v == null ? '' : v).split(PROD_SEP)
+      .map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  /* BOM 里 product 存的是成品物料编码 → 转成产品名称 */
+  ERP.prodName = function (v) {
+    var s0 = String(v == null ? '' : v).trim();
+    if (!s0) return '';
+    var mats = listOf('material');
+    for (var i = 0; i < mats.length; i++) {
+      if (String(mats[i].code) === s0) return String(mats[i].name || s0).trim();
+    }
+    return s0;
+  };
+  /* 产品清单：BOM 的产品 + 成品类物料 + 物料上已填的适用产品（动态汇总，不写死） */
+  ERP.productList = function () {
+    var out = [], seen = {};
+    function add(v) {
+      var n = ERP.prodName(v);
+      if (!n || seen[n]) return;
+      seen[n] = 1; out.push(n);
+    }
+    listOf('bom').forEach(function (b) { add(b.product); });
+    listOf('material').forEach(function (m) {
+      if (String(m.category || '').trim() === '成品') add(m.code);
+    });
+    listOf('material').forEach(function (m) {
+      prodArr(m.products).forEach(add);
+    });
+    out.sort(function (a, b) { return a.localeCompare(b, 'zh'); });
+    return out;
+  };
+  /* 把物料挂到产品下（去重） */
+  ERP.attachProduct = function (matCode, prod) {
+    var c = String(matCode == null ? '' : matCode).trim();
+    var p = String(prod == null ? '' : prod).trim();
+    if (!c || !p) return false;
+    var mats = listOf('material');
+    for (var i = 0; i < mats.length; i++) {
+      if (String(mats[i].code) !== c) continue;
+      var arr = prodArr(mats[i].products);
+      if (arr.indexOf(p) >= 0) return false;
+      arr.push(p);
+      mats[i].products = arr.join('，');
+      return true;
+    }
+    return false;
+  };
+  /* 按 BOM 一次性补全「物料 ↔ 产品」归属（对已存在的物料也生效） */
+  ERP.fillProductsFromBom = function () {
+    var n = 0;
+    listOf('bom').forEach(function (b) {
+      var pname = ERP.prodName(b.product);
+      if (!pname) return;
+      if (ERP.attachProduct(b.product, pname)) n++;      /* 成品自身也归到该产品 */
+      (b.items || []).forEach(function (it) {
+        if (it && it.code && ERP.attachProduct(it.code, pname)) n++;
+      });
+    });
+    if (n) save();
+    return n;
+  };
+  ERP.doFillProducts = function () {
+    var n = ERP.fillProductsFromBom();
+    toast(n ? '已按 BOM 补全 ' + n + ' 处「物料 ↔ 产品」归属' : '物料归属已是最新，无需补全');
+    ERP.renderList();
+  };
+  ERP.setProd = function (v) { ERP.prod = v || ''; ERP.renderList(); };
+  ERP.toggleGroup = function () { ERP.groupProd = !ERP.groupProd; ERP.renderList(); };
+
   /* ---------- 物料档案：根据 BOM 自动生成 ---------- */
   ERP.fromBom = function () {
     var n = ERP.syncFromBom();
@@ -694,9 +811,10 @@
     mats.forEach(function (m) { if (m.code) byCode[String(m.code).toLowerCase()] = 1; });
     var want = [];
     d.bom.forEach(function (b) {
-      if (b.product) want.push({ code: b.product });
+      var pname = ERP.prodName(b.product);
+      if (b.product) want.push({ code: b.product, prod: pname, category: '成品' });
       (b.items || []).forEach(function (it) {
-        if (it.code) want.push({ code: it.code, name: it.name, unit: it.unit });
+        if (it.code) want.push({ code: it.code, name: it.name, unit: it.unit, spec: it.spec, prod: pname });
       });
     });
     var added = 0;
@@ -704,14 +822,32 @@
       var c = String(w.code || '').trim();
       if (!c || byCode[c.toLowerCase()]) return;
       mats.push({ id: uid('r'), code: c, name: w.name || c,
-        spec: '', unit: w.unit || 'PCS', category: '', safeStock: '', price: '',
+        products: w.prod || '', spec: w.spec || '', unit: w.unit || 'PCS',
+        category: w.category || '', safeStock: '', price: '',
         supplier: '', remark: '由 BOM 自动生成，请补充完整' });
       byCode[c.toLowerCase()] = 1;
       added++;
     });
+    /* 已有物料也按 BOM 补上产品归属（内部自带 save） */
+    ERP.fillProductsFromBom();
     if (added) save();
     return added;
   };
+
+  /* 物料档案专用：产品筛选 + 分组 + 补全归属 */
+  function productBar() {
+    var list = ERP.productList();
+    var h = '<select class="erp-search" style="min-width:200px" onchange="ERP.setProd(this.value)">'
+      + '<option value="">按产品：全部</option>';
+    list.forEach(function (p) {
+      h += '<option value="' + escAttr(p) + '"' + (ERP.prod === p ? ' selected' : '') + '>' + escHtml(p) + '</option>';
+    });
+    h += '<option value="__none__"' + (ERP.prod === '__none__' ? ' selected' : '') + '>（未归属产品）</option>'
+      + '</select>'
+      + '<div class="erp-btn" onclick="ERP.toggleGroup()">' + (ERP.groupProd ? '▤ 取消分组' : '▤ 按产品分组') + '</div>'
+      + '<div class="erp-btn" onclick="ERP.doFillProducts()">🔗 补全归属</div>';
+    return h;
+  }
 
   function barHtml(ent) {
     var kw = escAttr(ERP.kw || '');
@@ -723,6 +859,7 @@
       '<div class="erp-btn" onclick="ERP.exportCurrent()">⬇ 导出 Excel</div>' +
       '<div class="erp-btn" onclick="ERP.openImport()">📥 导入表格</div>' +
       (ent.key === 'material' ? '<div class="erp-btn" onclick="ERP.fromBom()">🧩 从 BOM 生成</div>' : '') +
+      (ent.key === 'material' ? productBar() : '') +
       '</div>';
   }
 
