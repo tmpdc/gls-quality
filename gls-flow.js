@@ -53,7 +53,7 @@
       var u = JSON.parse(localStorage.getItem('gls_current_user') || 'null');
       if (u && u.username) return u;
     } catch (e) {}
-    return { username: 'admin', role: 'admin', realname: '系统管理员' };
+    return { username: 'tmpdc031', role: 'admin', realname: '系统管理员' };
   }
 
   function getAccounts() {
