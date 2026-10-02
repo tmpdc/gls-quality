@@ -24,6 +24,8 @@
     /* ---------------- BOM 清单 ---------------- */
     bom: {
       label: 'BOM 清单', icon: '🧩', ent: 'bom', multi: true, score: 1,
+      /* 必备特征：没有「用量」类明细列的表不算 BOM（避免物料台账被误判） */
+      need: ['item.qty'],
       kw: ['bom', '物料清单', '物料表', '用料表', '材料清单', '产品结构', '结构表',
         '组成表', '配料表', '物料明细', 'bom表', 'bom清单', '单台用量', '单位用量', '每台用量'],
       main: [
@@ -57,6 +59,8 @@
       main: [
         { k: 'code', label: '物料编码', w: 1.5, al: ['物料编码', '料号', '物料料号', '物料编号', '零件号', '编码', 'code', '物料代码', '图号'] },
         { k: 'name', label: '物料名称', w: 1.5, al: ['物料名称', '名称', '品名', '物料描述', '描述', 'name', '零件名称', '产品名称'] },
+        { k: 'products', label: '适用产品', w: 1.0,
+          al: ['适用产品', '所属产品', '适用机型', '归属产品', '适用型号', '使用机型', '所属机型', '适配产品', '应用产品', '适用产品名称'] },
         { k: 'spec', label: '规格型号', w: 1.2, al: COMMON_SPEC },
         { k: 'unit', label: '单位', w: 0.8, al: COMMON_UNIT },
         { k: 'category', label: '类别', w: 0.9, al: ['类别', '物料类别', '物料分类', '分类', '物料类型', '类型', 'category'] },
@@ -446,6 +450,9 @@
     for (var i = 0; i < list.length; i++) {
       if (norm2(list[i].code) === v || norm2(list[i].name) === v) return list[i].code;
     }
+    /* 一个单元格里写了多个值（「产品A；产品B」）时不做包含匹配，
+       否则会被误合并成第一个值、把后面的丢掉 */
+    if (/[；;，,、\/]/.test(String(val))) return '';
     for (var j = 0; j < list.length; j++) {
       var n = norm2(list[j].name);
       if (n && (n.indexOf(v) >= 0 || v.indexOf(n) >= 0) && v.length >= 3) return list[j].code;
@@ -537,7 +544,12 @@
     }
     for (var j = 0; j < al.length; j++) {
       var b = norm(al[j]);
-      if (b.length >= 2 && (h.indexOf(b) >= 0 || b.indexOf(h) >= 0)) return 0.72;
+      if (b.length < 2) continue;
+      /* 表头比别名更具体：「用量 PCS」含「用量」、「零件规格/材质」含「规格」→ 命中 */
+      if (h.indexOf(b) >= 0) return 0.72;
+      /* 别名比表头长时语义常常不同（「单位」≠「单位用量」），
+         只有长度接近才认，避免把「单位」吃成「用量」这类串列 */
+      if (b.indexOf(h) >= 0 && h.length >= 3 && h.length >= b.length * 0.7) return 0.6;
     }
     return 0;
   }
@@ -580,6 +592,15 @@
         if (sc.cols >= 2 && (!best || sc.score > best.score)) best = { row: r, score: sc.score, map: sc.map, cols: sc.cols };
       }
       if (!best) continue;
+      /* 必备特征列校验：缺了就说明不是这类表 */
+      if (def.need && def.need.length) {
+        var hitNeed = false;
+        for (var ni = 0; ni < def.need.length; ni++) {
+          for (var mk in best.map) { if (best.map[mk] === def.need[ni]) { hitNeed = true; break; } }
+          if (hitNeed) break;
+        }
+        if (!hitNeed) continue;
+      }
       var kwHit = 0;
       (def.kw || []).forEach(function (k) { if (textTop.indexOf(String(k).toLowerCase()) >= 0) kwHit++; });
       var total = best.score + Math.min(kwHit, 3) * 1.6 + (def.multi ? 0.2 : 0);
@@ -862,6 +883,15 @@
           }
           if (f_anyEmpty(it)) { /* noop */ }
           rec.items.push(it);
+          /* 物料按产品归集：明细物料自动挂到本 BOM 的产品下 */
+          if (def.ent === 'bom' && it.code && rec.product) {
+            try {
+              if (global.ERP && ERP.attachProduct) {
+                var _pn = ERP.prodName ? ERP.prodName(rec.product) : rec.product;
+                ERP.attachProduct(it.code, _pn);
+              }
+            } catch (e) {}
+          }
           _stats.items++;
         });
         // 未识别列 → 附加字段
