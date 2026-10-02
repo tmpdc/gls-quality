@@ -2410,12 +2410,10 @@ window.onerror = function(msg, url, line, col, error) {
   errorDiv.innerHTML = '<b>JavaScript错误：</b><br>' + msg + '<br>位置：行' + line + ' 列' + col;
   document.body.appendChild(errorDiv);
 };
-
-init();
 </script>
 <script src="gls-erp.js?v=18"></script>
 <script src="gls-flow.js?v=3"></script>
-<script src="gls-erp-core.js?v=15"></script>
+<script src="gls-erp-core.js?v=16"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -2425,6 +2423,11 @@ init();
   <script src="gls-bizflow.js?v=5"></script>
   <script src="gls-smartimport.js?v=4"></script>
   <script src="gls-backup.js?v=1"></script>
+<script>
+/* 所有依赖脚本（INSP/ERP/PQS 等）加载完成后再初始化，避免未定义错误中断详情页渲染 */
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
+else { init(); }
+</script>
 </body>
 
 <script>
