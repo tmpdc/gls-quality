@@ -2191,10 +2191,17 @@ function renderDetail() {
     if (s.key === 'recordTemplate' && typeof TEMPLATE_CARDS !== 'undefined' && mid) {
       const list = TEMPLATE_CARDS[mid] || [];
       if (list.length) {
-        let h = '<div style="font-size:12px;color:#888;margin-bottom:10px;line-height:1.7;">' +
+        let h = '<div style="border:1px solid #d7e8dd;border-radius:8px;background:#f7fbf8;overflow:hidden;">' +
+          '<div onclick="toggleTplBox(this)" style="cursor:pointer;padding:11px 13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span style="font-size:13px;font-weight:700;color:#2d7a4f;">📋 本模块可用记录模板（' + list.length + ' 个）</span>' +
+          '<span style="font-size:11px;color:#8a9a90;">点开看，可挑一个绑定到这张卡</span>' +
+          '<span class="arw" style="margin-left:auto;font-size:13px;color:#2d7a4f;">▸</span>' +
+          '</div>' +
+          '<div class="tpl-box-body" style="display:none;padding:0 13px 13px;border-top:1px solid #e3efe8;">' +
+          '<div style="font-size:12px;color:#888;margin:10px 0 8px;line-height:1.7;">' +
           '以下是本模块内置的记录模板，可直接查看/填写/打印；点「用这个」把它绑定到这张卡片，之后可在编辑里改。</div>';
         list.forEach(function (t, i) {
-          h += '<div style="margin-bottom:16px;">' +
+          h += '<div style="margin-bottom:14px;">' +
             '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 6px;flex-wrap:wrap;">' +
             '<span style="font-size:13px;font-weight:700;color:#2d7a4f;">📋 ' + t.name + '</span>' +
             '<button type="button" onclick="useThisTemplate(\'' + t.id + '\')" ' +
@@ -2205,7 +2212,7 @@ function renderDetail() {
             '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e7eb;border-radius:6px;background:#fff;padding:6px;">' +
             (t.recordTemplate || '') + '</div></div>';
         });
-        return h;
+        return h + '</div></div>';
       }
     }
     if (s.key === 'process') {
@@ -2563,6 +2570,16 @@ function supplierMatInfo(item) {
   }
   return h + '</table></div></div>';
 }
+
+// 记录模板折叠开关
+window.toggleTplBox = function (el) {
+  var box = el.parentNode.querySelector('.tpl-box-body');
+  if (!box) return;
+  var arw = el.querySelector('.arw');
+  var open = box.style.display === 'block';
+  box.style.display = open ? 'none' : 'block';
+  if (arw) arw.innerText = open ? '\u25B8' : '\u25BE';
+};
 
 // 各模块标准流程环节（详情页自动补齐 + 编辑里一键导入共用）
 var _FLOW_NODES = {
