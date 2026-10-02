@@ -772,6 +772,69 @@
     ERP.renderList();
     window.scrollTo(0, 0);
   };
+  ERP.refName = function (key, code) {
+    try {
+      var arr = listOf(key) || [];
+      for (var i = 0; i < arr.length; i++) {
+        if (String(arr[i].code || '').toLowerCase() === String(code || '').toLowerCase()) return arr[i].name || code;
+      }
+    } catch (e) {}
+    return code;
+  };
+  ERP.approvalDetail = function (f) {
+    var d = getData() || {};
+    var keys = ['so', 'soReturn', 'mo', 'pr', 'po', 'poRecv', 'stockIn', 'moPick', 'moIn', 'soShip', 'afterSale', 'renovate'];
+    var rec = null, rk = '';
+    var id = f.srcId || f.soId || '';
+    for (var i = 0; i < keys.length; i++) {
+      var arr = d[keys[i]] || [];
+      for (var j = 0; j < arr.length; j++) if (arr[j].id === id) { rec = arr[j]; rk = keys[i]; break; }
+      if (rec) break;
+    }
+    var nd = null;
+    try { nd = BIZFLOW.curNode(f); } catch (e) {}
+    var boxes = [];
+    boxes.push('审批环节：<b>' + escHtml(nd ? nd.name : '') + '</b>（' + escHtml(nd ? nd.dept : '') + '）');
+    if (rec) {
+      var ent = ENTITIES[rk];
+      boxes.push('单据：<b>' + escHtml(ent ? ent.name : rk) + ' ' + escHtml(rec.code || '') + '</b>');
+      var party = rec.customer || rec.supplier || rec.applicant || '';
+      if (party) {
+        var rk2 = rec.customer ? 'customer' : (rec.supplier ? 'supplier' : '');
+        var pname = rk2 ? ERP.refName(rk2, party) : party;
+        var plabel = rec.customer ? '客户' : (rec.supplier ? '供应商' : '申请人');
+        boxes.push(plabel + '：<b>' + escHtml(pname) + '</b>' + (pname && pname !== party ? '（' + escHtml(party) + '）' : ''));
+      }
+      if (rec.dept && !rec.customer && !rec.supplier) boxes.push('需求部门：<b>' + escHtml(rec.dept) + '</b>');
+      var dt = rec.orderDate || rec.applyDate || rec.date || '';
+      if (dt) boxes.push('日期：<b>' + escHtml(dt) + '</b>');
+      if (rec.deliveryDate) boxes.push('交货日期：<b>' + escHtml(rec.deliveryDate) + '</b>');
+      if (rec.dueDate) boxes.push('要求日期：<b>' + escHtml(rec.dueDate) + '</b>');
+      if (rec.product) boxes.push('产品：<b>' + escHtml(rec.product) + (rec.planQty ? ' × ' + escHtml(rec.planQty) : '') + '</b>');
+      if (rec.planQty && !rec.product) boxes.push('数量：<b>' + escHtml(rec.planQty) + '</b>');
+      if (rec.amount !== '' && rec.amount !== null && rec.amount !== undefined) boxes.push('金额：<b>' + escHtml(rec.amount) + '</b>');
+      if (rec.status) boxes.push('单据状态：<b>' + escHtml(rec.status) + '</b>');
+    } else {
+      boxes.push('未关联到源单据（流程：' + escHtml(f.title || '') + '）');
+    }
+    var h = '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;color:#374151;font-size:13px;line-height:2">' +
+      boxes.map(function (t) { return '<span style="display:inline-block;margin-right:18px">' + t + '</span>'; }).join('') + '</div>';
+    if (rec && (rec.items || []).length) {
+      var items = rec.items;
+      h += '<div style="margin-top:6px;color:#374151;font-size:13px;line-height:2"><b>明细（' + items.length + ' 项）</b>：' +
+        items.map(function (it) {
+          return '<span style="display:inline-block;margin-right:14px;background:#f3f4f6;border-radius:4px;padding:1px 8px">' +
+            escHtml(it.name || it.code || '') + '（' + escHtml(it.code || '') + '） × ' + escHtml(it.qty != null ? it.qty : '') + escHtml(it.unit || '') +
+            (it.remark ? ' · ' + escHtml(it.remark) : '') + '</span>';
+        }).join('') + '</div>';
+    }
+    if (rec && rec.remark) h += '<div style="margin-top:4px;color:#6b7280;font-size:12.5px">备注：' + escHtml(rec.remark) + '</div>';
+    if (f.log && f.log.length) {
+      var last = f.log.slice(-2);
+      h += '<div style="margin-top:6px;color:#6b7280;font-size:12.5px">流转记录：' + last.map(function (t) { return escHtml(t); }).join(' ｜ ') + '</div>';
+    }
+    return h;
+  };
   ERP.approvalView = function () {
     var out = [];
     try {
@@ -790,24 +853,24 @@
       html += '<div class="erp-empty">暂无待我审批的流程</div>';
       return html;
     }
-    html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
-      '<th>流程号</th><th>事项</th><th>当前环节</th><th>提交人</th><th>提交时间</th><th style="min-width:180px">操作</th>' +
-      '</tr></thead><tbody>';
     out.forEach(function (f) {
       var nd = null;
       try { nd = BIZFLOW.curNode(f); } catch (e) {}
-      html += '<tr>' +
-        '<td>' + escHtml(f.no || '') + '</td>' +
-        '<td>' + escHtml(f.title || '') + '</td>' +
-        '<td>' + escHtml(nd ? nd.name : '') + '</td>' +
-        '<td>' + escHtml(f._submitBy || '') + '</td>' +
-        '<td>' + escHtml(f._submitAt || '') + '</td>' +
-        '<td class="erp-ops">' +
+      html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:12px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap">' +
+        '<div style="min-width:260px;flex:1">' +
+        '<div style="font-size:15px;font-weight:600;color:#111827">' + escHtml(f.no || '') + '　' + escHtml(f.title || '') +
+        '<span style="margin-left:8px;background:#fef3c7;color:#b45309;border-radius:4px;padding:1px 8px;font-size:12px">待审批</span></div>' +
+        '<div style="color:#6b7280;font-size:12.5px;margin-top:4px">提交人：' + escHtml(f._submitBy || '') + '　提交时间：' + escHtml(f._submitAt || '') +
+        '　审批人：' + escHtml(f.approver || '') + '</div>' +
+        '</div>' +
+        '<div style="white-space:nowrap">' +
         '<span class="erp-op" onclick="ERP.approveFlow(\'' + f.id + '\', 1)">✓ 通过并流转</span>' +
         '<span class="erp-op danger" onclick="ERP.approveFlow(\'' + f.id + '\', 0)">驳回</span>' +
-        '</td></tr>';
+        '</div></div>' +
+        ERP.approvalDetail(f) +
+        '</div>';
     });
-    html += '</tbody></table></div>';
     return html;
   };
   ERP.approveFlow = function (id, pass) {
