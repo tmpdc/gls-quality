@@ -483,6 +483,24 @@ const ROLES = {
 };
 
 // 初始化默认账号（读写走统一数据中心）
+// 每次加载强制校验：超管账号必须是 tmpdc031（清除旧 admin；已有则保留你改过的密码）
+function ensureSuperAdmin() {
+  try {
+    var arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    if (!Array.isArray(arr)) arr = [];
+    var filtered = arr.filter(function (a) { return a && a.username !== 'admin'; });
+    var hasNew = filtered.some(function (a) { return a && a.username === 'tmpdc031'; });
+    if (!hasNew) {
+      filtered.unshift({ id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' });
+    }
+    if (filtered.length !== arr.length || !hasNew) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+      if (window.DATAHUB && DATAHUB.set) { DATAHUB.set('accounts', filtered); }
+    }
+    return filtered;
+  } catch (e) { return []; }
+}
+
 function initDefaultAccounts() {
   const existing = (window.DATAHUB && DATAHUB.get('accounts')) || (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) { return null; } })();
   if (!existing || (Array.isArray(existing) && existing.length === 0)) {
@@ -957,6 +975,7 @@ document.getElementById('loginUsername').addEventListener('keypress', e => {
 
 // ===== 初始化 =====
 initDefaultAccounts();
+  ensureSuperAdmin();
 const remembered = localStorage.getItem('gls_remember_user');
 if (remembered) document.getElementById('loginUsername').value = remembered;
 
