@@ -9,7 +9,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '2.0.0';
+  var VERSION = '2.0.1';
 
   /* ============================================================
    * 一、字段别名词典（所有可选列名 → 系统字段）
@@ -42,6 +42,9 @@
         { k: 'qty', label: '单台用量', w: 1.5, al: ['单台用量', '用量', '单位用量', '每台用量', '单机用量', '单台数量', '每台数量',
           '装配数量', '组成用量', '单件用量', '定额', '消耗定额', 'qty', 'quantity', '数量', '用量(pcs)'] },
         { k: 'unit', label: '单位', w: 0.8, al: COMMON_UNIT },
+        { k: 'spec', label: '规格/材质', w: 1.0,
+          al: ['规格', '规格型号', '零件规格', '零件规格/材质', '规格/材质', '材质', '材料', '材料规格',
+               '料质', '规格及材质', '部品规格', 'spec', '规格说明'] },
         { k: 'loss', label: '损耗率%', w: 1.0, al: ['损耗率', '损耗', '损耗%', '损耗率%', '报废率', '损耗系数', '损耗比例', 'loss'] },
         { k: 'remark', label: '备注', w: 0.5, al: COMMON_REMARK.concat(['位置', '工位', '装配位置', '工序', '工序号', '部位']) }
       ]
@@ -454,7 +457,17 @@
   function ensureRef(entKey, val, opt) {
     if (!val) return '';
     var hit = findRef(entKey, val);
-    if (hit) return hit;
+    if (hit) {
+      /* 已有档案：顺手补全缺失的规格/单位（不覆盖已有值，避免越导越乱） */
+      if (opt && (opt.spec || opt.unit)) {
+        var ex0 = listOf(entKey).filter(function (x) { return x.code === hit; })[0];
+        if (ex0) {
+          if (opt.spec && !ex0.spec) ex0.spec = String(opt.spec).trim();
+          if (opt.unit && !ex0.unit) ex0.unit = String(opt.unit).trim();
+        }
+      }
+      return hit;
+    }
     var raw = String(val).trim();
     var rec = { code: '', name: raw };
     /* 本身就是编码样式（M001 / A-01 / 12345 / AB_9）→ 直接沿用，便于与原表一致 */
@@ -609,6 +622,7 @@
    * ============================================================ */
   var _stats = null;
   function resetStats() { _stats = { recs: 0, items: 0, newRef: {}, newFields: {}, merged: 0, replaced: 0 }; }
+  function getStats() { return _stats || { recs: 0, items: 0, newRef: {}, newFields: {}, merged: 0, replaced: 0 }; }
 
   /* ============================================================
    * 导入批次：每次导入留档，可整批撤销、可按板块清空、可导出备份
@@ -933,7 +947,16 @@
   var DB_NAME = 'gls_files_db', STORE = 'files';
   function idb() {
     return new Promise(function (res, rej) {
-      var rq = indexedDB.open(DB_NAME);
+      var done = false;
+      var tm = setTimeout(function () { fin(null, new Error('原文件仓储响应超时')); }, 6000);
+      function fin(v, err) {
+        if (done) return;
+        done = true;
+        clearTimeout(tm);
+        if (err) rej(err); else res(v);
+      }
+      var rq;
+      try { rq = indexedDB.open(DB_NAME); } catch (e) { return fin(null, e); }
       rq.onupgradeneeded = function (e) {
         var db = e.target.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
@@ -943,50 +966,61 @@
         var db = rq.result;
         if (!db.objectStoreNames.contains('tplfiles')) {
           try { db.close(); } catch (e) {}
-          var rq2 = indexedDB.open(DB_NAME, db.version + 1);
+          var rq2;
+          try { rq2 = indexedDB.open(DB_NAME, db.version + 1); } catch (e) { return fin(null, e); }
           rq2.onupgradeneeded = function (e2) {
             var d2 = e2.target.result;
             if (!d2.objectStoreNames.contains(STORE)) d2.createObjectStore(STORE, { keyPath: 'id' });
             if (!d2.objectStoreNames.contains('tplfiles')) d2.createObjectStore('tplfiles', { keyPath: 'id' });
           };
-          rq2.onsuccess = function () { res(rq2.result); };
-          rq2.onerror = function () { rej(rq2.error); };
+          rq2.onsuccess = function () { fin(rq2.result); };
+          rq2.onerror = function () { fin(null, rq2.error); };
+          /* 被其它标签页占用时不能永久挂起 */
+          rq2.onblocked = function () { fin(null, new Error('原文件仓储被其它标签页占用')); };
           return;
         }
-        res(db);
+        fin(db);
       };
-      rq.onerror = function () { rej(rq.error); };
+      rq.onerror = function () { fin(null, rq.error); };
+      rq.onblocked = function () { fin(null, new Error('原文件仓储被其它标签页占用')); };
+    });
+  }
+  function txGuard(fn, ms) {
+    return idb().then(function (db) {
+      return new Promise(function (res, rej) {
+        var done = false;
+        var tm = setTimeout(function () { if (!done) { done = true; rej(new Error('原文件仓储事务超时')); } }, ms || 8000);
+        function ok(v) { if (done) return; done = true; clearTimeout(tm); res(v); }
+        function no(e) { if (done) return; done = true; clearTimeout(tm); rej(e || new Error('原文件仓储事务失败')); }
+        try { fn(db, ok, no); } catch (e) { no(e); }
+      });
     });
   }
   function idbPut(store, obj) {
-    return idb().then(function (db) {
-      return new Promise(function (res, rej) {
-        var tx = db.transaction(store, 'readwrite');
-        tx.objectStore(store).put(obj);
-        tx.oncomplete = function () { res(obj.id); };
-        tx.onerror = function () { rej(tx.error); };
-      });
+    return txGuard(function (db, ok, no) {
+      var tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).put(obj);
+      tx.oncomplete = function () { ok(obj.id); };
+      tx.onerror = function () { no(tx.error); };
+      tx.onabort = function () { no(tx.error || new Error('事务被中止')); };
     });
   }
   function idbGet(store, id) {
-    return idb().then(function (db) {
-      return new Promise(function (res, rej) {
-        var tx = db.transaction(store, 'readonly');
-        var rq = tx.objectStore(store).get(id);
-        rq.onsuccess = function () { res(rq.result || null); };
-        rq.onerror = function () { rej(rq.error); };
-      });
+    return txGuard(function (db, ok, no) {
+      var tx = db.transaction(store, 'readonly');
+      var rq = tx.objectStore(store).get(id);
+      rq.onsuccess = function () { ok(rq.result || null); };
+      rq.onerror = function () { no(rq.error); };
     });
   }
   function idbDel(store, id) {
-    return idb().then(function (db) {
-      return new Promise(function (res) {
-        var tx = db.transaction(store, 'readwrite');
-        tx.objectStore(store).delete(id);
-        tx.oncomplete = function () { res(true); };
-        tx.onerror = function () { res(false); };
-      });
-    });
+    return txGuard(function (db, ok) {
+      var tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(id);
+      tx.oncomplete = function () { ok(true); };
+      tx.onerror = function () { ok(false); };
+      tx.onabort = function () { ok(false); };
+    }).catch(function () { return false; });
   }
   /* 打开原文件（新窗口）或下载 */
   function openBlob(blob, name, download) {
@@ -1441,6 +1475,9 @@
     }
 
     var finish = function (tplMsg) {
+      /* 无论模板是否保存成功，按钮必须恢复，避免界面停在「导入中…」 */
+      var gb = document.getElementById('glsimpGo');
+      if (gb) { gb.disabled = false; gb.textContent = '确认导入'; }
       var st = getStats();
       var lines = [];
       if (S.entKey) {
@@ -1460,10 +1497,15 @@
       toast('导入完成：' + (st.recs ? st.recs + ' 条记录' : '已保存模板'));
     };
 
+    finish('');   /* 数据已落库 → 立即出结果并恢复按钮；模板/原文件随后台保存 */
     if (doTpl) {
-      saveTemplateFromImport(tplName).then(function (tplMsg) { finish(tplMsg); }).catch(function () { finish(''); });
-    } else {
-      finish('');
+      saveTemplateFromImport(tplName).then(function (tplMsg) {
+        var el2 = document.getElementById('glsimpResult');
+        if (el2 && tplMsg) el2.innerHTML += '<br>' + tplMsg;
+      }).catch(function (e) {
+        toast('数据已导入；模板原文件保存失败：'
+          + ((e && e.message) || '原文件仓储被其它标签页占用，关闭多余标签页后重试'));
+      });
     }
   }
 
@@ -1580,7 +1622,7 @@
   global.GLSIMP = {
     version: VERSION, DICT: DICT, norm: norm, detect: detect, columnPlan: columnPlan, scoreHeader: scoreHeader,
     htmlTableToRows: htmlTableToRows, textToRows: textToRows, sheetToRows: sheetToRows,
-    importRows: importRows, resetStats: resetStats, getStats: function () { return _stats; },
+    importRows: importRows, resetStats: resetStats, getStats: getStats,
     getExtraFields: getExtraFields, registerExtraFields: registerExtraFields,
     listOf: listOf, saveErp: saveErp, ensureRef: ensureRef, findRef: findRef, nextCode: nextCode,
     toNum: toNum, toDate: toDate, esc: esc, toast: toast, uid: uid,
