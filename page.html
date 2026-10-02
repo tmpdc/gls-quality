@@ -1649,6 +1649,8 @@ function loadData() {
 // 模板加载完成后合并模板卡片（只在首次初始化时合并一次）
 function onTemplatesLoaded() {
   if (typeof TEMPLATE_CARDS === 'undefined') return;
+  // 数据未就绪时直接返回（init 加载完数据后会再调用一次），避免读 null 报错中断合并
+  if (!appData || typeof appData !== 'object') return;
   const tplInitKey = 'gls_templates_initialized';
   const alreadyInit = localStorage.getItem(tplInitKey);
   if (alreadyInit) return; // 已经初始化过，不再合并（用户删除的不会恢复）
@@ -2399,6 +2401,8 @@ function init() {
   try {
     if (!checkLogin()) return;
     loadData();
+    // 数据就绪后再合并内置模板卡片（onTemplatesLoaded 会被 templates.js 提前触发一次，那次因数据未就绪而跳过）
+    if (typeof onTemplatesLoaded === 'function') onTemplatesLoaded();
     renderSidebar();
     renderHome();
   } catch (e) {
