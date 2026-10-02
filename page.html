@@ -2225,7 +2225,7 @@ function renderDetail() {
           <span class="icon">${s.icon}</span>
           <span class="name">${s.name}</span>
         </div>
-        <div class="section-content ${content ? '' : 'empty'}">${content || '暂无内容，点击编辑添加'}</div>
+        <div class="section-content ${content ? '' : 'empty'}">${content || '暂无内容，<span style="color:#2d7a4f;text-decoration:underline;cursor:pointer;" onclick="openImportPicker(\'' + s.key + '\')">📥 从模板库/知识库导入</span>'}</div>
       </div>
     `;
   });
@@ -2338,6 +2338,161 @@ window.pickProcessForEdit = function () {
   if (typeof showToast === 'function') showToast('已导入 ' + nodes.length + ' 个环节');
 };
 
+// ============ 统一导入器：同模块卡片 / 知识库 / 体系文件 / 内置模板库 ============
+var FIELD_MAP = {
+  process:        { name: '流程步骤', form: 'formProcess',        isHtml: true  },
+  recordTemplate: { name: '记录模板', form: 'formRecordTemplate', isHtml: true  },
+  template:       { name: '模板',     form: 'formTemplate',       isHtml: true  },
+  operation:      { name: '操作步骤', form: 'formOperation',      isHtml: false },
+  implementation: { name: '落实情况', form: 'formImplementation', isHtml: true  },
+  knowledge:      { name: '知识点',   form: 'formKnowledge',      isHtml: true  },
+  logic:          { name: '底层逻辑', form: 'formLogic',          isHtml: true  }
+};
+var _IMPORT_FIELD = 'process';
+var _IMPORT_DETAIL = false;
+
+window.openImportPicker = function (field, fromEditForm) {
+  _IMPORT_FIELD = field || 'process';
+  _IMPORT_DETAIL = !fromEditForm;
+  var fm = FIELD_MAP[_IMPORT_FIELD] || { name: field };
+  var mid = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : '';
+  var curId = (typeof currentItem !== 'undefined' && currentItem) ? currentItem.id : '';
+
+  // 来源 A：同模块其它卡片里已有的同字段内容
+  var sameMod = [];
+  var arr = (typeof appData !== 'undefined' && appData[mid]) ? appData[mid] : [];
+  arr.forEach(function (it) {
+    var v = it[_IMPORT_FIELD];
+    if (v && String(v).trim() && it.id !== curId) sameMod.push({ title: it.name, content: v });
+  });
+  // 来源 B：内置模板卡片（记录模板/模板 用其 recordTemplate）
+  var builtin = [];
+  var bl = (typeof TEMPLATE_CARDS !== 'undefined' && TEMPLATE_CARDS[mid]) ? TEMPLATE_CARDS[mid] : [];
+  bl.forEach(function (t) {
+    var v = (_IMPORT_FIELD === 'recordTemplate' || _IMPORT_FIELD === 'template') ? t.recordTemplate : t[_IMPORT_FIELD];
+    if (v && String(v).trim()) builtin.push({ title: t.name, content: v });
+  });
+  // 来源 C：体系文件
+  var docs = [];
+  if (typeof SYSTEM_DOCS !== 'undefined') {
+    Object.keys(SYSTEM_DOCS).forEach(function (k) { docs.push({ title: k, content: SYSTEM_DOCS[k] }); });
+  }
+  // 来源 D：知识库索引（内容异步取）
+  var kbs = [];
+  if (typeof KNOWLEDGE_INDEX !== 'undefined' && KNOWLEDGE_INDEX.groups) {
+    Object.keys(KNOWLEDGE_INDEX.groups).forEach(function (g) {
+      (KNOWLEDGE_INDEX.groups[g] || []).forEach(function (x) { kbs.push({ group: g, title: x.title }); });
+    });
+  }
+
+  var h = '<div id="impMask" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100001;display:flex;align-items:flex-end;" onclick="closeImportPicker()">' +
+    '<div style="background:#fff;width:100%;max-height:82vh;border-radius:14px 14px 0 0;display:flex;flex-direction:column;overflow:hidden;" onclick="event.stopPropagation()">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eee;">' +
+    '<b style="font-size:15px;">导入「' + fm.name + '」</b>' +
+    '<span onclick="closeImportPicker()" style="cursor:pointer;font-size:20px;color:#999;line-height:1;">✕</span></div>' +
+    '<div style="display:flex;gap:6px;padding:10px 16px 0;overflow-x:auto;">';
+  [['same', '同模块卡片(' + sameMod.length + ')'], ['builtin', '内置模板(' + builtin.length + ')'],
+   ['doc', '体系文件(' + docs.length + ')'], ['kb', '知识库(' + kbs.length + ')']].forEach(function (t, i) {
+    h += '<button type="button" onclick="switchImportTab(\'' + t[0] + '\')" id="impTab_' + t[0] + '" ' +
+      'style="white-space:nowrap;font-size:13px;padding:6px 12px;border-radius:16px;cursor:pointer;' +
+      'border:1px solid ' + (i === 0 ? '#2d7a4f' : '#ddd') + ';background:' + (i === 0 ? '#eef7f1' : '#fff') + ';' +
+      'color:' + (i === 0 ? '#2d7a4f' : '#666') + ';">' + t[1] + '</button>';
+  });
+  h += '</div><div style="padding:10px 16px;"><input id="impKw" placeholder="搜索…" oninput="filterImportList()" ' +
+    'style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;"></div>' +
+    '<div id="impList" style="overflow-y:auto;padding:0 16px 16px;flex:1;"></div></div></div>';
+
+  var d = document.createElement('div');
+  d.innerHTML = h;
+  document.body.appendChild(d.firstChild);
+  window._IMP = { same: sameMod, builtin: builtin, doc: docs, kb: kbs };
+  switchImportTab(sameMod.length ? 'same' : (builtin.length ? 'builtin' : (docs.length ? 'doc' : 'kb')));
+};
+
+window.closeImportPicker = function () {
+  var m = document.getElementById('impMask');
+  if (m) m.remove();
+};
+
+window.switchImportTab = function (tab) {
+  ['same', 'builtin', 'doc', 'kb'].forEach(function (k) {
+    var b = document.getElementById('impTab_' + k);
+    if (!b) return;
+    var on = k === tab;
+    b.style.borderColor = on ? '#2d7a4f' : '#ddd';
+    b.style.background = on ? '#eef7f1' : '#fff';
+    b.style.color = on ? '#2d7a4f' : '#666';
+  });
+  window._IMP_TAB = tab;
+  renderImportList();
+};
+
+window.filterImportList = function () { renderImportList(); };
+
+function renderImportList() {
+  var box = document.getElementById('impList');
+  if (!box) return;
+  var tab = window._IMP_TAB || 'same';
+  var kw = (document.getElementById('impKw').value || '').trim().toLowerCase();
+  var list = (window._IMP && window._IMP[tab]) || [];
+  var html = '';
+  var shown = 0;
+  list.forEach(function (it) {
+    var t = String(it.title || '');
+    if (kw && t.toLowerCase().indexOf(kw) < 0) return;
+    shown++;
+    if (shown > 300) return;
+    html += '<div class="imp-item" data-idx="' + list.indexOf(it) + '" onclick="applyImportPick(' + list.indexOf(it) + ')" ' +
+      'style="padding:12px;border:1px solid #eee;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fafafa;">' +
+      '<div style="font-size:14px;font-weight:600;color:#333;">' + t + '</div>' +
+      (it.content ? '<div style="font-size:12px;color:#999;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+        String(it.content).replace(/<[^>]+>/g, '').slice(0, 60) + '</div>' : '<div style="font-size:12px;color:#bbb;margin-top:4px;">点击导入（自动取全文）</div>') +
+      '</div>';
+  });
+  box.innerHTML = html || '<div style="color:#bbb;font-size:13px;padding:20px 0;text-align:center;">这一类里没有可用内容</div>';
+}
+
+window.applyImportPick = function (idx) {
+  var tab = window._IMP_TAB || 'same';
+  var list = (window._IMP && window._IMP[tab]) || [];
+  var it = list[idx];
+  if (!it) return;
+  if (it.content) { doFillImport(it.content, it.title); return; }
+  // 知识库：异步取全文
+  if (tab === 'kb') {
+    if (typeof getKnowledgeContent !== 'function') { alert('知识库加载器未就绪'); return; }
+    closeImportPicker();
+    if (typeof showToast === 'function') showToast('正在加载「' + it.title + '」…');
+    getKnowledgeContent(it.title, function (txt) { doFillImport(txt, it.title); });
+  }
+};
+
+function doFillImport(content, title) {
+  var fm = FIELD_MAP[_IMPORT_FIELD] || {};
+  if (_IMPORT_DETAIL) {
+    if (!currentItem) { alert('请先打开一张卡片'); return; }
+    currentItem[_IMPORT_FIELD] = content;
+    if (typeof saveData === 'function') saveData();
+    renderDetail();
+  } else {
+    var el = document.getElementById(fm.form);
+    if (!el) { alert('找不到输入框'); return; }
+    el.value = content;
+    closeImportPicker();
+  }
+  if (typeof showToast === 'function') showToast('已导入「' + (title || '') + '」');
+}
+
+// 生成落实跟踪表（表格模板，一键用）
+window.genImplementationTable = function () {
+  var h = '<table border="1" style="border-collapse:collapse;width:100%;font-size:12px;">' +
+    '<tr style="background:#f2f2f2;"><th>序号</th><th>任务/措施</th><th>责任人</th><th>完成时间</th><th>完成状态</th><th>验证人</th></tr>';
+  for (var i = 1; i <= 8; i++) {
+    h += '<tr><td style="text-align:center;height:26px;">' + i + '</td><td></td><td></td><td></td><td></td><td></td></tr>';
+  }
+  return h + '</table>';
+};
+
 function formatDate(timestamp) {
   if (!timestamp) return '未知';
   const d = new Date(timestamp);
@@ -2394,39 +2549,46 @@ function openForm() {
     </div>
     <div class="form-group">
       <label>🔄 流程步骤（支持HTML格式）</label>
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="pickProcessForEdit()" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">📥 导入流程步骤</button><button type="button" onclick="document.getElementById('formProcess').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="document.getElementById('formProcess').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
+      <button type="button" onclick="openImportPicker('process', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formProcess" placeholder="输入流程步骤，可用HTML标签，如：<ol><li>步骤1</li><li>步骤2</li></ol>" style="height:120px;">${item.process || ''}</textarea>
       <div class="form-hint">过程流程图、作业步骤、节点说明，支持HTML表格和列表</div>
     </div>
     <div class="form-group">
       <label>📋 记录模板（支持HTML格式，可编辑）</label>
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="pickTemplateForEdit()" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">📥 从模板库选择</button><button type="button" onclick="document.getElementById('formRecordTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="document.getElementById('formRecordTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
+      <button type="button" onclick="openImportPicker('recordTemplate', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formRecordTemplate" placeholder="输入记录模板，可用HTML表格，如：<table><tr><td>项目</td><td>标准</td><td>实测</td></tr></table>" style="height:150px;">${item.recordTemplate || ''}</textarea>
       <div class="form-hint">记录表单、检验报告、审批表等，带格式的模板，可直接复制使用</div>
     </div>
     <div class="form-group">
       <label>📋 模板</label>
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="pickTemplateForEdit('formTemplate')" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">📥 从模板库选择</button><button type="button" onclick="document.getElementById('formTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="document.getElementById('formTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
+      <button type="button" onclick="openImportPicker('template', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formTemplate" placeholder="输入模板内容，可包含表格、步骤等">${item.template || ''}</textarea>
       <div class="form-hint">标准模板、表单格式、检验项目等</div>
     </div>
     <div class="form-group">
       <label>📚 知识点</label>
+      <button type="button" onclick="openImportPicker('knowledge', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formKnowledge" placeholder="输入相关知识点">${item.knowledge || ''}</textarea>
       <div class="form-hint">标准依据、理论知识、关键参数等</div>
     </div>
     <div class="form-group">
       <label>🧠 底层逻辑</label>
+      <button type="button" onclick="openImportPicker('logic', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formLogic" placeholder="输入底层逻辑分析">${item.logic || ''}</textarea>
       <div class="form-hint">为什么这么做、原理机制、因果关系等</div>
     </div>
     <div class="form-group">
       <label>📝 操作步骤</label>
+      <button type="button" onclick="openImportPicker('operation', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formOperation" placeholder="输入具体操作步骤">${item.operation || ''}</textarea>
       <div class="form-hint">具体操作步骤、执行方法、注意事项等</div>
     </div>
     <div class="form-group">
       <label>✅ 落实情况（支持HTML表格）</label>
+      <button type="button" onclick="openImportPicker('implementation', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
       <textarea id="formImplementation" placeholder="输入落实情况跟踪表，可用HTML表格" style="height:120px;">${item.implementation || ''}</textarea>
       <div class="form-hint">任务分解、责任人、完成时间、完成状态跟踪表</div>
     </div>
