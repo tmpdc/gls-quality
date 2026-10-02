@@ -5,7 +5,7 @@
  */
 (function (global) {
 
-  var TPL_VER = '3';              // 模板数据版本号，模板内容大改时递增
+  var TPL_VER = '4';              // 模板数据版本号，模板内容大改时递增
   var AUTO_REL_KEY = 'gls_auto_rel_v1';
 
   /* ==================== 通用工具 ==================== */
@@ -67,10 +67,24 @@
     var out = [], seen = {};
     if (typeof appData === 'undefined' || !appData) return out;
     try {
+      var builtinMap = {};
+      if (typeof TEMPLATE_CARDS !== 'undefined') {
+        MODULES.forEach(function (m) {
+          (TEMPLATE_CARDS[m.id] || []).forEach(function (t) { builtinMap[t.id] = t; });
+        });
+      }
       MODULES.forEach(function (m) {
         (appData[m.id] || []).forEach(function (it) {
           if (it && it.isTemplate) {
-            out.push({ tpl: it, moduleId: m.id, moduleName: m.name, moduleIcon: m.icon, color: m.color });
+            var use = it, b = builtinMap[it.id];
+            if (b && (b.recordTemplate || '').length > (it.recordTemplate || '').length) {
+              use = {};
+              for (var k in it) { if (Object.prototype.hasOwnProperty.call(it, k)) use[k] = it[k]; }
+              use.recordTemplate = b.recordTemplate;
+              if (b.name) use.name = b.name;
+              if (b.description) use.description = b.description;
+            }
+            out.push({ tpl: use, moduleId: m.id, moduleName: m.name, moduleIcon: m.icon, color: m.color });
             seen[it.id] = 1;
           }
         });
