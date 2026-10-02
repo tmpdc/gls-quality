@@ -487,13 +487,28 @@ function initDefaultAccounts() {
   const existing = (window.DATAHUB && DATAHUB.get('accounts')) || (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) { return null; } })();
   if (!existing || (Array.isArray(existing) && existing.length === 0)) {
     const defaults = [
-      { id: 1, username: 'admin', password: 'admin123', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'admin@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' },
+      { id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' },
       { id: 2, username: 'zhangsan', password: '123456', realname: '张三', role: 'manager', dept: '品质部', phone: '13800138001', email: 'zhangsan@gls.com', status: 'active', createdAt: '2026-03-15 09:30:00', lastLogin: '2026-09-09 14:22:00' },
       { id: 3, username: 'lisi', password: '123456', realname: '李四', role: 'staff', dept: '生产部', phone: '13800138002', email: 'lisi@gls.com', status: 'active', createdAt: '2026-04-20 10:15:00', lastLogin: '2026-09-08 08:45:00' },
       { id: 4, username: 'wangwu', password: '123456', realname: '王五', role: 'staff', dept: '研发部', phone: '13800138003', email: 'wangwu@gls.com', status: 'active', createdAt: '2026-05-10 11:00:00', lastLogin: '' },
       { id: 5, username: 'zhaoliu', password: '123456', realname: '赵六', role: 'viewer', dept: '销售部', phone: '13800138004', email: 'zhaoliu@gls.com', status: 'disabled', createdAt: '2026-06-01 14:30:00', lastLogin: '2026-08-15 16:20:00' }
     ];
-    if (window.DATAHUB) { DATAHUB.set('accounts', defaults); } else { localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults)); }
+    if (window.DATAHUB) { DATAHUB.set('accounts', defaults); }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+  } else {
+    // 迁移：确保超级管理员账号为 tmpdc031（旧 admin 账号自动清除；已有 tmpdc031 则保留你改过的密码）
+    try {
+      let arr = Array.isArray(existing) ? existing.slice() : [];
+      const filtered = arr.filter(function (a) { return a && a.username !== 'tmpdc031'; });
+      const hasNew = filtered.some(function (a) { return a && a.username === 'tmpdc031'; });
+      if (!hasNew) {
+        filtered.unshift({ id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' });
+      }
+      if (filtered.length !== arr.length || !hasNew) {
+        if (window.DATAHUB) { DATAHUB.set('accounts', filtered); }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+      }
+    } catch (e) {}
   }
 }
 
@@ -693,7 +708,7 @@ function renderAccounts() {
       <a onclick="editAccount(${a.id})">编辑</a>
       <a onclick="resetPassword(${a.id})">重置密码</a>
       <a onclick="toggleAccount(${a.id})">${a.status === 'active' ? '禁用' : '启用'}</a>
-      ${a.username !== 'admin' ? `<a class="danger" onclick="deleteAccount(${a.id})">删除</a>` : ''}
+      ${a.username !== 'tmpdc031' ? `<a class="danger" onclick="deleteAccount(${a.id})">删除</a>` : ''}
     </div></td>
   </tr>`).join('');
 }
@@ -831,7 +846,7 @@ function toggleAccount(id) {
   const accounts = getAccounts();
   const a = accounts.find(x => x.id === id);
   if (!a) return;
-  if (a.username === 'admin') { showToast('管理员账号不可禁用', 'error'); return; }
+  if (a.username === 'tmpdc031') { showToast('管理员账号不可禁用', 'error'); return; }
   const action = a.status === 'active' ? '禁用' : '启用';
   showConfirm(`确定${action}账号「${a.username}」吗？`, () => {
     a.status = a.status === 'active' ? 'disabled' : 'active';
@@ -846,7 +861,7 @@ function deleteAccount(id) {
   const accounts = getAccounts();
   const a = accounts.find(x => x.id === id);
   if (!a) return;
-  if (a.username === 'admin') { showToast('管理员账号不可删除', 'error'); return; }
+  if (a.username === 'tmpdc031') { showToast('管理员账号不可删除', 'error'); return; }
   showConfirm(`确定删除账号「${a.username}」吗？此操作不可恢复。`, () => {
     const filtered = accounts.filter(x => x.id !== id);
     saveAccounts(filtered);
