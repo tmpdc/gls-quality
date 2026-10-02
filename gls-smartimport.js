@@ -9,7 +9,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '2.0.0';
 
   /* ============================================================
    * 一、字段别名词典（所有可选列名 → 系统字段）
@@ -608,7 +608,151 @@
    * 六、导入执行
    * ============================================================ */
   var _stats = null;
-  function resetStats() { _stats = { recs: 0, items: 0, newRef: {}, newFields: {}, merged: 0 }; }
+  function resetStats() { _stats = { recs: 0, items: 0, newRef: {}, newFields: {}, merged: 0, replaced: 0 }; }
+
+  /* ============================================================
+   * 导入批次：每次导入留档，可整批撤销、可按板块清空、可导出备份
+   * ============================================================ */
+  var BATCH_KEY = 'gls_import_batches';
+  var REF_ENTS = ['material', 'customer', 'supplier', 'warehouse'];
+  var _batch = null;
+  function batches() { try { return JSON.parse(localStorage.getItem(BATCH_KEY) || '[]'); } catch (e) { return []; } }
+  function setBatches(l) { try { localStorage.setItem(BATCH_KEY, JSON.stringify(l)); } catch (e) {} }
+  function batchBegin(title, entKey) {
+    var snap = {};
+    REF_ENTS.forEach(function (e) { snap[e] = listOf(e).map(function (r) { return r.code; }); });
+    _batch = { id: uid('B'), time: new Date().toISOString(), title: title || '', entKey: entKey || '',
+               ent: entKey ? ((DICT[entKey] || {}).ent || '') : '',
+               added: [], updated: [], refsAdded: [], fieldsAdded: [], snapshot: snap };
+    return _batch;
+  }
+  function batchAdd(ent, rec) {
+    if (!_batch || !rec) return;
+    rec._imp = _batch.id;
+    rec._impAt = _batch.time;
+    _batch.added.push({ ent: ent, code: rec.code });
+  }
+  function batchUpdate(ent, code, before) {
+    if (!_batch) return;
+    for (var i = 0; i < _batch.updated.length; i++) {
+      if (_batch.updated[i].ent === ent && _batch.updated[i].code === code) return;
+    }
+    _batch.updated.push({ ent: ent, code: code, before: JSON.parse(JSON.stringify(before)) });
+  }
+  function batchCommit() {
+    if (!_batch) return null;
+    /* 本次顺带新建的档案（物料/客户/供应商/仓库） */
+    REF_ENTS.forEach(function (e) {
+      var oldCodes = _batch.snapshot[e] || [];
+      listOf(e).forEach(function (r) { if (oldCodes.indexOf(r.code) < 0) _batch.refsAdded.push({ ent: e, code: r.code }); });
+    });
+    if (!_batch.added.length && !_batch.updated.length && !_batch.refsAdded.length) { _batch = null; return null; }
+    var l = batches();
+    l.unshift(_batch);
+    if (l.length > 200) l = l.slice(0, 200);
+    setBatches(l);
+    var id = _batch.id;
+    _batch = null;
+    return id;
+  }
+  /* 档案是否仍被其它单据引用（撤销时用） */
+  function refUsed(ent, code) {
+    if (REF_ENTS.indexOf(ent) < 0) return false;
+    var hit = false;
+    ['bom', 'so', 'po', 'pr', 'moPick', 'poRecv', 'stockIn', 'stockOut', 'stockCheck',
+     'soShip', 'soReturn', 'mo', 'moIn', 'renovate'].forEach(function (e) {
+      if (hit) return;
+      listOf(e).forEach(function (r) {
+        if (hit) return;
+        if (r.product === code || r.supplier === code || r.customer === code) hit = true;
+        (r.items || []).forEach(function (it) { if (it && it.code === code) hit = true; });
+      });
+    });
+    return hit;
+  }
+  function refreshAll() {
+    saveErp();
+    try { if (global.DATAHUB) DATAHUB.set('erp', appData.erp); } catch (e) {}
+    try { if (global.ERP && ERP.refreshCurrent) ERP.refreshCurrent(); } catch (e) {}
+  }
+  /* 撤销某一批导入 */
+  function undoBatch(id, quiet) {
+    var l = batches(), b = null;
+    for (var i = 0; i < l.length; i++) if (l[i].id === id) { b = l[i]; break; }
+    if (!b) { if (!quiet) toast('没找到这批导入记录'); return false; }
+    (b.added || []).forEach(function (a) {
+      var arr = listOf(a.ent);
+      for (var i = arr.length - 1; i >= 0; i--) if (arr[i].code === a.code) { arr.splice(i, 1); break; }
+    });
+    (b.updated || []).forEach(function (u) {
+      var arr = listOf(u.ent);
+      for (var i = 0; i < arr.length; i++) if (arr[i].code === u.code) { arr[i] = u.before; break; }
+    });
+    (b.refsAdded || []).forEach(function (r) {
+      if (refUsed(r.ent, r.code)) return;
+      var arr = listOf(r.ent);
+      for (var i = arr.length - 1; i >= 0; i--) if (arr[i].code === r.code) { arr.splice(i, 1); break; }
+    });
+    (b.fieldsAdded || []).forEach(function (f) {
+      var other = false;
+      l.forEach(function (x) {
+        if (x.id === id) return;
+        (x.fieldsAdded || []).forEach(function (y) { if (y.ent === f.ent && y.name === f.name) other = true; });
+      });
+      if (other) return;
+      var all = {};
+      try { all = JSON.parse(localStorage.getItem(EXTRA_KEY) || '{}'); } catch (e) { return; }
+      if (all[f.ent]) { var k = all[f.ent].indexOf(f.name); if (k >= 0) all[f.ent].splice(k, 1); }
+      try { localStorage.setItem(EXTRA_KEY, JSON.stringify(all)); } catch (e) {}
+    });
+    setBatches(l.filter(function (x) { return x.id !== id; }));
+    refreshAll();
+    if (!quiet) toast('已撤销这批导入');
+    return true;
+  }
+  function undoAllBatches() {
+    var l = batches().slice();
+    if (!l.length) { toast('没有可撤销的导入记录'); return; }
+    var n = 0;
+    l.forEach(function (b) { if (undoBatch(b.id, true)) n++; });
+    refreshAll();
+    toast('已撤销 ' + n + ' 批导入数据');
+  }
+  /* 按板块清理：onlyImported=true 只删导入产生的，false 清空该板块全部 */
+  function clearEntity(key, onlyImported) {
+    var def = DICT[key];
+    var ent = def ? def.ent : key;
+    var arr = listOf(ent);
+    var before = arr.length;
+    if (onlyImported) {
+      for (var i = arr.length - 1; i >= 0; i--) if (arr[i]._imp) arr.splice(i, 1);
+    } else {
+      arr.splice(0, arr.length);
+    }
+    var n = before - arr.length;
+    refreshAll();
+    return n;
+  }
+  function clearMany(keys, onlyImported) {
+    var total = 0;
+    keys.forEach(function (k) { total += clearEntity(k, onlyImported); });
+    toast('已清理 ' + total + ' 条记录');
+    return total;
+  }
+  /* 导出备份（含台账与批次，万一删错可留档） */
+  function backupDownload() {
+    var dump = {
+      exportedAt: new Date().toISOString(),
+      company: 'GREENIS格丽思电器有限公司',
+      batches: batches(),
+      extraFields: (function () { try { return JSON.parse(localStorage.getItem(EXTRA_KEY) || '{}'); } catch (e) { return {}; } })(),
+      userTemplates: userTpls(),
+      erp: erpData()
+    };
+    var name = '格丽思质量管理系统_数据备份_' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+    openBlob(new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' }), name, true);
+    toast('备份已开始下载');
+  }
 
   /* 取某列的值 */
   function cellAt(row, cols, target) {
@@ -709,13 +853,20 @@
         // 未识别列 → 附加字段
         var ex = extrasOf(g.rows[0], columns);
         if (ex) { rec.extra = ex; Object.keys(ex).forEach(function (k) { _stats.newFields[k] = 1; }); }
-        // 同编码合并
+        // 同编码：覆盖重导 / 合并明细 / 新建
         var exist = listOf(def.ent).filter(function (x) { return x.code === rec.code; })[0];
-        if (exist && opt.mergeSame) {
+        if (exist && opt.replace) {
+          batchUpdate(def.ent, rec.code, exist);   /* 覆盖属更新，不改其是否「导入产生」的身份 */
+          for (var rk in rec) if (rk !== 'code') exist[rk] = rec[rk];
+          exist.code = rec.code;
+          _stats.replaced++;
+        } else if (exist && opt.mergeSame) {
+          batchUpdate(def.ent, rec.code, exist);
           exist.items = (exist.items || []).concat(rec.items);
           _stats.merged++;
         } else {
           listOf(def.ent).push(rec);
+          batchAdd(def.ent, rec);
           _stats.recs++;
         }
         out.added++;
@@ -734,7 +885,9 @@
         });
         if (!rec.name && !rec.code) return;
         if (rec.supplier) rec.supplier = ensureRef('supplier', rec.supplier);
-        if (rec.code && def.ent !== 'supplier' && def.ent !== 'customer' && def.ent !== 'warehouse') {
+        /* 本身就是档案表（物料/供应商/客户/仓库）→ 直接落库，不经 ensureRef 自建空壳 */
+        var _SELF = ['material', 'supplier', 'customer', 'warehouse'];
+        if (rec.code && _SELF.indexOf(def.ent) < 0) {
           rec.code = ensureRef('material', rec.code, { unit: rec.unit, spec: rec.spec });
         }
         var ex = extrasOf(row, columns);
@@ -742,11 +895,14 @@
         if (rec.code) rec.code = rec.code;
         else rec.code = nextCode(def.ent);
         var exist = listOf(def.ent).filter(function (x) { return norm2(x.code) === norm2(rec.code); })[0];
-        if (exist && opt.mergeSame) {
+        if (exist && (opt.replace || opt.mergeSame)) {
+          batchUpdate(def.ent, rec.code, exist);
           for (var kk in rec) if (kk !== 'code') exist[kk] = rec[kk];
-          _stats.merged++;
+          if (opt.replace) _stats.replaced++;
+          else _stats.merged++;
         } else {
           listOf(def.ent).push(rec);
+          batchAdd(def.ent, rec);
           _stats.recs++;
         }
         out.added++;
@@ -1147,8 +1303,10 @@
     body += '<div style="margin-top:14px;border-top:1px solid #e6efe9;padding-top:12px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">'
       + '<label style="font-size:13px"><input type="checkbox" id="glsimpDoTpl" checked> 同时存为模板（<b>原样保真</b>，可打印/填写）</label>'
       + '<label style="font-size:13px"><input type="checkbox" id="glsimpMerge" checked> 同编码合并（不重复建单）</label>'
+      + '<label style="font-size:13px"><input type="checkbox" id="glsimpReplace"> 覆盖同编码（用新表刷新旧记录）</label>'
       + '<input id="glsimpTplName" placeholder="模板名称（留空用文件名）" style="' + BTN + ';min-width:220px" value="' + esc(S.title || '') + '">'
       + '<div style="flex:1"></div>'
+      + '<button style="' + BTN + '" onclick="GLSIMP.openBatches()">导入数据管理</button>'
       + '<button style="' + BTN + '" onclick="GLSIMP.open()">返回</button>'
       + '<button style="' + BTN_P + '" id="glsimpGo" onclick="GLSIMP.run()">确认导入</button>'
       + '</div>';
@@ -1253,17 +1411,25 @@
     resetStats();
     var doTpl = (document.getElementById('glsimpDoTpl') || {}).checked !== false;
     var mergeSame = (document.getElementById('glsimpMerge') || {}).checked !== false;
+    var replaceSame = (document.getElementById('glsimpReplace') || {}).checked === true;
     var tplName = (document.getElementById('glsimpTplName') || {}).value || S.title || S.fileName || ('导入模板 ' + new Date().toLocaleDateString());
     var def = S.entKey ? DICT[S.entKey] : null;
     var res = { added: 0 };
 
+    batchBegin(tplName, S.entKey);
     try {
       if (S.entKey) {
-        res = importRows(S.entKey, S.rows, S.columns, { headerIdx: S.headerIdx, mergeSame: mergeSame });
+        res = importRows(S.entKey, S.rows, S.columns,
+                         { headerIdx: S.headerIdx, mergeSame: mergeSame, replace: replaceSame });
       }
       /* 新增字段登记 */
       var newNames = S.columns.filter(function (c) { return c.target === '__extra'; }).map(function (c) { return c.header; });
-      if (S.entKey && def) registerExtraFields(def.ent, newNames);
+      if (S.entKey && def) {
+        registerExtraFields(def.ent, newNames);
+        newNames.forEach(function (n) { if (_batch) _batch.fieldsAdded.push({ ent: def.ent, name: n }); });
+      }
+      var bid = batchCommit();
+      S.lastBatchId = bid;
       saveErp();
       // 通知其他板块刷新
       try { if (global.DATAHUB) DATAHUB.set('erp', appData.erp); } catch (e) {}
@@ -1286,6 +1452,7 @@
         }).join('、'));
         var nf = Object.keys(st.newFields);
         if (nf.length) lines.push('新增字段 ' + nf.length + ' 个：' + nf.slice(0, 6).map(esc).join('、') + (nf.length > 6 ? ' …' : ''));
+        if (S.lastBatchId) lines.push('本次导入已留档，可随时在本弹窗底部点「导入数据管理」整批撤销。');
       }
       if (tplMsg) lines.push(tplMsg);
       var el = document.getElementById('glsimpResult');
@@ -1298,6 +1465,74 @@
     } else {
       finish('');
     }
+  }
+
+  /* ============================================================
+   * 导入数据管理：整批撤销 / 按板块清空 / 导出备份
+   * ============================================================ */
+  function openBatches() {
+    var l = batches();
+    var rows = l.map(function (b) {
+      var lbl = (DICT[b.entKey] || {}).label || '—';
+      return '<tr style="border-bottom:1px solid #eef4f0">'
+        + '<td style="padding:7px 10px;white-space:nowrap">' + esc(new Date(b.time).toLocaleString()) + '</td>'
+        + '<td style="padding:7px 10px">' + esc(b.title || '—') + '</td>'
+        + '<td style="padding:7px 10px">' + esc(lbl) + '</td>'
+        + '<td style="padding:7px 10px;text-align:center">' + (b.added || []).length + '</td>'
+        + '<td style="padding:7px 10px;text-align:center">' + (b.updated || []).length + '</td>'
+        + '<td style="padding:7px 10px;text-align:center">' + (b.refsAdded || []).length + '</td>'
+        + '<td style="padding:7px 10px">'
+        + '<button style="' + BTN + '" onclick="GLSIMP.undoBatch(\'' + b.id + '\')">撤销这批</button></td>'
+        + '</tr>';
+    }).join('');
+    if (!rows) rows = '<tr><td colspan="7" style="padding:16px;text-align:center;color:#84958b">暂无导入留档</td></tr>';
+
+    var entOpts = Object.keys(DICT).map(function (k) {
+      return '<option value="' + k + '">' + esc(DICT[k].label) + '</option>';
+    }).join('');
+
+    var body = '<div style="padding:16px 18px">';
+    body += '<div style="font-weight:700;color:#1f3b2d;margin-bottom:6px">导入留档（可整批撤销，撤销即还原到导入前的状态）</div>';
+    body += '<div style="border:1px solid #dbe6df;border-radius:10px;overflow:auto;max-height:250px">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+      + '<thead><tr style="background:#f4f8f5;color:#1f3b2d">'
+      + '<th style="text-align:left;padding:7px 10px">时间</th><th style="text-align:left;padding:7px 10px">来源</th>'
+      + '<th style="text-align:left;padding:7px 10px">写入板块</th>'
+      + '<th style="padding:7px 10px">新建</th><th style="padding:7px 10px">更新</th><th style="padding:7px 10px">建档</th>'
+      + '<th style="text-align:left;padding:7px 10px">操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    body += '<div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">'
+      + '<button style="' + BTN + '" onclick="GLSIMP.undoAllBatches()">撤销全部导入</button>'
+      + '<button style="' + BTN + '" onclick="GLSIMP.backupDownload()">导出数据备份（JSON）</button>'
+      + '</div>';
+
+    body += '<div style="margin-top:18px;border-top:1px solid #e6efe9;padding-top:14px">'
+      + '<div style="font-weight:700;color:#1f3b2d;margin-bottom:8px">按板块清理（清理前建议先导出备份）</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'
+      + '<select id="glsimpClrEnt" style="' + BTN + ';min-width:230px">' + entOpts + '</select>'
+      + '<button style="' + BTN + '" onclick="GLSIMP.doClear(true)">只清导入产生的记录</button>'
+      + '<button style="' + BTN + ';border-color:#e0b4b4;color:#b03030" onclick="GLSIMP.doClear(false)">清空该板块全部记录</button>'
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:12px;color:#84958b">「只清导入产生的记录」只删掉经过智能导入写入的条目，你手工录入的不受影响。</div>'
+      + '</div>';
+    body += '<div style="margin-top:16px;text-align:right"><button style="' + BTN + '" onclick="GLSIMP.close()">关闭</button></div>';
+    body += '</div>';
+    modal(head('导入数据管理', '撤销 / 清理 / 备份') + body, { w: 1080 });
+  }
+
+  function doClear(onlyImported) {
+    var sel = document.getElementById('glsimpClrEnt');
+    if (!sel) return;
+    var key = sel.value;
+    var def = DICT[key] || {};
+    var ent = def.ent || key;
+    var n = listOf(ent).length;
+    var tip = onlyImported
+      ? '确定要删除「' + (def.label || key) + '」里由智能导入产生的记录吗？（共 ' + n + ' 条，手工录入的会保留）'
+      : '确定要清空「' + (def.label || key) + '」的全部记录吗？（共 ' + n + ' 条，此操作不可恢复，建议先导出备份）';
+    if (!global.confirm(tip)) return;
+    var removed = clearEntity(key, onlyImported);
+    toast('已清理 ' + removed + ' 条记录');
+    openBatches();
   }
 
   /* 模板：原样保存 */
@@ -1354,6 +1589,11 @@
     pickDoc: pickDoc, setEnt: setEnt, setHeader: setHeader, setCol: setCol, run: run,
     printTemplate: printTemplate, fillTemplate: fillTemplate, openTplOrigFile: openTplOrigFile,
     htmlFromRows: htmlFromRows, userTpls: userTpls, setUserTpls: setUserTpls, saveUserTpl: saveUserTpl,
-    idbPut: idbPut, idbGet: idbGet, idbDel: idbDel, docCat: docCat, ingest: ingest, renderDetect: renderDetect
+    idbPut: idbPut, idbGet: idbGet, idbDel: idbDel, docCat: docCat, ingest: ingest, renderDetect: renderDetect,
+    /* 导入数据管理 */
+    batches: batches, batchBegin: batchBegin, batchCommit: batchCommit,
+    openBatches: openBatches, undoBatch: undoBatch, undoAllBatches: undoAllBatches,
+    clearEntity: clearEntity, clearMany: clearMany, doClear: doClear,
+    backupDownload: backupDownload, refreshAll: refreshAll
   };
 })(window);
