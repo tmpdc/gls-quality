@@ -223,8 +223,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .tpl-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
 .tpl-toolbar .tpl-btn { flex: 1; text-align: center; background: #fff; border-radius: 10px; padding: 11px 8px; font-size: 13px; color: #2d7a4f; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .tpl-toolbar .tpl-btn:active { background: #e6f7ee; }
-#tplListContainer { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
+#filesList, #tplListContainer { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
 #tplListContainer > .search-group-title { grid-column: 1 / -1; margin-top: 6px; }
+#filesList > .tpl-card { background: #fff; }
 .tpl-card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
 .tpl-card .tpl-actions { margin-top: auto; padding-top: 10px; }
 @media (max-width: 640px) { #tplListContainer { grid-template-columns: 1fr; } }
@@ -762,11 +763,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   <!-- 模板中心页 -->
   <div class="page" id="page-templates">
     <div class="tpl-toolbar">
+      <div class="tpl-btn" style="background:#16a34a;color:#fff;border-color:#16a34a" onclick="openTplImport()">📥 导入表格</div>
       <div class="tpl-btn" onclick="exportCurrentGroup()">⬇ 导出本组 Excel</div>
       <div class="tpl-btn" onclick="toastTplHelp()">? 使用说明</div>
     </div>
     <div class="filter-tabs" id="tplFilters"></div>
     <div id="tplListContainer"></div>
+  </div>
+
+  <!-- 技术资料库页 -->
+  <div class="page" id="page-files">
+    <div class="tpl-toolbar">
+      <label class="tpl-btn" style="background:#16a34a;color:#fff;border-color:#16a34a;cursor:pointer">📤 上传文件
+        <input type="file" multiple style="display:none" onchange="filesUpload(this)">
+      </label>
+      <div class="tpl-btn" onclick="renderFilesPage()">↻ 刷新</div>
+      <div class="tpl-btn" id="fileStat" style="cursor:default">—</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0">
+      <input id="fileKwInput" type="text" placeholder="搜索文件名 / 物料 / 备注…" oninput="setFileKw(this.value)"
+             style="flex:1;min-width:180px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box">
+    </div>
+    <div class="filter-tabs" id="fileFilters"></div>
+    <div id="filesList" class="tpl-grid"></div>
+    <div style="font-size:12px;color:#9ca3af;line-height:1.9;margin-top:10px">
+      支持格式：2D/3D 图纸（dwg / dxf / step / stp / iges / stl / prt / sldprt / sldasm）、PDF、图片、表格（xls / xlsx / csv）、文档（doc / docx / wps / txt）等。<br>
+      文件保存在本机浏览器（IndexedDB），不上传云端；换电脑或清浏览器数据后需重新上传。<br>
+      WPS 联动：在 WPS 里编辑好表格，选中区域复制 → 「模板中心 → 导入表格 → 从剪贴板导入」即成带格式模板；文档 / PDF / 图纸用上面的「📤 上传文件」入库。
+    </div>
   </div>
 
   <!-- 消息中心页 -->
@@ -2387,7 +2411,7 @@ window.onerror = function(msg, url, line, col, error) {
 
 init();
 </script>
-<script src="gls-erp.js?v=3"></script>
+<script src="gls-erp.js?v=15"></script>
 <script src="gls-flow.js?v=3"></script>
 <script src="gls-erp-core.js?v=14"></script>
 <script src="pqs-data.js?v=2"></script>
