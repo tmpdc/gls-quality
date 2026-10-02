@@ -1497,9 +1497,34 @@
     } catch (e) { console.error('自动关联失败:', e); }
   }
 
+  /* ==================== 外部直达（WPS 加载项 / 快捷链接） ==================== */
+  function applyUrlGo() {
+    var go = '';
+    try {
+      var m = /[?&]go=([A-Za-z0-9_-]+)/.exec(location.search || '');
+      if (m) go = m[1];
+    } catch (e) {}
+    if (!go) return;
+    var map = { templates: '模板中心', files: '技术资料库', search: '全局搜索' };
+    if (!map[go]) return;
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries++;
+      var ready = false;
+      try {
+        ready = (typeof currentPage !== 'undefined') && !!document.getElementById('page-' + go);
+      } catch (e) {}
+      if (ready || tries > 20) {
+        clearInterval(timer);
+        try { navigateTo(go); } catch (e) {}
+      }
+    }, 300);
+  }
+
   /* ==================== 启动 ==================== */
   function boot() {
     patchFunctions();
+    applyUrlGo();
 
     // 模板版本升级：若已加载则立刻执行，否则等 onTemplatesLoaded
     var _tplLoaded = global.onTemplatesLoaded;
