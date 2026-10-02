@@ -2182,9 +2182,35 @@ function renderDetail() {
     { icon: '🧠', name: '底层逻辑', key: 'logic' },
   ];
   
+  // 内容为空时自动补齐：记录模板取本模块内置模板（完整展示，不精简）
+  function autoFill(s) {
+    const mid = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : '';
+    if (s.key === 'recordTemplate' && typeof TEMPLATE_CARDS !== 'undefined' && mid) {
+      const list = TEMPLATE_CARDS[mid] || [];
+      if (list.length) {
+        let h = '<div style="font-size:12px;color:#888;margin-bottom:10px;line-height:1.7;">' +
+          '以下是本模块内置的记录模板，可直接查看/填写/打印；点「用这个」把它绑定到这张卡片，之后可在编辑里改。</div>';
+        list.forEach(function (t, i) {
+          h += '<div style="margin-bottom:16px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 6px;flex-wrap:wrap;">' +
+            '<span style="font-size:13px;font-weight:700;color:#2d7a4f;">📋 ' + t.name + '</span>' +
+            '<button type="button" onclick="useThisTemplate(\'' + t.id + '\')" ' +
+            'style="font-size:12px;padding:3px 10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">用这个</button>' +
+            '<button type="button" onclick="openTemplatePreview(\'' + t.id + '\',\'' + mid + '\')" ' +
+            'style="font-size:12px;padding:3px 10px;border:1px solid #d1d5db;background:#fff;color:#555;border-radius:6px;cursor:pointer;">放大看</button>' +
+            '</div>' +
+            '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e7eb;border-radius:6px;background:#fff;padding:6px;">' +
+            (t.recordTemplate || '') + '</div></div>';
+        });
+        return h;
+      }
+    }
+    return '';
+  }
+
   let html = '';
   sections.forEach(s => {
-    const content = item[s.key] || '';
+    const content = item[s.key] || autoFill(s);
     html += `
       <div class="detail-section">
         <div class="section-head">
@@ -2197,6 +2223,110 @@ function renderDetail() {
   });
   document.getElementById('detailSections').innerHTML = html;
 }
+
+// 一键把内置模板绑定到当前卡片
+window.useThisTemplate = function (tid) {
+  try {
+    var mid = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : '';
+    var list = (typeof TEMPLATE_CARDS !== 'undefined' && TEMPLATE_CARDS[mid]) || [];
+    var t = null;
+    for (var i = 0; i < list.length; i++) { if (list[i].id === tid) { t = list[i]; break; } }
+    if (!t && typeof appData !== 'undefined' && appData[mid]) {
+      for (var j = 0; j < appData[mid].length; j++) {
+        if (appData[mid][j].id === tid) { t = appData[mid][j]; break; }
+      }
+    }
+    if (!t || !t.recordTemplate) { alert('没找到该模板'); return; }
+    if (!confirm('把「' + t.name + '」设为这张卡片的记录模板？')) return;
+    currentItem.recordTemplate = t.recordTemplate;
+    if (typeof saveData === 'function') saveData();
+    renderDetail();
+    alert('已绑定，可点右下角「编辑」继续修改内容。');
+  } catch (e) { alert('绑定失败：' + e.message); }
+};
+
+// ===== 从模板库选择记录模板 =====
+var _PICK_TARGET = 'formRecordTemplate';
+window.pickTemplateForEdit = function (target) {
+  _PICK_TARGET = target || 'formRecordTemplate';
+  var mid = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : '';
+  var cats = [];
+  Object.keys(TEMPLATE_CARDS || {}).forEach(function (k) { cats.push(k); });
+  if (mid && cats.indexOf(mid) > 0) { cats.splice(cats.indexOf(mid), 1); cats.unshift(mid); }
+
+  var h = '<div id="tplPickMask" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:flex-end;" onclick="closeTplPick()">' +
+    '<div style="background:#fff;width:100%;max-height:78vh;border-radius:14px 14px 0 0;display:flex;flex-direction:column;overflow:hidden;" onclick="event.stopPropagation()">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eee;">' +
+    '<b style="font-size:15px;">选择记录模板</b>' +
+    '<span onclick="closeTplPick()" style="cursor:pointer;font-size:20px;color:#999;line-height:1;">✕</span></div>' +
+    '<div style="padding:10px 16px;"><input id="tplPickKw" placeholder="搜索模板名称…" oninput="filterTplPick()" ' +
+    'style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none;"></div>' +
+    '<div id="tplPickList" style="overflow-y:auto;padding:0 16px 16px;flex:1;">';
+  cats.forEach(function (c) {
+    var list = TEMPLATE_CARDS[c] || [];
+    if (!list.length) return;
+    h += '<div class="tpl-pick-cat" data-cat="' + c + '" style="font-size:12px;color:#999;margin:12px 0 6px;">' + c + '</div>';
+    list.forEach(function (t) {
+      h += '<div class="tpl-pick-item" data-name="' + t.name.toLowerCase() + '" onclick="applyTplPick(\'' + t.id + '\',\'' + c + '\')" ' +
+        'style="padding:12px;border:1px solid #eee;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fafafa;">' +
+        '<div style="font-size:14px;font-weight:600;color:#333;">' + t.name + '</div>' +
+        '<div style="font-size:12px;color:#999;margin-top:3px;">点击填入编辑框</div></div>';
+    });
+  });
+  h += '</div></div></div>';
+  var d = document.createElement('div');
+  d.innerHTML = h;
+  document.body.appendChild(d.firstChild);
+};
+
+window.closeTplPick = function () {
+  var m = document.getElementById('tplPickMask');
+  if (m) m.remove();
+};
+
+window.filterTplPick = function () {
+  var kw = (document.getElementById('tplPickKw').value || '').trim().toLowerCase();
+  document.querySelectorAll('#tplPickList .tpl-pick-item').forEach(function (el) {
+    var n = el.getAttribute('data-name') || '';
+    el.style.display = (!kw || n.indexOf(kw) >= 0) ? '' : 'none';
+  });
+};
+
+window.applyTplPick = function (tid, cat) {
+  var list = (TEMPLATE_CARDS && TEMPLATE_CARDS[cat]) || [];
+  var t = null;
+  for (var i = 0; i < list.length; i++) { if (list[i].id === tid) { t = list[i]; break; } }
+  if (!t) { alert('没找到该模板'); return; }
+  var el = document.getElementById(_PICK_TARGET);
+  if (!el) { alert('目标输入框不存在'); return; }
+  el.value = t.recordTemplate || '';
+  closeTplPick();
+  if (typeof showToast === 'function') showToast('已填入「' + t.name + '」');
+};
+
+// ===== 一键导入流程步骤 =====
+var _FLOW_NODES = {
+  suppliers: ['供应商开发', '资质审查', '样品测试', '现场审核', '批准纳入合格名录'],
+  incoming: ['报检申请', '抽样检验', '判定', '入库或退货'],
+  rd: ['立项申请', '可行性评审', '批准', '开发实施', '验证确认', '归档'],
+  production: ['首件申请', '首件检验', '确认', '批量生产'],
+  inspection: ['报检', '成品检验', '判定', '入库'],
+  shipping: ['出货申请', '出货检验', '审批', '放行'],
+  abnormal: ['异常报告', '原因分析', '纠正措施', '措施验证', '结案'],
+  risk: ['风险识别', '风险评估', '制定措施', '跟踪验证'],
+  documents: ['文件编制', '审核', '批准', '发布'],
+  knowledge: ['提出', '审核', '入库'],
+  training: ['培训申请', '计划审批', '实施培训', '效果评估', '归档']
+};
+window.pickProcessForEdit = function () {
+  var mid = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : '';
+  var nodes = _FLOW_NODES[mid] || ['申请', '审核', '批准', '执行', '归档'];
+  var el = document.getElementById('formProcess');
+  if (!el) return;
+  if (el.value.trim() && !confirm('已有流程步骤，覆盖吗？')) return;
+  el.value = '<ol>' + nodes.map(function (n) { return '<li>' + n + '</li>'; }).join('') + '</ol>';
+  if (typeof showToast === 'function') showToast('已导入 ' + nodes.length + ' 个环节');
+};
 
 function formatDate(timestamp) {
   if (!timestamp) return '未知';
@@ -2254,16 +2384,19 @@ function openForm() {
     </div>
     <div class="form-group">
       <label>🔄 流程步骤（支持HTML格式）</label>
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="pickProcessForEdit()" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">📥 导入流程步骤</button><button type="button" onclick="document.getElementById('formProcess').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
       <textarea id="formProcess" placeholder="输入流程步骤，可用HTML标签，如：<ol><li>步骤1</li><li>步骤2</li></ol>" style="height:120px;">${item.process || ''}</textarea>
       <div class="form-hint">过程流程图、作业步骤、节点说明，支持HTML表格和列表</div>
     </div>
     <div class="form-group">
       <label>📋 记录模板（支持HTML格式，可编辑）</label>
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="pickTemplateForEdit()" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">📥 从模板库选择</button><button type="button" onclick="document.getElementById('formRecordTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
       <textarea id="formRecordTemplate" placeholder="输入记录模板，可用HTML表格，如：<table><tr><td>项目</td><td>标准</td><td>实测</td></tr></table>" style="height:150px;">${item.recordTemplate || ''}</textarea>
       <div class="form-hint">记录表单、检验报告、审批表等，带格式的模板，可直接复制使用</div>
     </div>
     <div class="form-group">
       <label>📋 模板</label>
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="pickTemplateForEdit('formTemplate')" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;">📥 从模板库选择</button><button type="button" onclick="document.getElementById('formTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
       <textarea id="formTemplate" placeholder="输入模板内容，可包含表格、步骤等">${item.template || ''}</textarea>
       <div class="form-hint">标准模板、表单格式、检验项目等</div>
     </div>
