@@ -2189,12 +2189,17 @@ function renderDetail() {
   function autoFill(s, item) {
     const mid = (typeof currentModule !== 'undefined' && currentModule) ? currentModule.id : '';
     if (s.key === 'recordTemplate' && typeof TEMPLATE_CARDS !== 'undefined' && mid) {
-      const list = TEMPLATE_CARDS[mid] || [];
+      const allInMod = TEMPLATE_CARDS[mid] || [];
+      // 单卡不放"全量报表类"模板（一览表/汇总表/台账/清单/名录/统计表等），这些属公司级清单，请到模板中心使用
+      const GLOBAL_TPL = /一览表|汇总表|总表|台账|清单|名录|统计表|明细表|总览/;
+      const list = allInMod.filter(function (t) { return !GLOBAL_TPL.test(String((t && t.name) || '')); });
+      const hiddenCount = allInMod.length - list.length;
       if (list.length) {
         let h = '<div style="border:1px solid #d7e8dd;border-radius:8px;background:#f7fbf8;overflow:hidden;">' +
           '<div onclick="toggleTplBox(this)" style="cursor:pointer;padding:11px 13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
           '<span style="font-size:13px;font-weight:700;color:#2d7a4f;">📋 本模块可用记录模板（' + list.length + ' 个）</span>' +
           '<span style="font-size:11px;color:#8a9a90;">点开看，可挑一个绑定到这张卡</span>' +
+          (hiddenCount > 0 ? '<span style="font-size:11px;color:#b08a3e;">（已隐藏 ' + hiddenCount + ' 个公司级清单类，可在模板中心查）</span>' : '') +
           '<span class="arw" style="margin-left:auto;font-size:13px;color:#2d7a4f;">▸</span>' +
           '</div>' +
           '<div class="tpl-box-body" style="display:none;padding:0 13px 13px;border-top:1px solid #e3efe8;">' +
@@ -2213,6 +2218,11 @@ function renderDetail() {
             (t.recordTemplate || '') + '</div></div>';
         });
         return h + '</div></div>';
+      }
+      if (allInMod.length) {
+        return '<div style="font-size:12px;color:#888;line-height:1.8;">' +
+          '本模块的记录模板均为公司级清单类（如 ' + allInMod.slice(0, 3).map(function (t) { return t.name; }).join('、') +
+          ' 等），不在单张卡片内展开。<br>需要时到「模板中心」查看/填写/打印。</div>';
       }
     }
     if (s.key === 'process') {
