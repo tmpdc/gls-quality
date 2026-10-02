@@ -2239,7 +2239,7 @@ function renderDetail() {
   document.getElementById('detailSections').innerHTML = html;
 }
 
-// 供应商卡片：汇总"该物料"的供应商信息（数据打通：供应商卡 + 到货检验记录 + 物料档案）
+// 供应商卡片：本供应商档案 + 与本物料的供货/检验记录（单供应商视角，不列其它供应商）
 function _matNameOf(item) {
   var nm = String((item && item.name) || '').trim();
   if (!nm) return '';
@@ -2250,83 +2250,75 @@ function _matNameOf(item) {
   }
   return nm;
 }
+function _supNameOf(item) {
+  var nm = String((item && item.name) || '').trim();
+  if (!nm) return '';
+  var parts = nm.split(/[-－—–_\/]/);
+  if (parts.length >= 2) {
+    var first = parts[0].trim();
+    if (first.length >= 2) return first;
+  }
+  return nm;
+}
 function supplierMatInfo(item) {
+  if (!item) return '';
   var mat = _matNameOf(item);
-  if (!mat) return '';
-  var rows = [], seen = {};
-  function push(sup, lv, date, res, note) {
-    var k = String(sup) + '|' + String(date);
-    if (seen[k]) return; seen[k] = 1;
-    rows.push([sup || '', mat, note || '', lv || '', date || '', res || '']);
-  }
-  // 来源1：其它供应商卡（名字/描述里带该物料）
-  try {
-    (appData.suppliers || []).forEach(function (x) {
-      if (!x || x.id === item.id) return;
-      var t = String(x.name || '') + ' ' + String(x.description || '');
-      if (t.indexOf(mat) >= 0) {
-        var lvMap = { done: '已准入', pending: '待审核', rejected: '已否决', hold: '暂停', todo: '待办', running: '进行中' };
-        var lv = lvMap[x.status] || x.status || '';
-        push(x.name, lv, '', '', '');
-      }
-    });
-  } catch (e) {}
-  // 来源2：到货/进料检验记录里出现的供应商
-  try {
-    (appData.incoming || []).forEach(function (r) {
-      if (!r) return;
-      var t = String(r.name || '') + ' ' + String(r.description || '');
-      if (t.indexOf(mat) < 0) return;
-      var sup = r.supplier || r.vendor || r.factory || '';
-      var resMap = { pass: '合格', fail: '不合格', ok: '合格', ng: '不合格', pending: '待判定' };
-      var res = resMap[r.result] || '';
-      if (sup) push(sup, '', r.date || '', res, '');
-    });
-  } catch (e) {}
-  // 来源3：采购/ERP 数据
-  try {
-    var erp = (typeof DATAHUB !== 'undefined' && DATAHUB.get) ? (DATAHUB.get('erp') || null) : (appData.erp || null);
-    if (erp && typeof erp === 'object') {
-      Object.keys(erp).forEach(function (k) {
-        var arr = erp[k];
-        if (!Array.isArray(arr)) return;
-        arr.forEach(function (r) {
-          if (!r || typeof r !== 'object') return;
-          var blob = '';
-          try { blob = JSON.stringify(r); } catch (e) { blob = ''; }
-          if (blob.indexOf(mat) >= 0) {
-            var sup = r.supplier || r.vendor || r['供应商'] || '';
-            if (sup) push(sup, '', r.date || r['日期'] || '', '', r.name || '');
-          }
-        });
-      });
-    }
-  } catch (e) {}
+  var supName = _supNameOf(item);
+  var statusMap = { done: '已准入', pending: '待审核', rejected: '已否决', hold: '暂停', todo: '待办', running: '进行中' };
+  var resMap = { pass: '合格', fail: '不合格', ok: '合格', ng: '不合格', pending: '待判定' };
+  var lv = statusMap[item.status] || item.status || '';
 
+  // ---- 表1：本供应商档案（只有这一条，不列其它供应商）----
   var h = '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed #ddd;">' +
-    '<div style="font-size:13px;font-weight:700;color:#2d7a4f;margin-bottom:8px;">' +
-    '📦 物料「' + mat + '」的供应商信息</div>';
-  if (!rows.length) {
-    h += '<div style="font-size:12px;color:#999;margin-bottom:8px;">' +
-      '还没查到该物料的供应商记录 —— 可在下方表格填写，或到「物料档案/到货检验」里补录后回来查看。</div>';
-  } else {
-    h += '<div style="font-size:12px;color:#666;margin-bottom:8px;">已汇总 ' + rows.length + ' 条相关记录（来自供应商档案与到货检验）。</div>';
-  }
-  h += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
+    '<div style="font-size:13px;font-weight:700;color:#2d7a4f;margin-bottom:8px;">🏭 本卡供应商档案</div>' +
+    '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
     '<table class="gtbl" style="border-collapse:collapse;width:100%;font-size:12px;background:#fff;">' +
     '<tr style="background:#eef7f1;">' +
     '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">供应商名称</th>' +
     '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">供货物料</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">资质/备注</th>' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">资质/证书</th>' +
     '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">等级/状态</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">最近供货</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">检验结论</th></tr>';
-  var n = Math.max(rows.length, 5);
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">联系人/电话</th>' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">说明</th></tr>' +
+    '<tr>' +
+    '<td style="border:1px solid #999;padding:6px;height:26px;font-weight:600;">' + supName + '</td>' +
+    '<td style="border:1px solid #999;padding:6px;height:26px;">' + mat + '</td>' +
+    '<td style="border:1px solid #999;padding:6px;height:26px;"></td>' +
+    '<td style="border:1px solid #999;padding:6px;height:26px;">' + lv + '</td>' +
+    '<td style="border:1px solid #999;padding:6px;height:26px;"></td>' +
+    '<td style="border:1px solid #999;padding:6px;height:26px;font-size:11px;color:#666;">' + String(item.description || '') + '</td>' +
+    '</tr></table></div>';
+
+  // ---- 表2：本供应商 + 本物料的供货/检验记录 ----
+  var recs = [];
+  try {
+    (appData.incoming || []).forEach(function (r) {
+      if (!r) return;
+      var sup = String(r.supplier || r.vendor || r.factory || '');
+      var t = String(r.name || '') + ' ' + String(r.description || '');
+      var hitSup = sup && (sup.indexOf(supName) >= 0 || supName.indexOf(sup) >= 0);
+      var hitMat = mat && t.indexOf(mat) >= 0;
+      if (hitSup || (hitMat && !sup && mat && t.indexOf(mat) >= 0)) {
+        recs.push([r.date || '', mat || '', r.batch || r.lot || '', resMap[r.result] || '', String(r.name || '').slice(0, 18)]);
+      }
+    });
+  } catch (e) {}
+  h += '<div style="font-size:13px;font-weight:700;color:#2d7a4f;margin:14px 0 8px;">📋 ' + supName +
+    ' 的供货与检验记录' + (recs.length ? '（' + recs.length + ' 条）' : '（暂无记录，可手动填写）') + '</div>' +
+    '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
+    '<table class="gtbl" style="border-collapse:collapse;width:100%;font-size:12px;background:#fff;">' +
+    '<tr style="background:#eef7f1;">' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">日期</th>' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">物料</th>' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">批次</th>' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">检验结论</th>' +
+    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">来源单据</th></tr>';
+  var n = Math.max(recs.length, 4);
   for (var i = 0; i < n; i++) {
-    var r = rows[i] || ['', '', '', '', '', ''];
+    var r2 = recs[i] || ['', '', '', '', ''];
     h += '<tr>';
-    for (var j = 0; j < 6; j++) {
-      h += '<td style="border:1px solid #999;padding:6px;height:26px;">' + (r[j] || '') + '</td>';
+    for (var j = 0; j < 5; j++) {
+      h += '<td style="border:1px solid #999;padding:6px;height:26px;">' + (r2[j] || '') + '</td>';
     }
     h += '</tr>';
   }
