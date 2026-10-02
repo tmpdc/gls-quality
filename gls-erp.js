@@ -377,7 +377,10 @@
           '<span class="mini-btn" onclick="openTemplatePreview(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\')">👁 预览</span>' +
           '<span class="mini-btn blue" onclick="exportTemplate(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\')">⬇ 导出 Excel</span>' +
           (isU
-            ? '<span class="mini-btn gray" onclick="editUserTpl(\'' + escAttr(x.tpl.id) + '\')">✏️ 改名</span>' +
+            ? '<span class="mini-btn" onclick="GLSIMP.printTemplate(GLSIMP_tplById(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\'),\'\')">🖨 打印</span>' +
+              '<span class="mini-btn" onclick="GLSIMP.fillTemplate(GLSIMP_tplById(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\'))">✏️ 填写</span>' +
+              (x.tpl.origFileId ? '<span class="mini-btn blue" onclick="GLSIMP.openTplOrigFile(GLSIMP_tplById(\'' + escAttr(x.tpl.id) + '\',\'' + escAttr(x.moduleId) + '\'))">📄 原文件</span>' : '') +
+              '<span class="mini-btn gray" onclick="editUserTpl(\'' + escAttr(x.tpl.id) + '\')">✏️ 改名</span>' +
               '<span class="mini-btn" style="color:#dc2626" onclick="deleteUserTpl(\'' + escAttr(x.tpl.id) + '\')">🗑 删除</span>'
             : '<span class="mini-btn gray" onclick="editTemplateItem(\'' + escAttr(x.moduleId) + '\',\'' + escAttr(x.tpl.id) + '\')">✏️ 编辑</span>') +
           '</div></div>';
@@ -405,6 +408,9 @@
     var pf = $('previewFooter');
     if (pf) {
       pf.innerHTML = '<button class="btn btn-cancel" onclick="closePreview()">关闭</button>' +
+        '<button class="btn btn-cancel" onclick="GLSIMP.printTemplate(\'' + escAttr(tpl.id) + '\',\'' + escAttr(r.moduleId) + '\')">🖨 打印</button>' +
+        '<button class="btn btn-cancel" onclick="GLSIMP.fillTemplate(GLSIMP_tplById(\'' + escAttr(tpl.id) + '\',\'' + escAttr(r.moduleId) + '\'))">✏️ 直接填写</button>' +
+        (tpl.origFileId ? '<button class="btn btn-cancel" onclick="GLSIMP.openTplOrigFile(GLSIMP_tplById(\'' + escAttr(tpl.id) + '\',\'' + escAttr(r.moduleId) + '\'))">📄 原文件</button>' : '') +
         '<button class="btn btn-save" onclick="exportTemplate(\'' + escAttr(tplId) + '\',\'' + escAttr(r.moduleId) + '\')">⬇ 导出 Excel</button>';
     }
     var pm = $('previewModal'); if (pm) pm.classList.add('show');
@@ -581,7 +587,10 @@
     }
     var t = box.querySelector('table');
     if (t) {
-      t.setAttribute('style', 'border-collapse:collapse;font-size:11px;width:100%;table-layout:fixed;');
+      /* 保真：原表已有样式就完全保留，只补必要的边框合并；不改字号/列宽/布局 */
+      var _tst = t.getAttribute('style') || '';
+      if (!/border-collapse/i.test(_tst)) t.setAttribute('style', _tst + ';border-collapse:collapse;');
+      if (!/\bwidth\b/i.test(_tst)) t.setAttribute('style', (t.getAttribute('style') || '') + ';width:100%;');
       return t.outerHTML;
     }
     var rows = [];
@@ -1561,4 +1570,18 @@
     boot();
   }
 
+
+  /* ---------- 智能导入配套：模板查找 + 刷新钩子 ---------- */
+  global.GLSIMP_tplById = function (id, moduleId) {
+    var r = findTemplateById(id, moduleId);
+    return r ? r.tpl : null;
+  };
+  if (global.ERP) {
+    global.ERP.refreshTemplates = function () {
+      try { if (typeof renderTemplatesPage === 'function') renderTemplatesPage(); } catch (e) {}
+    };
+    global.ERP.refreshCurrent = function () {
+      try { if (typeof renderTemplatesPage === 'function') renderTemplatesPage(); } catch (e) {}
+    };
+  }
 })(window);
