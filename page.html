@@ -2265,7 +2265,8 @@ function supplierMatInfo(item) {
       if (!x || x.id === item.id) return;
       var t = String(x.name || '') + ' ' + String(x.description || '');
       if (t.indexOf(mat) >= 0) {
-        var lv = (x.status === 'done') ? '已准入' : (x.status || '');
+        var lvMap = { done: '已准入', pending: '待审核', rejected: '已否决', hold: '暂停', todo: '待办', running: '进行中' };
+        var lv = lvMap[x.status] || x.status || '';
         push(x.name, lv, '', '', '');
       }
     });
@@ -2277,7 +2278,8 @@ function supplierMatInfo(item) {
       var t = String(r.name || '') + ' ' + String(r.description || '');
       if (t.indexOf(mat) < 0) return;
       var sup = r.supplier || r.vendor || r.factory || '';
-      var res = r.result === 'pass' ? '合格' : (r.result === 'fail' ? '不合格' : '');
+      var resMap = { pass: '合格', fail: '不合格', ok: '合格', ng: '不合格', pending: '待判定' };
+      var res = resMap[r.result] || '';
       if (sup) push(sup, '', r.date || '', res, '');
     });
   } catch (e) {}
