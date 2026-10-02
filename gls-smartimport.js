@@ -6,6 +6,63 @@
  *  4) 模板原样保真：导入的表格/文档格式不被改动，可原样查看、直接填写或打印
  * 依赖：window.ERP（ENTITIES/nextCode）、window.DATAHUB、SheetJS(XLSX，可选)
  */
+
+// ===== 保真转换：Excel 工作表 -> HTML 表格（处理合并单元格/列宽/行高）=====
+function glsEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function glsSheetToHtml(ws) {
+  if (!ws || !ws['!ref']) return '';
+  var range = XLSX.utils.decode_range(ws['!ref']);
+  var merges = ws['!merges'] || [];
+  var cols = ws['!cols'] || [];
+  var rowsInfo = ws['!rows'] || [];
+  var span = {}, covered = {};
+  merges.forEach(function (m) {
+    if (!m || !m.s || !m.e) return;
+    span[m.s.r + ',' + m.s.c] = [m.e.r - m.s.r + 1, m.e.c - m.s.c + 1];
+    for (var r = m.s.r; r <= m.e.r; r++) {
+      for (var c = m.s.c; c <= m.e.c; c++) {
+        if (!(r === m.s.r && c === m.s.c)) covered[r + ',' + c] = 1;
+      }
+    }
+  });
+  var h = '<table class="gtbl" style="border-collapse:collapse;table-layout:fixed;width:100%;background:#fff;">';
+  var total = 0, widths = [];
+  for (var c0 = range.s.c; c0 <= range.e.c; c0++) {
+    var w = (cols[c0] && (cols[c0].wch || cols[c0].width)) || 8;
+    widths.push(w); total += w;
+  }
+  h += '<colgroup>';
+  widths.forEach(function (w) { h += '<col style="width:' + (w / total * 100).toFixed(2) + '%">'; });
+  h += '</colgroup>';
+  for (var r = range.s.r; r <= range.e.r; r++) {
+    var rh = (rowsInfo[r] && rowsInfo[r].hpx) ? Math.round(rowsInfo[r].hpx) : 24;
+    if (rh < 18) rh = 18;
+    h += '<tr style="height:' + rh + 'px;">';
+    for (var c = range.s.c; c <= range.e.c; c++) {
+      if (covered[r + ',' + c]) continue;
+      var cell = ws[XLSX.utils.encode_cell({ r: r, c: c })];
+      var v = '';
+      if (cell) {
+        if (cell.w != null && cell.w !== '') v = cell.w;
+        else if (cell.v != null) v = (cell.v instanceof Date) ? cell.v.toLocaleDateString() : String(cell.v);
+      }
+      var sp = span[r + ',' + c] || [1, 1];
+      var attr = '';
+      if (sp[1] > 1) attr += ' colspan="' + sp[1] + '"';
+      if (sp[0] > 1) attr += ' rowspan="' + sp[0] + '"';
+      var ctr = (sp[1] > 2) ? 'text-align:center;' : '';
+      h += '<td' + attr + ' style="border:1px solid #666;padding:2px 4px;font-size:12px;' + ctr +
+        'word-break:break-all;vertical-align:middle;line-height:1.35;">' + glsEsc(v) + '</td>';
+    }
+    h += '</tr>';
+  }
+  return h + '</table>';
+}
+
 (function (global) {
   'use strict';
 
@@ -1257,7 +1314,7 @@
           var ws = wb.Sheets[wb.SheetNames[0]];
           var rows = sheetToRows(ws);
           var html = null;
-          try { html = XLSX.utils.sheet_to_html(ws); } catch (e) { html = null; }
+          try { html = glsSheetToHtml(ws); } catch (e) { html = XLSX.utils.sheet_to_html(ws); }
           ingest({ rows: rows, htmlRaw: html, title: name.replace(/\.[^.]+$/, ''), fileName: name, fileBlob: f, wb: wb });
         } catch (e) { toast('表格解析失败：' + e.message); }
       };
