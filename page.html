@@ -1638,6 +1638,12 @@ function loadData() {
     appData = getDefaultData();
   }
   if (!appData) appData = getDefaultData();
+  // 防御：补齐所有模块数组，避免 appData[m.id] 为 undefined/null 导致渲染报错中断
+  if (typeof MODULES !== 'undefined') {
+    MODULES.forEach(function (m) {
+      if (!Array.isArray(appData[m.id])) appData[m.id] = [];
+    });
+  }
 }
 
 // 模板加载完成后合并模板卡片（只在首次初始化时合并一次）
@@ -1651,6 +1657,7 @@ function onTemplatesLoaded() {
   MODULES.forEach(m => {
     const tpls = TEMPLATE_CARDS[m.id] || [];
     tpls.forEach(tpl => {
+      if (!Array.isArray(appData[m.id])) appData[m.id] = [];
       const exists = appData[m.id].some(item => item.id === tpl.id);
       if (!exists) {
         appData[m.id].unshift({...tpl});
