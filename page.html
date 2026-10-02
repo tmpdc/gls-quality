@@ -2268,26 +2268,63 @@ function supplierMatInfo(item) {
   var resMap = { pass: '合格', fail: '不合格', ok: '合格', ng: '不合格', pending: '待判定' };
   var lv = statusMap[item.status] || item.status || '';
 
-  // ---- 表1：本供应商档案（只有这一条，不列其它供应商）----
+  // ---- 表1：本供应商完整档案（31 项，项目|内容 两列）----
+  var F = function (k, v) {
+    return '<tr><td style="border:1px solid #999;padding:5px 7px;background:#f7fbf8;width:42%;font-size:12px;color:#333;">' + k +
+      '</td><td style="border:1px solid #999;padding:5px 7px;font-size:12px;color:#111;">' + (v || '') + '</td></tr>';
+  };
+  var box = function (a, b, c, d) {
+    var arr = [a, b, c, d].filter(Boolean);
+    return arr.map(function (x) { return '□ ' + x; }).join('　');
+  };
   var h = '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed #ddd;">' +
-    '<div style="font-size:13px;font-weight:700;color:#2d7a4f;margin-bottom:8px;">🏭 本卡供应商档案</div>' +
+    '<div style="font-size:13px;font-weight:700;color:#2d7a4f;margin-bottom:8px;">🏭 本卡供应商档案明细</div>' +
     '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">' +
-    '<table class="gtbl" style="border-collapse:collapse;width:100%;font-size:12px;background:#fff;">' +
-    '<tr style="background:#eef7f1;">' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">供应商名称</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">供货物料</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">资质/证书</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">等级/状态</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">联系人/电话</th>' +
-    '<th style="border:1px solid #999;padding:6px;white-space:nowrap;">说明</th></tr>' +
-    '<tr>' +
-    '<td style="border:1px solid #999;padding:6px;height:26px;font-weight:600;">' + supName + '</td>' +
-    '<td style="border:1px solid #999;padding:6px;height:26px;">' + mat + '</td>' +
-    '<td style="border:1px solid #999;padding:6px;height:26px;"></td>' +
-    '<td style="border:1px solid #999;padding:6px;height:26px;">' + lv + '</td>' +
-    '<td style="border:1px solid #999;padding:6px;height:26px;"></td>' +
-    '<td style="border:1px solid #999;padding:6px;height:26px;font-size:11px;color:#666;">' + String(item.description || '') + '</td>' +
-    '</tr></table></div>';
+    '<table class="gtbl" style="border-collapse:collapse;width:100%;background:#fff;">' +
+    '<tr style="background:#eef7f1;"><th style="border:1px solid #999;padding:6px;font-size:12px;">项目</th>' +
+    '<th style="border:1px solid #999;padding:6px;font-size:12px;">内容</th></tr>' +
+    // A 资质与身份
+    F('<b>【基本信息】</b>', '') +
+    F('供应商名称', '<b>' + supName + '</b>') +
+    F('供应商编码', item.code || item.supCode || '') +
+    F('供货物料', '<b>' + mat + '</b>') +
+    F('物料编码', item.matCode || '') +
+    F('供应商类型', box('生产厂', '贸易商', '代理商')) +
+    F('物料类别', box('原材料', '辅料', '包材', '外协件')) +
+    F('资质证书', item.cert || '□ ISO9001　□ ISO14001　□ IATF16949　□ 其它') +
+    F('证书编号', '') +
+    F('证书有效期至', '') +
+    F('营业执照号', '') +
+    F('纳税人识别号', '') +
+    // B 评价与状态
+    F('<b>【等级与状态】</b>', '') +
+    F('供应商等级', '□ A级(优选)　□ B级(合格)　□ C级(限制)') +
+    F('准入状态', lv) +
+    F('是否关键/独家', box('关键件', '独家供应', '一般')) +
+    F('准入日期', '') +
+    F('最近审核日期', '') +
+    F('审核结论', box('通过', '有条件通过', '不通过')) +
+    F('来料合格率', '　　　　%') +
+    F('准时交付率', '　　　　%') +
+    F('供应商评分', '　　　　分') +
+    // C 商务与联络
+    F('<b>【商务与联络】</b>', '') +
+    F('联系人', item.contact || '') +
+    F('联系电话', item.phone || '') +
+    F('邮箱', item.email || '') +
+    F('地址', item.address || '') +
+    F('账期', box('货到付款', '月结30天', '月结60天', '月结90天')) +
+    F('结算方式', box('银行转账', '银行承兑', '现金')) +
+    F('开户行及账号', '') +
+    F('交货方式', box('送货上门', '自提', '快递物流')) +
+    F('送货周期', '　　　　天') +
+    F('最小起订量', '') +
+    F('单价/报价', '') +
+    // D 备注
+    F('<b>【其它】</b>', '') +
+    F('首次合作日期', '') +
+    F('备注', String(item.description || '')) +
+    '</table></div>';
 
   // ---- 表2：本供应商 + 本物料的供货/检验记录 ----
   var recs = [];
