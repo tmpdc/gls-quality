@@ -215,6 +215,54 @@ def wecom_send(to, text, flow_id=""):
     return {"ok": False, "reason": "api_error", "msg": str(d)}
 
 
+# ---------------------------------------------------------------- 访问口令
+# 内网用可以不开；一旦要做外网访问（内网穿透 / 域名），**必须**在 gls-auth.ini
+# 里填一个口令，否则那条公网链接谁拿到都能读写你们的数据。
+AUTH_CONF = os.path.join(BASE, "gls-auth.ini")
+_tokens = {}          # token -> 过期时间戳
+
+
+def auth_cfg():
+    """password 为空 = 不校验（内网默认）；填了 = 所有数据接口都要口令"""
+    try:
+        import configparser
+        cp = configparser.ConfigParser()
+        if not cp.read(AUTH_CONF, encoding="utf-8") or not cp.has_section("auth"):
+            return {"password": "", "expire_hours": 12.0}
+        pw = (cp.get("auth", "password", fallback="") or "").strip()
+        try:
+            eh = float(cp.get("auth", "expire_hours", fallback="12") or 12)
+        except ValueError:
+            eh = 12.0
+        return {"password": pw, "expire_hours": eh}
+    except Exception as e:
+        print("  [口令] 读取 gls-auth.ini 失败：%s" % e)
+        return {"password": "", "expire_hours": 12.0}
+
+
+def auth_needed():
+    return bool(auth_cfg()["password"])
+
+
+def make_token():
+    import secrets
+    t = secrets.token_hex(20)
+    _tokens[t] = time.time() + auth_cfg()["expire_hours"] * 3600
+    return t
+
+
+def token_ok(t):
+    if not t:
+        return False
+    exp = _tokens.get(t)
+    if not exp:
+        return False
+    if time.time() > exp:
+        _tokens.pop(t, None)
+        return False
+    return True
+
+
 # ---------------------------------------------------------------- HTTP
 class Handler(SimpleHTTPRequestHandler):
     server_version = "GLS-Server/1.0"
@@ -251,14 +299,31 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-GLS-Token")
         self.send_header("Access-Control-Max-Age", "86400")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    # ---- 访问口令守卫 ----
+    def _guard(self, path):
+        """返回 True 表示已被拦下（已经回过 401）"""
+        if not auth_needed():
+            return False
+        if path in ("/api/login", "/api/ping", "/api/auth/status"):
+            return False
+        if not path.startswith("/api/"):
+            return False                      # 网页本身不含数据，放行
+        if token_ok(self.headers.get("X-GLS-Token") or ""):
+            return False
+        self._json(401, {"ok": False, "need_auth": True,
+                         "error": "这个服务开了访问口令，请先在设置里填口令"})
+        return True
+
     # ---- 路由 ----
     def do_GET(self):
         path = self.path.split("?")[0]
+        if self._guard(path):
+            return
         if path == "/api/version":
             with _lock:
                 return self._json(200, {"v": _state["v"], "savedAt": _state["savedAt"]})
@@ -268,6 +333,8 @@ class Handler(SimpleHTTPRequestHandler):
                                         "data": _state["data"]})
         if path == "/api/ping":
             return self._json(200, {"ok": True, "name": "格丽思质量管理工作台共享服务"})
+        if path == "/api/auth/status":
+            return self._json(200, {"ok": True, "need": auth_needed()})
         if path == "/api/wecom/status":
             c = wecom_cfg()
             if not c:
@@ -287,13 +354,34 @@ class Handler(SimpleHTTPRequestHandler):
                     "v": _state["v"],
                     "savedAt": _state["savedAt"],
                     "api": ["/api/ping", "/api/info", "/api/version", "/api/load", "/api/save",
+                            "/api/auth/status", "/api/login",
                             "/api/wecom/status", "/api/wecom/send"],
+                    "auth": auth_needed(),
                 })
         # 其余交给静态文件（网页本身）
         return super().do_GET()
 
     def do_POST(self):
         path = self.path.split("?")[0]
+
+        # 登录换令牌（唯一免口令的数据接口）
+        if path == "/api/login":
+            body = self._read_body()
+            pw = str(body.get("password") or "")
+            cfg = auth_cfg()
+            if not cfg["password"]:
+                return self._json(200, {"ok": True, "need": False, "token": "",
+                                        "msg": "这个服务没设口令，直接就能用"})
+            if pw == cfg["password"]:
+                t = make_token()
+                print("  [口令] 登录成功，已发放令牌")
+                return self._json(200, {"ok": True, "need": True, "token": t,
+                                        "expireHours": cfg["expire_hours"]})
+            print("  [口令] 有人输错口令")
+            return self._json(401, {"ok": False, "need_auth": True, "error": "口令不对"})
+
+        if self._guard(path):
+            return
 
         # 企业微信消息推送（工作台里流程流转会自动调它）
         if path == "/api/wecom/send":
