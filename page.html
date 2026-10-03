@@ -1861,6 +1861,18 @@ window.GLSP = (function () {
     var f = row.owner || row.creator || row.user || row.operator || row.person || '';
     return !!f && (f === u.realname || f === u.username);
   }
+  // 数据范围：记录带部门/责任人时按查看范围过滤；没带则不做限制
+  function inScope(row) {
+    var u = me(); if (!u) return true;
+    var vs = viewScope();
+    if (vs === 'all' || vs === 'none') return true;
+    var rd = (row && (row.dept || row.department || '')) || '';
+    var ro = (row && (row.owner || row.creator || row.user || row.operator || row.person || '')) || '';
+    if (!rd && !ro) return true;
+    if (vs === 'dept') return !rd || rd === (u.dept || '');
+    if (vs === 'self') return !ro || ro === u.realname || ro === u.username;
+    return true;
+  }
   // 按操作细分权限：没有对应动作权限时隐藏该按钮
   var ACT_RULES = [
     { perm: 'act.add',    pats: ['新增', '添加', '新建', '＋', '+'] },
@@ -1886,7 +1898,7 @@ window.GLSP = (function () {
       }
     });
   }
-  return { can: can, scope: scope, viewScope: viewScope, readonly: readonly, isSelf: isSelf,
+  return { can: can, scope: scope, viewScope: viewScope, readonly: readonly, isSelf: isSelf, inScope: inScope,
            roleOf: roleOf, me: me, maskActions: maskActions };
 })();
 
@@ -2118,6 +2130,7 @@ function renderModuleList() {
   
   // 筛选数据
   let items = appData[currentModule.id].filter(item => {
+    if (!GLSP.inScope(item)) return false;   // 数据范围（本部门 / 仅本人）
     const matchFilter = currentFilter === 'all' || item.status === currentFilter;
     const matchSearch = !searchText || item.name.toLowerCase().includes(searchText) || (item.description || '').toLowerCase().includes(searchText);
     return matchFilter && matchSearch;
