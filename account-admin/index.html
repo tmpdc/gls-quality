@@ -398,6 +398,27 @@ table tr:last-child td { border-bottom: none; }
 </div>
 
 <!-- ===== 新增/编辑账号弹窗 ===== -->
+    <!-- ===== 指派人员弹窗 ===== -->
+    <div class="modal-overlay" id="assignModal">
+      <div class="modal" style="max-width:460px;">
+        <div class="modal-header">
+          <div class="modal-title">指派人员</div>
+          <button class="modal-close" onclick="closeAssignModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <div id="assignInfo" style="font-size:13px;line-height:1.9;margin-bottom:14px;color:#33463b;"></div>
+          <div class="form-group">
+            <label>选择账号</label>
+            <select id="assignAccount"></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-default" onclick="assignNewPerson()">＋ 新建人员</button>
+          <button class="btn btn-primary" onclick="doAssign()">确定指派</button>
+        </div>
+      </div>
+    </div>
+
 <div class="modal-overlay" id="accountModal">
   <div class="modal">
     <div class="modal-header">
@@ -820,7 +841,7 @@ function renderOrg() {
     const members = accounts.filter(a => a.dept === d.name);
     const mgrList = members.filter(a => (a.post || '') === '经理' || a.role === 'manager');
     const mgr = mgrList[0];
-    const rows = posts.map(p => {
+    const rows = posts.filter(p => p !== '经理').map(p => {
       const who = members.filter(a => (a.post || '') === p);
       if (kw) {
         const hit = (p + ' ' + d.name + ' ' + who.map(x => x.realname + ' ' + x.username).join(' ')).toLowerCase();
@@ -938,33 +959,47 @@ function delPost(id, p) {
   renderOrg();
   showToast('已删除岗位', 'success');
 }
-// 指派人员到「部门 + 岗位」：已有同岗位人员则列出可选，否则新建
+// 指派人员到「部门 + 岗位」：弹窗从已有账号里选，或直接新建
+let _orgTarget = { deptId: '', deptName: '', post: '' };
 function orgAddMember(deptId, post) {
   const dn = deptName(deptId);
+  _orgTarget = { deptId: deptId, deptName: dn, post: post };
+  const accounts = getAccounts().slice().sort((a, b) => (a.dept || '').localeCompare(b.dept || '', 'zh'));
+  const cur = getAccounts().filter(a => a.dept === dn && (a.post || '') === post)
+    .map(a => a.realname || a.username);
+  const info = document.getElementById('assignInfo');
+  info.innerHTML = `部门 <strong>${dn}</strong> · 岗位 <strong>${post}</strong>`
+    + (cur.length ? `<br><span style="color:#8a9a90">当前：${cur.join('、')}</span>` : '')
+    + '<br><span style="color:#8a9a90">从下方选一个已有账号即可改派；也可以新建人员。</span>';
+  const sel = document.getElementById('assignAccount');
+  sel.innerHTML = '<option value="">— 请选择账号 —</option>' + accounts.map(a =>
+    `<option value="${a.username}">${a.realname || a.username}（${a.username}｜${a.dept || '未分配'}${a.post ? ' · ' + a.post : ''}）</option>`
+  ).join('');
+  document.getElementById('assignModal').classList.add('show');
+}
+function closeAssignModal() { document.getElementById('assignModal').classList.remove('show'); }
+function doAssign() {
+  const uname = document.getElementById('assignAccount').value;
+  if (!uname) { showToast('请先选择一个账号', 'error'); return; }
   const accounts = getAccounts();
-  const same = accounts.filter(a => a.dept === dn && (a.post || '') === post);
-  let msg = `为「${dn} · ${post}」指派人员：\n`;
-  if (same.length) msg += `当前已有：${same.map(a => a.realname || a.username).join('、')}\n`;
-  msg += '\n输入要指派的账号名（不存在则转入新增人员）：';
-  const uname = prompt(msg);
-  if (!uname || !uname.trim()) return;
-  const acc = accounts.find(a => a.username === uname.trim());
-  if (acc) {
-    acc.dept = dn;
-    acc.post = post;
-    if (post === '经理') acc.role = 'manager';
-    saveAccounts(accounts);
-    renderOrg();
-    showToast(`已把 ${acc.realname || acc.username} 指派为 ${dn} · ${post}`, 'success');
-  } else {
-    showAddAccountModal();
-    setTimeout(() => {
-      document.getElementById('f_username').value = uname.trim();
-      document.getElementById('f_dept').value = dn;
-      if (document.getElementById('f_post')) document.getElementById('f_post').value = post;
-      if (post === '经理') document.getElementById('f_role').value = 'manager';
-    }, 60);
-  }
+  const acc = accounts.find(a => a.username === uname);
+  if (!acc) { showToast('账号不存在', 'error'); return; }
+  acc.dept = _orgTarget.deptName;
+  acc.post = _orgTarget.post;
+  if (_orgTarget.post === '经理') acc.role = 'manager';
+  saveAccounts(accounts);
+  closeAssignModal();
+  renderOrg();
+  showToast(`已把 ${acc.realname || acc.username} 指派为 ${_orgTarget.deptName} · ${_orgTarget.post}`, 'success');
+}
+function assignNewPerson() {
+  closeAssignModal();
+  showAddAccountModal();
+  setTimeout(() => {
+    document.getElementById('f_dept').value = _orgTarget.deptName;
+    fillPostOptions(_orgTarget.deptName, _orgTarget.post);
+    if (_orgTarget.post === '经理') document.getElementById('f_role').value = 'manager';
+  }, 60);
 }
 
 // ===== 账号管理 =====
