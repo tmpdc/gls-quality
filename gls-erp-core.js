@@ -1266,6 +1266,15 @@
     }
     ERP._edit = rec;
     ERP._items = itemField(ent) ? (rec[itemField(ent).k] || (rec[itemField(ent).k] = [])) : null;
+    /* 新增时直接铺好可填的空白明细行，不用先点「＋ 添加明细行」 */
+    if (ERP._isNew && ERP._items && !ERP._items.length) {
+      var _if = itemField(ent), _cols = (_if && _if.cols) || [];
+      for (var _r = 0; _r < 3; _r++) {
+        var _row = {};
+        _cols.forEach(function (c) { _row[c.k] = ''; });
+        ERP._items.push(_row);
+      }
+    }
 
     var html = '<div class="erp-form">';
     ent.fields.forEach(function (f) {
