@@ -146,7 +146,12 @@
       '.insp-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:10000;}',
       '.insp-modal{background:#fff;border-radius:12px;width:min(680px,94vw);max-height:88vh;overflow-y:auto;padding:22px;}',
       '.insp-flow{font-size:13px;line-height:2;color:#606266;}',
-      '.insp-flow b{color:#2c5e36;}'
+      '.insp-flow b{color:#2c5e36;}',
+      '.insp-digestwrap{margin:14px 0 4px;background:#f8faf9;border:1px solid #e3ece6;border-radius:8px;padding:12px 14px}',
+      '.insp-digest{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}',
+      '.insp-digest th{width:34%;text-align:left;font-weight:500;color:#4b5563;background:#eef4f0;border:1px solid #dbe7e0;padding:7px 10px;vertical-align:top}',
+      '.insp-digest td{border:1px solid #dbe7e0;padding:7px 10px;color:#111827;background:#fff;word-break:break-word;line-height:1.7}',
+      '@media(max-width:768px){.insp-digest th{width:40%}}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -367,13 +372,13 @@
       status: '', approver: '', approveNote: '', approvedAt: '',
       flowTo: '', flowNote: '', createdAt: now()
     };
-    /* 自定义新增的项目一并留存（不丢数据） */
+    /* 表单里所有项目都平铺存到单据顶层（含以后在「配置项目」里自行新增的字段），
+       这样导出、单据串联、报表都能直接读到；老单据里存在 extra 下的历史数据仍可正常读取。 */
     if (d) {
-      var extra = {};
       Object.keys(d).forEach(function (k) {
-        if (!(k in rec)) extra[k] = d[k];
+        if (k in rec) return;
+        rec[k] = d[k];
       });
-      if (Object.keys(extra).length) rec.extra = extra;
     }
 
     if (result === 'pass') {
@@ -413,6 +418,9 @@
           + '标准要求：' + esc(r.standard || '—') + '<br>'
           + '实测记录：' + esc(r.measured || '—') + '<br>'
           + '拟流转去向：<b>' + esc(t.passFlow) + '</b></div>'
+          + (digestHtml(r)
+            ? '<div class="insp-digestwrap"><b style="color:#2c5e36;font-size:13px">审批依据 · 本单全部项目</b>' + digestHtml(r) + '</div>'
+            : '')
           + '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">'
           + '<button class="insp-btn insp-btn-r" onclick="INSP.approve(\'' + r._id + '\',\'reject\')">驳回到检验人</button>'
           + '<button class="insp-btn insp-btn-p" onclick="INSP.approve(\'' + r._id + '\',\'pass\')">审批通过 · 自动流转</button>'
@@ -589,6 +597,46 @@
     box.onclick = function (e) { if (e.target === box) box.remove(); };
   }
 
+  /* ===== 按「当前字段配置」列出单据的全部已填项目 =====
+     以后在「⚙ 配置项目」里增删任何字段，详情页 / 审批页 / 导出都会自动跟着变，不用改代码。 */
+  var DIGEST_SKIP = {
+    type: 1, matCode: 1, matName: 1, date: 1, result: 1, status: 1,
+    inspector: 1, approver: 1, approveNote: 1, approvedAt: 1,
+    flowTo: 1, flowNote: 1, standard: 1, measured: 1, no: 1, _id: 1, createdAt: 1
+  };
+  function digestHtml(r) {
+    if (!r) return '';
+    var rows = [], seen = {};
+    var list = [];
+    try { if (window.FIELDS) list = FIELDS.get('inspect'); } catch (e) { list = []; }
+    var push = function (label, val) {
+      if (val == null) return;
+      val = String(val);
+      if (!val.trim()) return;
+      rows.push([label, val]);
+    };
+    list.forEach(function (f) {
+      if (!f || f.enabled === false || f.type === 'html') return;
+      if (seen[f.key]) return;
+      seen[f.key] = 1;
+      if (DIGEST_SKIP[f.key]) return;
+      var v = r[f.key];
+      if ((v == null || v === '') && r.extra) v = r.extra[f.key];
+      push(f.label || f.key, v);
+    });
+    /* 配置里已删掉、但单据里仍有值的项目也一并列出（不丢数据） */
+    Object.keys(r.extra || {}).forEach(function (k) {
+      if (seen[k] || DIGEST_SKIP[k]) return;
+      push(k, r.extra[k]);
+    });
+    if (!rows.length) return '';
+    var h = '<table class="insp-digest">';
+    rows.forEach(function (x) {
+      h += '<tr><th>' + esc(x[0]) + '</th><td>' + esc(x[1]).replace(/\n/g, '<br>') + '</td></tr>';
+    });
+    return h + '</table>';
+  }
+
   function viewDetail(id) {
     var r = DB.inspections.filter(function (x) { return x._id === id; })[0];
     if (!r) return;
@@ -609,6 +657,9 @@
       + '<hr style="border:none;border-top:1px solid #eee;margin:12px 0">'
       + '流转去向：<b>' + esc(r.flowTo || '—') + '</b><br>'
       + '流转说明：' + esc(r.flowNote || '—') + '</div>'
+      + (digestHtml(r)
+        ? '<div class="insp-digestwrap"><b style="color:#2c5e36;font-size:13px">本单全部项目</b>' + digestHtml(r) + '</div>'
+        : '')
       + '<div style="text-align:right;margin-top:16px"><button class="insp-btn insp-btn-g" onclick="this.closest(\'.insp-mask\').remove()">关闭</button></div></div>';
     document.body.appendChild(box);
     box.onclick = function (e) { if (e.target === box) box.remove(); };
@@ -643,23 +694,24 @@
         if (!rows.length) { toast('文件为空', false); return; }
         var added = 0, skipped = 0;
         rows.forEach(function (row) {
-          var typeRaw = String(row['类型'] || row['type'] || '').trim();
+          var typeRaw = String(row['类型'] || row['检验类型'] || row['检验类别'] || row['type'] || '').trim();
           var type = mapType(typeRaw);
-          var code = String(row['物料编码'] || row['编码'] || row['code'] || '').trim();
+          var code = String(row['物料编码'] || row['物料编号'] || row['物料号'] || row['编码'] || row['code'] || '').trim();
           if (!type || !code) { skipped++; return; }
           var m = findMaterial(code) || {};
-          var resultRaw = String(row['结果'] || row['判定'] || '').trim();
+          var resultRaw = String(row['判定结果'] || row['结果'] || row['判定'] || '').trim();
           var result = /合格|pass|^1$|通过/i.test(resultRaw) && !/不合格|NG/i.test(resultRaw) ? 'pass' : 'fail';
           var rec = {
             _id: uid(), no: nextNo(type), type: type,
-            date: row['日期'] || today(),
             matCode: code, matName: row['物料名称'] || row['名称'] || m.name || code,
-            supplier: row['供应商'] || '', batch: row['批次'] || '', qty: row['数量'] || '',
-            standard: m.key || '', measured: row['实测记录'] || row['实测'] || '',
-            result: result, inspector: row['检验人'] || '',
+            standard: m.key || '',
+            result: result,
             status: '', approver: '', approveNote: '', approvedAt: '',
             flowTo: '', flowNote: '', createdAt: now()
           };
+          /* 其余项目（日期 / 供应商 / 批次 / 数量 / 抽样 / AQL / 实测 …）全部按字段配置认领 */
+          applyRowByConfig(rec, row, m);
+          if (!rec.date) rec.date = today();
           var t = TYPES[type];
           if (result === 'pass') {
             rec.status = STATUS.APPROVING; rec.flowNote = '导入：合格，待流转审批';
@@ -678,6 +730,55 @@
     };
     reader.readAsArrayBuffer(f);
   }
+  /* 表格导入时，列名 -> 字段 key 的常用别名（列名直接用字段标签也可以） */
+  var IMPORT_ALIAS = {
+    qty: ['送检数量', '数量'],
+    recvQty: ['来料数量', '到货数量', '送检批量', '批量'],
+    sampleQty: ['抽检数量', '抽样数', '抽检数', '样本量'],
+    sampleBasis: ['抽检依据', '检验依据', '抽样依据'],
+    inspLevel: ['检验水平', '抽样水平'],
+    samplePlan: ['抽样方案'],
+    strictLevel: ['检验严格度', '严格度'],
+    aql: ['AQL 值', 'AQL', 'AQL值'],
+    acRe: ['判定标准 Ac/Re', '判定标准', 'Ac/Re', 'AcRe'],
+    badQty: ['不合格品数', '不良数', '不良数量'],
+    badRate: ['不合格率', '不良率', '不合格率(%)'],
+    defectLevel: ['缺陷等级'],
+    tool: ['测量器具', '量具', '检测设备'],
+    stdVer: ['标准 / 图纸版本', '标准版本', '图纸版本'],
+    measured: ['实测记录', '实测'],
+    defectDesc: ['不良现象描述', '不良描述', '缺陷描述'],
+    handle: ['处理方式', '处置方式'],
+    inspector: ['检验人', '检验员'],
+    date: ['检验日期', '日期'],
+    supplier: ['供应商'],
+    batch: ['批次号', '批次', '批号'],
+    wo: ['生产工单号', '工单号']
+  };
+  function pickCol(row, f) {
+    var names = [f.label, f.key].concat(IMPORT_ALIAS[f.key] || []);
+    for (var i = 0; i < names.length; i++) {
+      var n = String(names[i] == null ? '' : names[i]).trim();
+      if (!n) continue;
+      if (row[n] != null && String(row[n]).trim() !== '') return String(row[n]).trim();
+    }
+    return '';
+  }
+  /* 按当前字段配置把 Excel 每一列的值填进单据：配置里加字段，导入这里自动生效 */
+  function applyRowByConfig(rec, row, m) {
+    var list = [];
+    try { if (window.FIELDS) list = FIELDS.get('inspect'); } catch (e) { list = []; }
+    var skip = { type: 1, matCode: 1, matName: 1, result: 1 };
+    list.forEach(function (f) {
+      if (!f || f.enabled === false || f.type === 'html') return;
+      if (skip[f.key]) return;
+      var v = pickCol(row, f);
+      if (!v) return;
+      if (rec[f.key] == null || rec[f.key] === '') rec[f.key] = v;
+    });
+    if (!rec.standard && m && m.key) rec.standard = m.key;
+  }
+
   function mapType(s) {
     s = (s || '').toLowerCase();
     if (/iqc|来料|进料|进货/.test(s)) return 'IQC';
@@ -689,16 +790,33 @@
 
   function exportRecords() {
     if (!DB.inspections.length) { toast('暂无记录可导出', false); return; }
-    var cols = ['单号', '类型', '日期', '物料编码', '物料名称', '供应商', '批次', '数量', '标准要求', '实测记录', '判定', '状态', '检验人', '审批人', '审批意见', '流转去向', '流转说明'];
-    var thead = '<tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr>';
+    /* 列 = 单号/类型 + 当前字段配置里的全部项目 + 流转信息；以后加字段导出自动带上 */
+    var cols = [['no', '单号'], ['__typeName', '类型']];
+    var list = [];
+    try { if (window.FIELDS) list = FIELDS.get('inspect'); } catch (e) { list = []; }
+    var seenCol = {};
+    list.forEach(function (f) {
+      if (!f || f.enabled === false || f.type === 'html') return;
+      if (seenCol[f.key]) return;
+      seenCol[f.key] = 1;
+      cols.push([f.key, f.label || f.key]);
+    });
+    [['standard', '标准要求'], ['status', '状态'], ['approver', '审批人'],
+     ['approveNote', '审批意见'], ['flowTo', '流转去向'], ['flowNote', '流转说明']].forEach(function (c) {
+      cols.push(c);
+    });
+    var thead = '<tr>' + cols.map(function (c) { return '<th>' + esc(c[1]) + '</th>'; }).join('') + '</tr>';
     var tbody = DB.inspections.map(function (r) {
       var t = TYPES[r.type] || { name: r.type };
-      return '<tr><td>' + esc(r.no) + '</td><td>' + esc(t.name) + '</td><td>' + esc(r.date) + '</td>'
-        + '<td>' + esc(r.matCode) + '</td><td>' + esc(r.matName) + '</td><td>' + esc(r.supplier) + '</td>'
-        + '<td>' + esc(r.batch) + '</td><td>' + esc(r.qty) + '</td><td>' + esc(r.standard) + '</td>'
-        + '<td>' + esc(r.measured) + '</td><td>' + (r.result === 'pass' ? '合格' : '不合格') + '</td>'
-        + '<td>' + esc(r.status) + '</td><td>' + esc(r.inspector) + '</td><td>' + esc(r.approver) + '</td>'
-        + '<td>' + esc(r.approveNote) + '</td><td>' + esc(r.flowTo) + '</td><td>' + esc(r.flowNote) + '</td></tr>';
+      return '<tr>' + cols.map(function (c) {
+        var k = c[0];
+        if (k === 'no') return '<td>' + esc(r.no) + '</td>';
+        if (k === '__typeName') return '<td>' + esc(t.name) + '</td>';
+        var v = r[k];
+        if ((v == null || v === '') && r.extra) v = r.extra[k];
+        if (k === 'result') v = (v === 'pass' ? '合格' : (v === 'fail' ? '不合格' : v));
+        return '<td>' + esc(v == null ? '' : v) + '</td>';
+      }).join('') + '</tr>';
     }).join('');
     var html = '<table><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>';
     if (typeof window.exportHtmlTableToXlsx === 'function') {
