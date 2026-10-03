@@ -1184,11 +1184,10 @@
   function stationBar(f, big) {
     var st = B.station ? B.station(f) : null;
     if (!st || !st.cur) return '';
-    var size = big ? 'font-size:15px' : 'font-size:13.5px';
-    var h = '<div class="biz-station" style="' + size + '">';
+    var h = '<div class="biz-station">';
     h += '<span class="biz-station-no">第 ' + st.at + '<span style="opacity:.55">/' + st.total + '</span> 站</span>';
-    h += '<span class="biz-station-name">' + esc(st.icon) + ' ' + esc(st.name) + '</span>';
     if (st.dept) h += '<span class="biz-station-dept">' + esc(st.dept) + '</span>';
+    h += '<div class="biz-station-name">' + esc(st.icon) + ' ' + esc(st.name) + '</div>';
     h += '</div>';
     return h;
   }
@@ -1792,10 +1791,10 @@
       '.biz-doc-items th,.biz-doc-items td{white-space:nowrap}',
       '.biz-doc-none,.biz-doc-none-note{font-size:12px;color:#9ca3af}',
       '.biz-todo-t{word-break:break-word}',
-      '.biz-station{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:7px 0 5px}',
-      '.biz-station-no{flex:0 0 auto;background:#166534;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;letter-spacing:.3px}',
-      '.biz-station-name{font-weight:700;color:#14532d}',
-      '.biz-station-dept{flex:0 0 auto;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;padding:1px 8px;font-size:12px}',
+      '.biz-station{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:7px 0 2px}',
+      '.biz-station-no{flex:0 0 auto;background:#166534;color:#fff;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;letter-spacing:.3px}',
+      '.biz-station-dept{flex:0 0 auto;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;padding:2px 9px;font-size:12px}',
+      '.biz-station-name{flex:1 0 100%;font-size:22px;font-weight:800;color:#14532d;line-height:1.25;margin-top:6px}',
       '.biz-next{margin:5px 0 2px;font-size:13px;color:#374151;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:0 6px 6px 0;padding:6px 10px}',
       '.biz-next.done{color:#166534;background:#f0fdf4;border-left-color:#16a34a}',
       '.biz-next.rej{color:#b91c1c;background:#fef2f2;border-left-color:#dc2626}',
