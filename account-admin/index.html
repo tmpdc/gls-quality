@@ -46,6 +46,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .sidebar .nav-item { display: flex; align-items: center; padding: 11px 20px; color: rgba(255,255,255,0.8); cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; font-size: 14px; gap: 10px; }
 .sidebar .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .sidebar .nav-item.active { background: rgba(255,255,255,0.12); color: #fff; border-left-color: #7dd3a0; }
+[data-perm].perm-hidden { display: none !important; }
+.nav-section.perm-hidden { display: none !important; }
+
 /* ===== 组织架构 ===== */
 .org-dept { background:#fff; border-radius:10px; margin-bottom:14px; overflow:hidden; border:1px solid #e6ece8; }
 .org-dept-head { display:flex; align-items:center; gap:10px; padding:12px 16px; background:#f3f8f4; border-bottom:1px solid #e6ece8; flex-wrap:wrap; }
@@ -81,7 +84,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .sidebar .user-info .u-role { font-size: 11px; opacity: 0.6; }
 .sidebar .logout-btn { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 16px; padding: 4px; }
 .sidebar .logout-btn:hover { color: #fff; }
-.admin-only { display: none; }
+
+
 
 .main-content { margin-left: 220px; flex: 1; min-height: 100vh; }
 .topbar { background: #fff; padding: 14px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
@@ -225,16 +229,16 @@ table tr:last-child td { border-bottom: none; }
         <span class="n-icon">📊</span><span class="n-text">仪表盘</span>
       </div>
       <div class="nav-section admin-only">系统管理</div>
-      <div class="nav-item admin-only" onclick="navTo('accounts', this)">
+      <div class="nav-item admin-only" data-perm="sys.account" onclick="navTo('accounts', this)">
         <span class="n-icon">👥</span><span class="n-text">账号管理</span>
       </div>
-      <div class="nav-item admin-only" onclick="navTo('org', this)">
+      <div class="nav-item admin-only" data-perm="sys.account" onclick="navTo('org', this)">
         <span class="n-icon">🏢</span><span class="n-text">组织架构</span>
       </div>
-      <div class="nav-item admin-only" onclick="navTo('roles', this)">
+      <div class="nav-item admin-only" data-perm="sys.role" onclick="navTo('roles', this)">
         <span class="n-icon">🔐</span><span class="n-text">角色权限</span>
       </div>
-      <div class="nav-item admin-only" onclick="navTo('logs', this)">
+      <div class="nav-item admin-only" data-perm="sys.log" onclick="navTo('logs', this)">
         <span class="n-icon">📋</span><span class="n-text">登录日志</span>
       </div>
       <div class="nav-item" onclick="showChangePasswordModal()">
@@ -334,10 +338,6 @@ table tr:last-child td { border-bottom: none; }
             <input type="text" id="accountSearch" placeholder="搜索账号/姓名" oninput="renderAccounts()">
             <select id="accountRoleFilter" onchange="renderAccounts()">
               <option value="">全部角色</option>
-              <option value="admin">超级管理员</option>
-              <option value="manager">部门主管</option>
-              <option value="staff">普通员工</option>
-              <option value="viewer">只读用户</option>
             </select>
             <select id="accountStatusFilter" onchange="renderAccounts()">
               <option value="">全部状态</option>
@@ -359,13 +359,60 @@ table tr:last-child td { border-bottom: none; }
 
       <!-- ===== 角色权限 ===== -->
       <div class="page-view" id="view-roles">
+        <div class="toolbar">
+          <div class="search-box">
+            <span style="font-size:12px;color:#8a9a90;line-height:34px;">勾选权限点即授予能力；数据范围决定能操作/查看到哪个部门的数据</span>
+          </div>
+          <button class="btn btn-primary" onclick="showRoleModal('')">＋ 新增角色</button>
+        </div>
         <div class="card">
-          <div class="card-header"><div class="c-title">角色列表</div></div>
           <div class="card-body" style="padding:0;">
             <table>
-              <thead><tr><th>角色标识</th><th>角色名称</th><th>描述</th><th>账号数</th><th>权限</th></tr></thead>
+              <thead><tr>
+                <th>角色标识</th><th>角色名称</th><th>说明</th>
+                <th>数据范围<br><span style="font-weight:400;color:#aab;font-size:11px;">操作 / 查看</span></th>
+                <th>账号数</th><th>权限</th><th>操作</th>
+              </tr></thead>
               <tbody id="rolesBody"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 角色编辑弹窗 ===== -->
+      <div class="modal-overlay" id="roleModal">
+        <div class="modal" style="max-width:760px;">
+          <div class="modal-header">
+            <div class="modal-title" id="roleModalTitle">编辑角色</div>
+            <button class="modal-close" onclick="closeRoleModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="r_key">
+            <input type="hidden" id="r_system">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group"><label>角色名称</label><input type="text" id="r_name" placeholder="如：品质经理"></div>
+              <div class="form-group"><label>角色标识（自动生成，不可改）</label><input type="text" id="r_key_view" disabled style="background:#f5f7f6;color:#8a9a90;"></div>
+            </div>
+            <div class="form-group"><label>角色说明</label><input type="text" id="r_desc" placeholder="一句话说明这个角色能做什么"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group"><label>可操作的数据范围</label><select id="r_scope"></select></div>
+              <div class="form-group"><label>可查看的数据范围</label><select id="r_viewscope"></select></div>
+            </div>
+            <div class="form-group">
+              <label style="display:flex;align-items:center;justify-content:space-between;">
+                <span>功能权限</span>
+                <span style="font-weight:400;">
+                  <a onclick="toggleAllPerm(true)" style="color:#2e7d52;cursor:pointer;font-size:12px;">全选</a>
+                  <span style="color:#dde5e0;">|</span>
+                  <a onclick="toggleAllPerm(false)" style="color:#2e7d52;cursor:pointer;font-size:12px;">全不选</a>
+                </span>
+              </label>
+              <div id="r_perms" style="max-height:360px;overflow:auto;border:1px solid #e6ece8;border-radius:8px;padding:10px;background:#fbfdfb;"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" onclick="closeRoleModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveRole()">保存</button>
           </div>
         </div>
       </div>
@@ -544,13 +591,158 @@ const STORAGE_KEY = 'gls_accounts';
 const LOG_KEY = 'gls_login_logs';
 const SESSION_KEY = 'gls_current_user';
 
-// 角色定义
-const ROLES = {
-  admin: { name: '超级管理员', desc: '拥有系统全部权限，可管理账号、角色、查看所有数据', perms: ['全部权限'] },
-  manager: { name: '部门主管', desc: '可管理本部门账号，查看部门数据，审批业务流程', perms: ['账号管理(本部门)', '数据查看', '业务审批', '工作台操作'] },
-  staff: { name: '普通员工', desc: '可使用工作台功能，录入和查看本人相关数据', perms: ['工作台操作', '数据录入', '本人数据查看'] },
-  viewer: { name: '只读用户', desc: '仅可查看数据，不可录入或修改', perms: ['数据查看(只读)'] }
-};
+// ===== 角色与权限矩阵（可在界面自定义）=====
+const ROLE_KEY = 'gls_roles_v1';
+
+// 权限点：sys.* = 系统配置类（改流程/框架/角色等最高权限）；biz.* = 业务模块；act.* = 操作动作
+const PERM_GROUPS = [
+  { g: '系统配置（最高权限）', hint: '能改动系统的"能力"，不只是用', items: [
+    { k: 'sys.flow',    n: '流程配置',   d: '增删改业务流程节点、流转规则、审批链' },
+    { k: 'sys.frame',   n: '框架类型',   d: '配置框架、模块类型、数据结构' },
+    { k: 'sys.role',    n: '角色权限',   d: '新增角色、给角色分配权限' },
+    { k: 'sys.account', n: '账号管理',   d: '新增/编辑/禁用/删除账号' },
+    { k: 'sys.setting', n: '系统参数',   d: '公司信息、编号规则等设置' },
+    { k: 'sys.template',n: '模板管理',   d: '新增/删除/覆盖模板中心模板' },
+    { k: 'sys.data',    n: '数据清理',   d: '清空板块、覆盖导入、重置数据' },
+    { k: 'sys.log',     n: '登录日志',   d: '查看登录记录与失败尝试' }
+  ]},
+  { g: '业务模块', hint: '能打开哪些功能板块', items: [
+    { k: 'biz.inspect',  n: '检验工作台' },
+    { k: 'biz.erp',      n: 'ERP 业务（订单/采购/生产/库存）' },
+    { k: 'biz.quality',  n: '质量管理（供应商/异常/风险）' },
+    { k: 'biz.doc',      n: '体系文件' },
+    { k: 'biz.knowledge',n: '知识查询' },
+    { k: 'biz.training', n: '培训管理' },
+    { k: 'biz.template', n: '模板中心（使用）' }
+  ]},
+  { g: '操作动作', hint: '对数据能做什么', items: [
+    { k: 'act.view',   n: '查看' },
+    { k: 'act.add',    n: '新增' },
+    { k: 'act.edit',   n: '编辑' },
+    { k: 'act.del',    n: '删除' },
+    { k: 'act.print',  n: '打印 / 导出' },
+    { k: 'act.import', n: '导入' },
+    { k: 'act.flow',   n: '发起流转 / 提交' },
+    { k: 'act.approve',n: '审批 / 通过驳' },
+    { k: 'act.review', n: '不合格评审' }
+  ]}
+];
+const ALL_PERMS = PERM_GROUPS.reduce((a, g) => a.concat(g.items.map(i => i.k)), []);
+const PERM_NAME = PERM_GROUPS.reduce((m, g) => { g.items.forEach(i => { m[i.k] = i.n; }); return m; }, {});
+const PERM_DESC = PERM_GROUPS.reduce((m, g) => { g.items.forEach(i => { m[i.k] = i.d || ''; }); return m; }, {});
+
+const SCOPES = [
+  { k: 'all',  n: '全部部门', d: '可跨部门操作' },
+  { k: 'dept', n: '本部门',   d: '只在自己部门内操作' },
+  { k: 'self', n: '仅本人',   d: '只能操作与自己相关的数据' },
+  { k: 'none', n: '不可操作', d: '只读，不能做任何改动' }
+];
+
+const BIZ_ALL = ['biz.inspect', 'biz.erp', 'biz.quality', 'biz.doc', 'biz.knowledge', 'biz.training', 'biz.template'];
+const ACT_DO  = ['act.view', 'act.add', 'act.edit', 'act.del', 'act.print', 'act.import', 'act.flow', 'act.approve', 'act.review'];
+
+function defaultRoles() {
+  return {
+    version: 1,
+    roles: [
+      { key: 'admin', name: '超级管理员', system: true, scope: 'all', viewScope: 'all', perms: ['*'],
+        desc: '拥有全部能力，可改动流程、框架类型、角色权限等系统配置' },
+      { key: 'manager', name: '管理员', system: true, scope: 'all', viewScope: 'all',
+        perms: BIZ_ALL.concat(['act.view', 'act.add', 'act.edit', 'act.del', 'act.print', 'act.import', 'act.flow', 'act.approve', 'act.review', 'sys.account', 'sys.template', 'sys.data', 'sys.log']),
+        desc: '管理所有已经定好的功能（业务、账号、模板、数据），不能改流程/框架/角色这类系统配置' },
+      { key: 'deptmgr', name: '经理', system: true, scope: 'dept', viewScope: 'all',
+        perms: BIZ_ALL.concat(ACT_DO),
+        desc: '可管理本部门全部功能，可查看其他部门的信息' },
+      { key: 'staff', name: '员工', system: true, scope: 'self', viewScope: 'dept',
+        perms: BIZ_ALL.concat(['act.view', 'act.add', 'act.edit', 'act.print', 'act.flow']),
+        desc: '只能操作与自己相关的数据，可查看本部门信息' },
+      { key: 'guest', name: '游客', system: true, scope: 'none', viewScope: 'all',
+        perms: BIZ_ALL.concat(['act.view']),
+        desc: '可查看所有部门的信息，不能操作任何部门的任何功能' }
+    ]
+  };
+}
+function getRoles() {
+  let o = null;
+  try { o = JSON.parse(localStorage.getItem(ROLE_KEY) || 'null'); } catch (e) { o = null; }
+  if (o && Array.isArray(o.roles) && o.roles.length) {
+    // 补齐内置角色（老数据缺字段时）
+    const d = defaultRoles();
+    d.roles.forEach(dr => {
+      const ex = o.roles.find(r => r.key === dr.key);
+      if (!ex) o.roles.push(dr);
+      else { if (ex.scope === undefined) ex.scope = dr.scope; if (ex.viewScope === undefined) ex.viewScope = dr.viewScope; }
+    });
+    return o;
+  }
+  const fresh = defaultRoles();
+  try { localStorage.setItem(ROLE_KEY, JSON.stringify(fresh)); } catch (e) {}
+  return fresh;
+}
+function saveRoles(o) {
+  try { localStorage.setItem(ROLE_KEY, JSON.stringify(o)); } catch (e) {}
+  try { if (window.DATAHUB && DATAHUB.set) DATAHUB.set('roles', o); } catch (e) {}
+}
+
+// 一次性修复：老数据里"游客/员工"缺少业务模块权限时补齐（能看不能动）
+(function fixViewerPerms() {
+  try {
+    var o = JSON.parse(localStorage.getItem(ROLE_KEY) || 'null');
+    if (!o || !o.roles) return;
+    var changed = false;
+    o.roles.forEach(function (r) {
+      if (r.perms && r.perms.indexOf('*') < 0) {
+        var hasBiz = r.perms.some(function (p) { return p.indexOf('biz.') === 0; });
+        if (!hasBiz && r.perms.indexOf('act.view') >= 0) { r.perms = BIZ_ALL.concat(r.perms); changed = true; }
+      }
+    });
+    if (changed) localStorage.setItem(ROLE_KEY, JSON.stringify(o));
+  } catch (e) {}
+})();
+
+function roleOf(key) { return getRoles().roles.find(r => r.key === key) || null; }
+function roleName(key) { const r = roleOf(key); return r ? r.name : (key || '未分配'); }
+function scopeName(k) {
+  const sc = SCOPES.find(x => x.k === k);
+  if (sc) return sc.n;
+  return { admin: '全部部门', manager: '全部部门', deptmgr: '本部门', staff: '仅本人', viewer: '全部部门(只读)' }[k] || k || '-';
+}
+function roleTagClass(key) {
+  return { admin: 'danger', manager: 'warning', deptmgr: 'info', staff: 'success', guest: 'default', viewer: 'default' }[key] || 'info';
+}
+// 当前登录用户权限判定（工作台与后台共用）
+function currentSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { return null; }
+}
+function can(perm) {
+  const s = currentSession();
+  if (!s) return false;
+  const r = roleOf(s.role);
+  if (!r) return false;
+  if ((r.perms || []).indexOf('*') >= 0) return true;
+  return (r.perms || []).indexOf(perm) >= 0;
+}
+function myScope() { const s = currentSession(); const r = s ? roleOf(s.role) : null; return r ? (r.scope || 'self') : 'self'; }
+function myViewScope() { const s = currentSession(); const r = s ? roleOf(s.role) : null; return r ? (r.viewScope || 'self') : 'self'; }
+
+// 兼容旧代码里的 ROLES 引用
+const ROLES = new Proxy({}, {
+  get: function (t, k) {
+    if (k === 'then') return undefined;
+    const r = roleOf(k);
+    if (r) return { name: r.name, desc: r.desc, perms: (r.perms || []).indexOf('*') >= 0 ? ['全部权限'] : r.perms.map(p => PERM_NAME[p] || p) };
+    return { name: String(k), desc: '', perms: [] };
+  },
+  ownKeys: function () { return getRoles().roles.map(r => r.key); },
+  getOwnPropertyDescriptor: function () { return { enumerable: true, configurable: true }; }
+});
+
+// 暴露给工作台使用
+window.GLS_CAN = can;
+window.GLS_ROLES = getRoles;
+window.GLS_ROLE_OF = roleOf;
+window.GLS_PERMS = ALL_PERMS;
+
 
 // 初始化默认账号（读写走统一数据中心）
 // 每次加载强制校验：超管账号必须是 tmpdc031（清除旧 admin；已有则保留你改过的密码）
@@ -701,19 +893,32 @@ function doLogout() {
   });
 }
 
+
+// 按权限点显示/隐藏带 data-perm 的菜单
+function applyMenuPerms() {
+  document.querySelectorAll('[data-perm]').forEach(function (el) {
+    el.classList.toggle('perm-hidden', !can(el.getAttribute('data-perm')));
+  });
+  // 章节标题：该章节下没有任何可见项时隐藏
+  document.querySelectorAll('.nav-section').forEach(function (sec) {
+    var next = sec.nextElementSibling, any = false;
+    while (next && !next.classList.contains('nav-section')) {
+      if (next.classList.contains('nav-item') && !next.classList.contains('perm-hidden')) any = true;
+      next = next.nextElementSibling;
+    }
+    sec.classList.toggle('perm-hidden', !any);
+  });
+}
 function enterAdmin() {
   const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
   if (!session) return;
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('adminLayout').classList.add('active');
   document.getElementById('userName').textContent = session.realname;
-  document.getElementById('userRole').textContent = ROLES[session.role]?.name || session.role;
+  document.getElementById('userRole').textContent = roleName(session.role);
   document.getElementById('userAvatar').textContent = session.realname.charAt(0);
-  // 权限控制：只有超级管理员能看到系统管理菜单
-  const isAdmin = session.role === 'admin';
-  document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = isAdmin ? '' : 'none';
-  });
+  // 权限控制：菜单按权限点显示
+  applyMenuPerms();
   navTo('dashboard', document.querySelector('.sidebar .nav-item:not([style*="display: none"])'));
   updateStats();
 }
@@ -728,10 +933,12 @@ function enterWorkbench() {
 // ===== 导航 =====
 const PAGE_TITLES = { dashboard: '仪表盘', org: '组织架构', accounts: '账号管理', roles: '角色权限', logs: '登录日志' };
 const ADMIN_PAGES = ['org', 'accounts', 'roles', 'logs'];
+const PAGE_PERM = { org: 'sys.account', accounts: 'sys.account', roles: 'sys.role', logs: 'sys.log' };
 function navTo(page, el) {
-  // 权限校验：非管理员不能访问系统管理页面
+  // 权限校验：按角色被授予的权限点判断
   const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  if (ADMIN_PAGES.includes(page) && (!session || session.role !== 'admin')) {
+  const need = PAGE_PERM[page];
+  if (need && (!session || !can(need))) {
     showToast('您没有权限访问此页面', 'error');
     return;
   }
@@ -741,10 +948,11 @@ function navTo(page, el) {
   const view = document.getElementById('view-' + page);
   if (view) view.classList.add('active');
   document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
+  applyMenuPerms();
   if (page === 'dashboard') updateStats();
   if (page === 'org') renderOrg();
-  if (page === 'accounts') renderAccounts();
-  if (page === 'roles') renderRoles();
+  if (page === 'accounts') { refreshRoleSelects(); renderAccounts(); }
+  if (page === 'roles') { refreshRoleSelects(); renderRoles(); }
   if (page === 'logs') renderLogs();
 }
 
@@ -1032,7 +1240,7 @@ function renderAccounts() {
   tbody.innerHTML = accounts.map(a => `<tr>
     <td><strong>${a.username}</strong></td>
     <td>${a.realname}</td>
-    <td><span class="tag tag-${a.role === 'admin' ? 'danger' : a.role === 'manager' ? 'info' : a.role === 'staff' ? 'success' : 'default'}">${ROLES[a.role]?.name || a.role}</span></td>
+    <td><span class="tag tag-${roleTagClass(a.role)}">${roleName(a.role)}</span></td>
     <td>${a.dept}</td>
     <td>${a.post || '<span style="color:#c2ccc6">未设置</span>'}</td>
     <td>${a.lastLogin || '从未登录'}</td>
@@ -1211,16 +1419,173 @@ function deleteAccount(id) {
 function renderRoles() {
   const accounts = getAccounts();
   const tbody = document.getElementById('rolesBody');
-  tbody.innerHTML = Object.entries(ROLES).map(([key, r]) => {
-    const count = accounts.filter(a => a.role === key).length;
+  const o = getRoles();
+  tbody.innerHTML = o.roles.map(r => {
+    const count = accounts.filter(a => a.role === r.key).length;
+    const isAll = (r.perms || []).indexOf('*') >= 0;
+    let tags;
+    if (isAll) {
+      tags = '<span class="tag tag-danger">全部权限</span>';
+    } else {
+      const list = (r.perms || []);
+      tags = list.slice(0, 5).map(p => `<span class="tag tag-info" style="margin:2px;">${PERM_NAME[p] || p}</span>`).join('');
+      if (list.length > 5) tags += `<span class="tag tag-default" style="margin:2px;">+${list.length - 5}</span>`;
+      if (!list.length) tags = '<span style="color:#c2ccc6;">未授予任何权限</span>';
+    }
     return `<tr>
-      <td><code>${key}</code></td>
-      <td><strong>${r.name}</strong></td>
-      <td style="color:#666;">${r.desc}</td>
+      <td><code>${r.key}</code></td>
+      <td><strong>${r.name}</strong>${r.system ? ' <span class="tag tag-default" style="font-size:10px;">内置</span>' : ''}</td>
+      <td style="color:#667;font-size:12px;max-width:220px;">${r.desc || '-'}</td>
+      <td style="font-size:12px;">${scopeName(r.scope)} <span style="color:#cfd8d3;">/</span> ${scopeName(r.viewScope)}</td>
       <td>${count} 人</td>
-      <td>${r.perms.map(p => `<span class="tag tag-info" style="margin:2px;">${p}</span>`).join('')}</td>
+      <td style="max-width:260px;">${tags}</td>
+      <td><div class="action-links">
+        <a onclick="showRoleModal('${r.key}')">编辑权限</a>
+        <a onclick="copyRole('${r.key}')">复制新建</a>
+        ${!r.system ? `<a class="danger" onclick="delRole('${r.key}')">删除</a>` : ''}
+      </div></td>
     </tr>`;
   }).join('');
+}
+
+function renderPermBox(sel) {
+  const box = document.getElementById('r_perms');
+  if (!box) return;
+  const set = sel || [];
+  box.innerHTML = PERM_GROUPS.map(g => {
+    const allOn = g.items.every(i => set.indexOf(i.k) >= 0);
+    return `<div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#eef4f0;border-radius:6px;">
+        <input type="checkbox" data-group="${g.g}" ${allOn ? 'checked' : ''} onchange="toggleGroupPerm('${g.g}', this.checked)">
+        <strong style="font-size:13px;color:#1f3d2b;">${g.g}</strong>
+        <span style="font-size:11px;color:#8a9a90;">${g.hint || ''}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;padding:8px 8px 0;">
+        ${g.items.map(i => `<label style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:#33463b;cursor:pointer;padding:3px 0;">
+          <input type="checkbox" class="perm-cb" data-perm="${i.k}" ${set.indexOf(i.k) >= 0 ? 'checked' : ''} onchange="syncGroupChecks()">
+          <span>${i.n}${i.d ? `<br><span style="color:#9aa8a0;font-size:11px;">${i.d}</span>` : ''}</span>
+        </label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function getCheckedPerms() {
+  const arr = [];
+  document.querySelectorAll('#r_perms .perm-cb').forEach(cb => { if (cb.checked) arr.push(cb.dataset.perm); });
+  return arr;
+}
+function toggleGroupPerm(gname, on) {
+  const g = PERM_GROUPS.find(x => x.g === gname);
+  if (!g) return;
+  document.querySelectorAll('#r_perms .perm-cb').forEach(cb => {
+    if (g.items.some(i => i.k === cb.dataset.perm)) cb.checked = !!on;
+  });
+  syncGroupChecks();
+}
+function toggleAllPerm(on) {
+  document.querySelectorAll('#r_perms .perm-cb').forEach(cb => { cb.checked = !!on; });
+  syncGroupChecks();
+}
+function syncGroupChecks() {
+  PERM_GROUPS.forEach(g => {
+    const boxes = [];
+    document.querySelectorAll('#r_perms .perm-cb').forEach(cb => { if (g.items.some(i => i.k === cb.dataset.perm)) boxes.push(cb); });
+    const allOn = boxes.length && boxes.every(b => b.checked);
+    const gc = document.querySelector(`#r_perms input[data-group="${g.g}"]`);
+    if (gc) gc.checked = !!allOn;
+  });
+}
+
+function showRoleModal(key) {
+  const o = getRoles();
+  const r = key ? o.roles.find(x => x.key === key) : null;
+  document.getElementById('roleModalTitle').textContent = r ? ('编辑角色：' + r.name) : '新增角色';
+  document.getElementById('r_key').value = r ? r.key : '';
+  document.getElementById('r_system').value = r && r.system ? '1' : '';
+  document.getElementById('r_key_view').value = r ? r.key : '（保存后自动生成）';
+  document.getElementById('r_name').value = r ? r.name : '';
+  document.getElementById('r_desc').value = r ? (r.desc || '') : '';
+  const sc = document.getElementById('r_scope');
+  const vs = document.getElementById('r_viewscope');
+  sc.innerHTML = SCOPES.map(x => `<option value="${x.k}">${x.n}（${x.d}）</option>`).join('');
+  vs.innerHTML = SCOPES.filter(x => x.k !== 'none').map(x => `<option value="${x.k}">${x.n}（${x.d}）</option>`).join('');
+  const isAll = r && (r.perms || []).indexOf('*') >= 0;
+  sc.value = r ? (r.scope || 'all') : 'dept';
+  vs.value = r ? (r.viewScope || 'all') : 'dept';
+  renderPermBox(isAll ? ALL_PERMS : (r ? r.perms : ['act.view']));
+  document.getElementById('roleModal').classList.add('show');
+}
+function closeRoleModal() { document.getElementById('roleModal').classList.remove('show'); }
+
+function saveRole() {
+  const key = document.getElementById('r_key').value;
+  const name = document.getElementById('r_name').value.trim();
+  if (!name) { showToast('请填写角色名称', 'error'); return; }
+  const perms = getCheckedPerms();
+  if (!perms.length) { showToast('至少勾选一个权限', 'error'); return; }
+  const o = getRoles();
+  const payload = {
+    name: name,
+    desc: document.getElementById('r_desc').value.trim(),
+    scope: document.getElementById('r_scope').value,
+    viewScope: document.getElementById('r_viewscope').value,
+    perms: perms
+  };
+  if (key) {
+    const r = o.roles.find(x => x.key === key);
+    if (!r) { showToast('角色不存在', 'error'); return; }
+    if (r.key === 'admin') {
+      if (!confirm('这是超级管理员：确认收紧它的权限？\n（建议保留"系统配置"全部权限，否则可能没人能改流程/框架/角色）')) return;
+    }
+    Object.assign(r, payload);
+  } else {
+    const nk = 'r' + Date.now().toString().slice(-8);
+    o.roles.push({ key: nk, system: false, ...payload });
+  }
+  saveRoles(o);
+  closeRoleModal();
+  renderRoles();
+  refreshRoleSelects();
+  showToast(key ? '角色权限已更新' : '角色已新增', 'success');
+}
+function copyRole(key) {
+  const r = roleOf(key);
+  if (!r) return;
+  showRoleModal('');
+  document.getElementById('r_name').value = r.name + '（副本）';
+  document.getElementById('r_desc').value = r.desc || '';
+  document.getElementById('r_scope').value = r.scope || 'all';
+  document.getElementById('r_viewscope').value = r.viewScope || 'all';
+  renderPermBox((r.perms || []).indexOf('*') >= 0 ? ALL_PERMS : r.perms);
+}
+function delRole(key) {
+  const o = getRoles();
+  const r = o.roles.find(x => x.key === key);
+  if (!r) return;
+  if (r.system) { showToast('内置角色不可删除', 'error'); return; }
+  const used = getAccounts().filter(a => a.role === key);
+  if (used.length && !confirm(`角色「${r.name}」下还有 ${used.length} 个账号，删除后他们会被改为「员工」。继续？`)) return;
+  o.roles = o.roles.filter(x => x.key !== key);
+  saveRoles(o);
+  if (used.length) {
+    const accounts = getAccounts();
+    accounts.forEach(a => { if (a.role === key) a.role = 'staff'; });
+    saveAccounts(accounts);
+  }
+  renderRoles();
+  renderAccounts();
+  refreshRoleSelects();
+  showToast('角色已删除', 'success');
+}
+
+// 角色下拉（账号筛选 + 新增/编辑账号表单）跟随角色数据刷新
+function refreshRoleSelects() {
+  const o = getRoles();
+  const opts = o.roles.map(r => `<option value="${r.key}">${r.name}</option>`).join('');
+  const f = document.getElementById('accountRoleFilter');
+  if (f) { const v = f.value; f.innerHTML = '<option value="">全部角色</option>' + opts; f.value = v; }
+  const fr = document.getElementById('f_role');
+  if (fr) { const v = fr.value; fr.innerHTML = opts; if (v) fr.value = v; }
 }
 
 // ===== 登录日志 =====
