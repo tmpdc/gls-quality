@@ -26,8 +26,28 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_FILE = os.path.join(BASE, "gls-data.json")
 BACKUP_DIR = os.path.join(BASE, "_data_backup")
-PORT = 8686
+CONF_FILE = os.path.join(BASE, "gls-server.ini")
+DEFAULT_PORT = 8686
 MAX_BACKUPS = 60
+
+
+def resolve_port():
+    """端口优先级：命令行数字参数 > gls-server.ini 里的 port > 默认 8686
+       想换端口：改 gls-server.ini，或执行 python gls-server.py 9000"""
+    for a in sys.argv[1:]:
+        if a.isdigit():
+            return int(a)
+    try:
+        import configparser
+        cp = configparser.ConfigParser()
+        if cp.read(CONF_FILE, encoding="utf-8") and cp.has_option("server", "port"):
+            return int(cp.get("server", "port"))
+    except Exception as e:
+        print("  读取 gls-server.ini 失败，改用默认端口：%s" % e)
+    return DEFAULT_PORT
+
+
+PORT = resolve_port()
 
 _lock = threading.RLock()
 _state = {"v": 0, "data": {}, "savedAt": ""}
@@ -121,6 +141,16 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception:
             return {}
 
+    # ---- 跨域预检（小程序 / 别的域名的网页接进来时要走这一步）----
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Max-Age", "86400")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     # ---- 路由 ----
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -133,6 +163,16 @@ class Handler(SimpleHTTPRequestHandler):
                                         "data": _state["data"]})
         if path == "/api/ping":
             return self._json(200, {"ok": True, "name": "格丽思质量管理工作台共享服务"})
+        if path == "/api/info":
+            with _lock:
+                return self._json(200, {
+                    "ok": True,
+                    "name": "格丽思质量管理工作台共享服务",
+                    "port": PORT,
+                    "v": _state["v"],
+                    "savedAt": _state["savedAt"],
+                    "api": ["/api/ping", "/api/info", "/api/version", "/api/load", "/api/save"],
+                })
         # 其余交给静态文件（网页本身）
         return super().do_GET()
 
@@ -202,6 +242,9 @@ def main():
     print("  历史留档：  %s" % BACKUP_DIR)
     print("")
     print("  关闭这个窗口 = 停止服务。请让这台电脑保持开机、不要休眠。")
+    print("")
+    print("  想换端口：改 gls-server.ini 里的 port，或执行 python gls-server.py 9000")
+    print("  接入方式（网页 / 小程序 / 换服务器）在工作台右下角齿轮里随时可改。")
     print("=" * 62)
     try:
         srv.serve_forever()
