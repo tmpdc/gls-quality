@@ -148,6 +148,23 @@
     notices().unshift(n);
     if (notices().length > 200) notices().length = 200;
     save();
+    /* 同一时刻也推到企业微信：服务端配好 gls-wecom.ini 才真的发出，失败不影响站内消息 */
+    try { wecomPush(to, text, flowId); } catch (e) {}
+  }
+
+  /* 企业微信推送：异步、静默，发不出去也不打扰用户 */
+  function wecomPush(to, text, flowId) {
+    if (!window.GLSSYNC || !GLSSYNC.isOnline || !GLSSYNC.isOnline()) return;
+    var base = (GLSSYNC.apiBase ? GLSSYNC.apiBase() : '');
+    if (base === null) return;
+    try {
+      fetch((base || '') + '/api/wecom/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ to: to, text: text, flowId: flowId || '' })
+      }).catch(function () {});
+    } catch (e) {}
   }
   function nodeById(kind, id) {
     var arr = (kind === 'after') ? FLOW_AFTER : FLOW_BIZ;
