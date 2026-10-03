@@ -1816,6 +1816,18 @@ function navigateTo(page, moduleId = null, itemId = null) {
 }
 
 
+
+// 内置默认角色（角色表尚未生成时的兜底，保证换设备/新浏览器打开也有正确权限）
+var DEF_BIZ = ['biz.inspect','biz.erp','biz.quality','biz.doc','biz.knowledge','biz.training','biz.template'];
+var DEF_ACT = ['act.view','act.add','act.edit','act.del','act.print','act.import','act.flow','act.approve','act.review'];
+var DEFAULT_ROLES = {
+  admin:   { name: '超级管理员', perms: ['*'], scope: 'all', viewScope: 'all' },
+  manager: { name: '管理员', perms: DEF_BIZ.concat(['sys.account','sys.template','sys.data','sys.log'], DEF_ACT), scope: 'all', viewScope: 'all' },
+  deptmgr: { name: '经理', perms: DEF_BIZ.concat(DEF_ACT), scope: 'dept', viewScope: 'all' },
+  staff:   { name: '员工', perms: DEF_BIZ.concat(['act.view','act.add','act.edit','act.print','act.flow']), scope: 'self', viewScope: 'dept' },
+  guest:   { name: '游客', perms: DEF_BIZ.concat(['act.view']), scope: 'none', viewScope: 'all' }
+};
+
 // ==================== 权限（与账号后台共用角色数据） ====================
 window.GLSP = (function () {
   var ROLE_KEY = 'gls_roles_v1';
@@ -1824,9 +1836,13 @@ window.GLSP = (function () {
   }
   function me() { try { return JSON.parse(localStorage.getItem('gls_current_user') || 'null'); } catch (e) { return null; } }
   function roleOf(key) {
-    var o = roleData(); if (!o) return null;
-    for (var i = 0; i < o.roles.length; i++) { if (o.roles[i].key === key) return o.roles[i]; }
-    return null;
+    var o = roleData();
+    if (o) {
+      for (var i = 0; i < o.roles.length; i++) { if (o.roles[i].key === key) return o.roles[i]; }
+    }
+    // 角色表还没生成（新设备）→ 用内置默认
+    var d = DEFAULT_ROLES[key];
+    return d ? { key: key, name: d.name, system: true, scope: d.scope, viewScope: d.viewScope, perms: d.perms } : null;
   }
   function can(perm) {
     var u = me(); if (!u) return false;
