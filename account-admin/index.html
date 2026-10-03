@@ -1311,8 +1311,17 @@ updateTime();
 setInterval(updateTime, 1000);
 </script>
 <script src="../gls-datahub.js?v=2">
-// 首次加载时按 hash 定位页面
-setTimeout(function () { try { navToByHash(); } catch (e) {} }, 260);
+// 首次加载时按 hash 定位页面（首页初始化可能覆盖，做几次机会）
+(function () {
+  var raw = (location.hash || '').replace('#', '');
+  if (!raw) return;
+  var tries = 0;
+  (function tick() {
+    tries++;
+    try { navToByHash(); } catch (e) {}
+    if (tries < 8) setTimeout(tick, 320);
+  })();
+})();
 window.addEventListener('hashchange', function () { try { navToByHash(); } catch (e) {} });
 </script>
 </body>
