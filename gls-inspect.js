@@ -243,48 +243,68 @@
   function openForm(type) {
     showPage('page-insp-form');
     var h = '<h2 style="margin:0 0 16px">新建检验单</h2><div class="insp-form">';
-    h += '<div class="insp-row"><label>检验类型 *</label><select id="fType">';
-    Object.keys(TYPES).forEach(function (k) {
-      h += '<option value="' + k + '"' + (type === k ? ' selected' : '') + '>' + TYPES[k].name + '</option>';
-    });
-    h += '</select></div>';
 
-    h += '<div class="insp-row"><label>扫码 / 物料编码 *</label><div class="insp-scan">'
-      + '<input id="fMatCode" placeholder="扫码枪扫物料条码，或输入编码/名称后回车" onkeydown="if(event.key===\'Enter\')INSP.scanMaterial()">'
-      + '<button class="insp-btn insp-btn-g" onclick="INSP.scanMaterial()">带出标准</button></div></div>';
-
-    h += '<div id="fStdBox"></div>';
-
-    h += '<div class="insp-row"><label>物料名称</label><input id="fMatName" readonly></div>';
-    h += '<div class="insp-row"><label>供应商</label><input id="fSupplier" placeholder="来料检验必填"></div>';
-    h += '<div class="insp-row"><label>批次号</label><input id="fBatch" placeholder="如 LOT-20260929-001"></div>';
-    h += '<div class="insp-row"><label>数量</label><input id="fQty" type="number" placeholder="送检数量"></div>';
-    h += '<div class="insp-row"><label>实测记录</label><textarea id="fMeasured" placeholder="逐项记录实测值 / 目视结果，可多行"></textarea></div>';
-    h += '<div class="insp-row"><label>检验人</label><input id="fInspector" placeholder="检验人姓名"></div>';
-    h += '<div class="insp-row"><label>检验日期</label><input id="fDate" type="date" value="' + today() + '"></div>';
-
-    h += '<div class="insp-row"><label>判定结果 *</label><div class="insp-result">'
-      + '<label><input type="radio" name="fResult" value="pass"><span>✓ 合格</span></label>'
-      + '<label><input type="radio" name="fResult" value="fail"><span>✗ 不合格</span></label></div></div>';
+    if (window.FIELDS) {
+      /* 字段全部来自配置：可在「⚙ 配置项目」里随时增/减/改，无需改代码 */
+      h += FIELDS.render('inspect', { type: (type || 'IQC'), date: today() });
+    } else {
+      h += legacyFields(type);
+    }
 
     h += '<div style="text-align:right;margin-top:18px">'
       + '<button class="insp-btn insp-btn-g" onclick="INSP.openHome()">取消</button> '
       + '<button class="insp-btn insp-btn-p" onclick="INSP.saveForm()">提交并自动流转</button></div>';
     h += '</div>';
     $('inspFormBody').innerHTML = h;
+
+    /* 检验标准展示盒：插在「扫码 / 物料编码」后面 */
+    var scanRow = document.querySelector('#inspFormBody .fx-row[data-key="matCode"]');
+    if (scanRow && !$('fStdBox')) {
+      var box = document.createElement('div');
+      box.id = 'fStdBox';
+      scanRow.parentNode.insertBefore(box, scanRow.nextSibling);
+    }
+  }
+
+  /* 引擎未加载时的兜底（老版硬编码字段） */
+  function legacyFields(type) {
+    var h = '';
+    h += '<div class="insp-row"><label>检验类型 *</label><select id="fType">';
+    Object.keys(TYPES).forEach(function (k) {
+      h += '<option value="' + k + '"' + (type === k ? ' selected' : '') + '>' + TYPES[k].name + '</option>';
+    });
+    h += '</select></div>';
+    h += '<div class="insp-row"><label>扫码 / 物料编码 *</label><div class="insp-scan">'
+      + '<input id="fMatCode" placeholder="扫码"' + '>'
+      + '<button class="insp-btn insp-btn-g" onclick="INSP.scanMaterial()">带出标准</button></div></div>';
+    h += '<div class="insp-row"><label>物料名称</label><input id="fMatName" readonly></div>';
+    h += '<div class="insp-row"><label>供应商</label><input id="fSupplier"></div>';
+    h += '<div class="insp-row"><label>批次号</label><input id="fBatch"></div>';
+    h += '<div class="insp-row"><label>数量</label><input id="fQty" type="number"></div>';
+    h += '<div class="insp-row"><label>实测记录</label><textarea id="fMeasured"></textarea></div>';
+    h += '<div class="insp-row"><label>检验人</label><input id="fInspector"></div>';
+    h += '<div class="insp-row"><label>检验日期</label><input id="fDate" type="date" value="' + today() + '"></div>';
+    h += '<div class="insp-row"><label>判定结果 *</label><div class="insp-result">'
+      + '<label><input type="radio" name="fResult" value="pass"><span>✓ 合格</span></label>'
+      + '<label><input type="radio" name="fResult" value="fail"><span>✗ 不合格</span></label></div></div>';
+    return h;
   }
 
   function scanMaterial() {
-    var code = $('fMatCode').value.trim();
+    var codeEl = $('fx_inspect_matCode') || $('fMatCode');
+    var code = codeEl ? String(codeEl.value || '').trim() : '';
     if (!code) { toast('请先扫码或输入物料编码', false); return; }
+    var nameEl = $('fx_inspect_matName') || $('fMatName');
+    var box = $('fStdBox');
     var m = findMaterial(code);
     if (!m) {
-      $('fStdBox').innerHTML = '<div class="insp-std" style="border-left-color:#e6a23c"><b>未找到物料「' + esc(code) + '」</b>，可手动填写。建议先到「品质资料库 → 物料检验标准」补录该物料。</div>';
-      $('fMatName').value = '';
+      if (box) box.innerHTML = '<div class="insp-std" style="border-left-color:#e6a23c"><b>未找到物料「' + esc(code)
+        + '」</b>，可手动填写。建议先到「品质资料库 → 物料检验标准」补录该物料。</div>';
+      if (nameEl) nameEl.value = '';
       return;
     }
-    $('fMatName').value = m.name || '';
-    $('fStdBox').innerHTML = '<div class="insp-std"><b>已带出检验标准：</b><br>'
+    if (nameEl) nameEl.value = m.name || '';
+    if (box) box.innerHTML = '<div class="insp-std"><b>已带出检验标准：</b><br>'
       + '分类：' + esc(m.cls || '—') + '　版本：' + esc(m.ver || '—') + '<br>'
       + '<b>关键检验要求：</b>' + esc(m.key || '—') + '<br>'
       + '<b>检验手段：</b>' + esc(m.tool || '—') + '</div>';
@@ -292,32 +312,69 @@
   }
 
   function saveForm() {
-    var type = $('fType').value;
-    var code = $('fMatCode').value.trim();
-    if (!code) { toast('请扫码或输入物料编码', false); return; }
-    var resultEl = document.querySelector('input[name=fResult]:checked');
-    if (!resultEl) { toast('请判定合格/不合格', false); return; }
-    var result = resultEl.value;
-    var t = TYPES[type];
-    if (t.needSupplier && !$('fSupplier').value.trim()) {
+    var d = null;
+    if (window.FIELDS) { d = FIELDS.collect('inspect'); }
+
+    var type, code, result, supplier, dateV, matNameV, batch, qty, measured, inspector;
+    if (d) {
+      type = d.type || 'IQC';
+      code = String(d.matCode || '').trim();
+      result = d.result || '';
+      supplier = String(d.supplier || '').trim();
+      dateV = d.date || today();
+      matNameV = d.matName || '';
+      batch = String(d.batch || '').trim();
+      qty = String(d.qty || '').trim();
+      measured = String(d.measured || '').trim();
+      inspector = String(d.inspector || '').trim();
+      if (!code) { toast('请扫码或输入物料编码', false); return; }
+      if (!result) { toast('请判定合格/不合格', false); return; }
+      var vd = FIELDS.validate('inspect', d);
+      if (!vd.ok) { toast(vd.msg, false); return; }
+    } else {
+      type = $('fType').value;
+      code = $('fMatCode').value.trim();
+      if (!code) { toast('请扫码或输入物料编码', false); return; }
+      var resultEl = document.querySelector('input[name=fResult]:checked');
+      if (!resultEl) { toast('请判定合格/不合格', false); return; }
+      result = resultEl.value;
+      supplier = $('fSupplier').value.trim();
+      dateV = $('fDate').value || today();
+      matNameV = $('fMatName').value;
+      batch = $('fBatch').value.trim();
+      qty = $('fQty').value.trim();
+      measured = $('fMeasured').value.trim();
+      inspector = $('fInspector').value.trim();
+    }
+
+    var t = TYPES[type] || TYPES.IQC;
+    if (t.needSupplier && !supplier) {
       if (!confirm('来料检验建议填供应商，仍要提交吗？')) return;
     }
 
     var m = findMaterial(code) || {};
     var rec = {
       _id: uid(), no: nextNo(type), type: type,
-      date: $('fDate').value || today(),
-      matCode: code, matName: $('fMatName').value || m.name || code,
-      supplier: $('fSupplier').value.trim(),
-      batch: $('fBatch').value.trim(),
-      qty: $('fQty').value.trim(),
+      date: dateV,
+      matCode: code, matName: matNameV || m.name || code,
+      supplier: supplier,
+      batch: batch,
+      qty: qty,
       standard: m.key || '',
-      measured: $('fMeasured').value.trim(),
+      measured: measured,
       result: result,
-      inspector: $('fInspector').value.trim(),
+      inspector: inspector,
       status: '', approver: '', approveNote: '', approvedAt: '',
       flowTo: '', flowNote: '', createdAt: now()
     };
+    /* 自定义新增的项目一并留存（不丢数据） */
+    if (d) {
+      var extra = {};
+      Object.keys(d).forEach(function (k) {
+        if (!(k in rec)) extra[k] = d[k];
+      });
+      if (Object.keys(extra).length) rec.extra = extra;
+    }
 
     if (result === 'pass') {
       rec.status = STATUS.APPROVING;
