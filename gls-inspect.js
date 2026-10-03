@@ -370,7 +370,7 @@
       result: result,
       inspector: inspector,
       status: '', approver: '', approveNote: '', approvedAt: '',
-      flowTo: '', flowNote: '', createdAt: now()
+      flowTo: '', flowNote: '', flowId: '', flowNo: '', createdAt: now()
     };
     /* 表单里所有项目都平铺存到单据顶层（含以后在「配置项目」里自行新增的字段），
        这样导出、单据串联、报表都能直接读到；老单据里存在 extra 下的历史数据仍可正常读取。 */
@@ -381,20 +381,28 @@
       });
     }
 
+    DB.inspections.push(rec);
+    /* 与业务流程打通：合格 → 提交本环节审批；不合格 → 进入不合格评审（MRB） */
+    var lk = null;
+    try { lk = (window.BIZFLOW && BIZFLOW.linkInspSubmit) ? BIZFLOW.linkInspSubmit(rec) : null; } catch (e) { lk = null; }
+    if (lk && lk.ok) { rec.flowId = lk.flowId; rec.flowNo = lk.flowNo; }
     if (result === 'pass') {
       rec.status = STATUS.APPROVING;
       rec.flowTo = '';
-      rec.flowNote = '检验合格，待部门上级审批放行到：' + t.passFlow;
-      DB.flowLog.push({ at: now(), no: rec.no, act: '合格单进入流转审批队列' });
-      toast('已提交：合格，待部门上级审批放行');
+      rec.flowNote = (lk && lk.ok)
+        ? ('检验合格，已提交审批；流程单 ' + lk.flowNo + ' 现在 ' + lk.dest)
+        : ('检验合格，待部门上级审批放行到：' + t.passFlow + (lk && lk.reason ? '（' + lk.reason + '）' : ''));
+      DB.flowLog.push({ at: now(), no: rec.no, act: '合格单进入流转审批队列' + (lk && lk.ok ? '，已关联流程 ' + lk.flowNo : '') });
+      toast((lk && lk.ok) ? ('已提交：合格，待审批（流程 ' + lk.flowNo + '）') : '已提交：合格，待部门上级审批放行');
     } else {
       rec.status = STATUS.MRB;
       rec.flowTo = '';
-      rec.flowNote = '检验不合格，进入 MRB 评审';
-      DB.flowLog.push({ at: now(), no: rec.no, act: '不合格单进入 MRB 评审' });
-      toast('已提交：不合格，进入 MRB 评审');
+      rec.flowNote = (lk && lk.ok)
+        ? ('检验不合格，已进入不合格评审（MRB）；流程单 ' + lk.flowNo + ' 现在 ' + lk.dest)
+        : ('检验不合格，进入 MRB 评审' + (lk && lk.reason ? '（' + lk.reason + '）' : ''));
+      DB.flowLog.push({ at: now(), no: rec.no, act: '不合格单进入 MRB 评审' + (lk && lk.ok ? '，已关联流程 ' + lk.flowNo : '') });
+      toast((lk && lk.ok) ? ('已提交：不合格，已进入评审（流程 ' + lk.flowNo + '）') : '已提交：不合格，进入 MRB 评审');
     }
-    DB.inspections.push(rec);
     saveDB();
     openHome();
   }
@@ -422,31 +430,77 @@
             ? '<div class="insp-digestwrap"><b style="color:#2c5e36;font-size:13px">审批依据 · 本单全部项目</b>' + digestHtml(r) + '</div>'
             : '')
           + '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">'
-          + '<button class="insp-btn insp-btn-r" onclick="INSP.approve(\'' + r._id + '\',\'reject\')">驳回到检验人</button>'
-          + '<button class="insp-btn insp-btn-p" onclick="INSP.approve(\'' + r._id + '\',\'pass\')">审批通过 · 自动流转</button>'
+          + '<button class="insp-btn insp-btn-r" onclick="INSP.askApprove(\'' + r._id + '\',\'reject\')">驳回到检验人</button>'
+          + '<button class="insp-btn insp-btn-p" onclick="INSP.askApprove(\'' + r._id + '\',\'pass\')">审批通过 · 自动流转</button>'
           + '</div></div>';
       });
     }
     $('inspApproveBody').innerHTML = h;
   }
 
+  /* 收审批意见：页内弹框（手机上 window.prompt 会直接返回 null，点了没反应） */
+  function askApprove(id, decision) {
+    var r = DB.inspections.filter(function (x) { return x._id === id; })[0];
+    if (!r) return;
+    var t = TYPES[r.type] || { name: r.type, passFlow: '' };
+    var pass = (decision === 'pass');
+    closeApproveDlg();
+    var d = document.createElement('div');
+    d.id = 'inspApproveDlg';
+    d.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);'
+      + 'z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px;';
+    d.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:470px;width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.22)">'
+      + '<div style="padding:15px 17px;border-bottom:1px solid #eef0f2">'
+      +   '<div style="font-weight:700;font-size:16px;color:#111827">' + (pass ? '审批通过 · 放行' : '驳回 · 退回检验人') + '</div>'
+      +   '<div style="font-size:12.5px;color:#6b7280;margin-top:4px">' + esc(r.no) + ' ｜ 类型：' + esc(t.name || r.type) + '</div>'
+      + '</div>'
+      + '<div style="padding:13px 17px 4px">'
+      +   '<div style="font-size:13px;color:#374151;margin-bottom:7px">' + (pass ? '审批意见（可留空，将随单据留痕）' : '驳回原因（必填）') + '</div>'
+      +   '<textarea id="inspApproveText" rows="3" placeholder="' + (pass ? '可留空' : '请写明原因，便于检验人整改') + '"'
+      +   ' style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-size:14px;resize:vertical;font-family:inherit"></textarea>'
+      + '</div>'
+      + '<div style="padding:10px 17px 16px;display:flex;gap:10px">'
+      +   '<span class="insp-btn insp-btn-g" style="flex:1;text-align:center;padding:9px" onclick="INSP.closeApproveDlg()">取消</span>'
+      +   '<span class="insp-btn ' + (pass ? 'insp-btn-g' : 'insp-btn-r') + '" style="flex:1;text-align:center;padding:9px"'
+      +   ' onclick="INSP.approve(\'' + id + '\',\'' + decision + '\')">' + (pass ? '确认通过' : '确认驳回') + '</span>'
+      + '</div></div>';
+    document.body.appendChild(d);
+    setTimeout(function () { var tx = document.getElementById('inspApproveText'); if (tx) tx.focus(); }, 80);
+  }
+  function closeApproveDlg() {
+    var d = document.getElementById('inspApproveDlg');
+    if (d && d.parentNode) d.parentNode.removeChild(d);
+  }
+
+  /* 真正执行审批：同时驱动业务流程推进到下一环节，并把真实去向写回检验单 */
   function approve(id, decision) {
     var r = DB.inspections.filter(function (x) { return x._id === id; })[0];
     if (!r) return;
     var t = TYPES[r.type] || { passFlow: '' };
-    var note = prompt(decision === 'pass'
-      ? '请填写审批意见（将随单据流转到下一部门）：'
-      : '请填写驳回原因（退回检验人）：');
-    if (note === null) return;
+    var box = document.getElementById('inspApproveText');
+    if (!box) { askApprove(id, decision); return; }
+    var note = String(box.value || '').trim();
+    var pass = (decision === 'pass');
+    if (!pass && !note) { toast('驳回必须填写原因', false); return; }
+    closeApproveDlg();
     r.approveNote = note;
     r.approvedAt = now();
     r.approver = (JSON.parse(localStorage.getItem('gls_current_user') || '{}').realname) || '管理员';
-    if (decision === 'pass') {
+    /* 与业务流程打通：审批通过即推进流程并通知下一部门 */
+    var lk = null;
+    try { lk = (window.BIZFLOW && BIZFLOW.linkInspApprove) ? BIZFLOW.linkInspApprove(r, pass, note) : null; } catch (e) { lk = null; }
+    if (lk && lk.ok) { r.flowId = lk.flowId; r.flowNo = lk.flowNo; }
+    if (pass) {
       r.status = STATUS.FLOWED;
-      r.flowTo = t.passFlow;
-      r.flowNote = '审批通过，自动流转：' + t.passFlow;
-      DB.flowLog.push({ at: now(), no: r.no, act: '流转审批通过 → ' + t.passFlow });
-      toast('已通过，自动流转到「' + t.passFlow + '」');
+      if (lk && lk.ok) {
+        r.flowTo = lk.dest;
+        r.flowNote = '审批通过，已自动流转' + (r.flowNo ? '（流程 ' + r.flowNo + '）' : '') + (note ? '；审批意见：' + note : '');
+      } else {
+        r.flowTo = t.passFlow;
+        r.flowNote = '审批通过，自动流转：' + t.passFlow + (lk && lk.reason ? '（' + lk.reason + '）' : '');
+      }
+      DB.flowLog.push({ at: now(), no: r.no, act: '流转审批通过 → ' + r.flowTo });
+      toast((lk && lk.ok) ? ('已通过，流转至 ' + lk.dest) : ('已通过，自动流转到「' + t.passFlow + '」'));
     } else {
       r.status = STATUS.REJECTED;
       r.flowTo = '退回检验人重检';
@@ -500,6 +554,12 @@
       r.status = STATUS.REJECTED;
       r.flowTo = '退回检验人重检';
       r.flowNote = 'MRB 退回重检';
+      try {
+        if (window.BIZFLOW && BIZFLOW.linkInspApprove) {
+          var l0 = BIZFLOW.linkInspApprove(r, false, 'MRB 退回重检');
+          if (l0 && l0.ok) { r.flowId = l0.flowId; r.flowNo = l0.flowNo; r.flowNote = 'MRB 退回重检；流程 ' + l0.flowNo + ' 现在 ' + l0.dest; }
+        }
+      } catch (e) {}
       DB.flowLog.push({ at: now(), no: r.no, act: 'MRB 退回检验人重检' });
       toast('已退回重检');
     } else {
@@ -507,10 +567,23 @@
       var note = ($('mrbNote_' + id) && $('mrbNote_' + id).value) || '';
       r.approveNote = note;
       r.status = STATUS.FLOWED;
-      r.flowTo = opt;
-      r.flowNote = 'MRB 评审结论：' + opt + (note ? '（' + note + '）' : '');
-      DB.flowLog.push({ at: now(), no: r.no, act: 'MRB 结论 → ' + opt });
-      toast('已按「' + opt + '」流转');
+      /* 与业务流程打通：结论决定真实去向，并推动主流程走下一环节 */
+      var lk = null;
+      try { lk = (window.BIZFLOW && BIZFLOW.linkMrbConclude) ? BIZFLOW.linkMrbConclude(r, opt, note) : null; } catch (e) { lk = null; }
+      if (lk && lk.ok) {
+        r.flowId = lk.flowId; r.flowNo = lk.flowNo;
+        r.flowTo = lk.text;
+        r.flowNote = 'MRB 评审结论：' + opt + ' → 去向 ' + lk.dest + '【' + lk.destDept + '】'
+          + (lk.stationText ? '；流程进度 ' + lk.stationText : '')
+          + (note ? '（' + note + '）' : '');
+        DB.flowLog.push({ at: now(), no: r.no, act: 'MRB 结论 → ' + opt + '，去向 ' + lk.dest });
+        toast('已按「' + opt + '」流转至 ' + lk.dest);
+      } else {
+        r.flowTo = opt;
+        r.flowNote = 'MRB 评审结论：' + opt + (note ? '（' + note + '）' : '') + (lk && lk.reason ? '；' + lk.reason : '');
+        DB.flowLog.push({ at: now(), no: r.no, act: 'MRB 结论 → ' + opt });
+        toast('已按「' + opt + '」流转');
+      }
     }
     saveDB();
     openMrb();
@@ -655,7 +728,8 @@
       + '审批人：' + esc(r.approver || '—') + '　审批时间：' + esc(r.approvedAt || '—') + '<br>'
       + '审批意见：' + esc(r.approveNote || '—') + '<br>'
       + '<hr style="border:none;border-top:1px solid #eee;margin:12px 0">'
-      + '流转去向：<b>' + esc(r.flowTo || '—') + '</b><br>'
+      + '流转去向：<b>' + esc(r.flowTo || '—') + '</b>'
+      + (r.flowNo ? '　<span style="color:#6b7280;font-size:12.5px">关联流程单 ' + esc(r.flowNo) + '</span>' : '') + '<br>'
       + '流转说明：' + esc(r.flowNote || '—') + '</div>'
       + (digestHtml(r)
         ? '<div class="insp-digestwrap"><b style="color:#2c5e36;font-size:13px">本单全部项目</b>' + digestHtml(r) + '</div>'
@@ -707,7 +781,7 @@
             standard: m.key || '',
             result: result,
             status: '', approver: '', approveNote: '', approvedAt: '',
-            flowTo: '', flowNote: '', createdAt: now()
+            flowTo: '', flowNote: '', flowId: '', flowNo: '', createdAt: now()
           };
           /* 其余项目（日期 / 供应商 / 批次 / 数量 / 抽样 / AQL / 实测 …）全部按字段配置认领 */
           applyRowByConfig(rec, row, m);
@@ -852,6 +926,7 @@
     openHome: openHome,
     openForm: openForm, openApprove: openApprove, openMrb: openMrb, openList: openList,
     scanMaterial: scanMaterial, saveForm: saveForm, approve: approve, mrbDecide: mrbDecide,
+    askApprove: askApprove, closeApproveDlg: closeApproveDlg,
     viewDetail: viewDetail, matDetail: matDetail, openImport: openImport, doImport: doImport, exportRecords: exportRecords,
     _db: function () { return DB; },
     _t: function (t) { return TYPES[t] || null; }
