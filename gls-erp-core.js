@@ -138,7 +138,9 @@
       desc: '按订单发货，同步出库',
       fields: [
         { k: 'code', label: '发货单号', type: 'text', req: true, auto: true, w: '140px' },
-        { k: 'soCode', label: '关联订单号', type: 'text' },
+        { k: 'soCode', label: '关联订单号', type: 'ref', ref: 'so',
+          fill: { from: 'so', items: 'items', map: { customer: 'customer' } },
+          tip: '选择订单后自动带出客户与订单明细' },
         { k: 'customer', label: '客户', type: 'ref', ref: 'customer' },
         { k: 'shipDate', label: '发货日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '发货仓库', type: 'ref', ref: 'warehouse' },
@@ -157,6 +159,9 @@
       desc: '客户退货，同步退货入库',
       fields: [
         { k: 'code', label: '退货单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'soCode', label: '关联订单号', type: 'ref', ref: 'so',
+          fill: { from: 'so', items: 'items', map: { customer: 'customer' } },
+          tip: '选择订单后自动带出客户与退货明细' },
         { k: 'customer', label: '客户', type: 'ref', ref: 'customer' },
         { k: 'returnDate', label: '退货日期', type: 'date', def: 'today' },
         { k: 'items', label: '退货明细', type: 'items', cols: [
@@ -207,6 +212,9 @@
       desc: '需求部门请购',
       fields: [
         { k: 'code', label: '申请单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'moCode', label: '关联生产工单', type: 'ref', ref: 'mo',
+          fill: { from: 'mo', items: null },
+          tip: '选择生产工单后自动带出申请部门与产品需求' },
         { k: 'dept', label: '申请部门', type: 'text' },
         { k: 'applicant', label: '申请人', type: 'text' },
         { k: 'applyDate', label: '申请日期', type: 'date', def: 'today' },
@@ -225,6 +233,9 @@
       desc: '向供应商下单',
       fields: [
         { k: 'code', label: '采购单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'prCode', label: '关联采购申请', type: 'ref', ref: 'pr',
+          fill: { from: 'pr', items: 'items' },
+          tip: '选择采购申请后自动带出申请明细' },
         { k: 'supplier', label: '供应商', type: 'ref', ref: 'supplier', req: true },
         { k: 'orderDate', label: '下单日期', type: 'date', def: 'today' },
         { k: 'deliveryDate', label: '交货日期', type: 'date' },
@@ -246,7 +257,9 @@
       desc: '到货点收，转检验与入库',
       fields: [
         { k: 'code', label: '收货单号', type: 'text', req: true, auto: true, w: '140px' },
-        { k: 'poCode', label: '关联采购单', type: 'text' },
+        { k: 'poCode', label: '关联采购单', type: 'ref', ref: 'po',
+          fill: { from: 'po', items: 'items', map: { supplier: 'supplier' } },
+          tip: '选择采购订单后自动带出供应商与到货明细' },
         { k: 'supplier', label: '供应商', type: 'ref', ref: 'supplier' },
         { k: 'recvDate', label: '收货日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '收货仓库', type: 'ref', ref: 'warehouse' },
@@ -268,6 +281,9 @@
       desc: '采购入库 / 生产入库 / 退货入库，直接计入库存',
       fields: [
         { k: 'code', label: '入库单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'srcCode', label: '关联来源单', type: 'text',
+          fill: { lookIn: ['poRecv', 'moIn'], items: 'items' },
+          tip: '填采购收货单号或完工入库单号，自动带出明细' },
         { k: 'type', label: '入库类型', type: 'select', opts: ['采购入库', '生产入库', '退货入库', '其他入库'], def: '采购入库' },
         { k: 'inDate', label: '入库日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '仓库', type: 'ref', ref: 'warehouse' },
@@ -289,6 +305,9 @@
       desc: '生产领料 / 销售出库，直接计入库存',
       fields: [
         { k: 'code', label: '出库单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'srcCode', label: '关联来源单', type: 'text',
+          fill: { lookIn: ['moPick', 'soShip'], items: 'items' },
+          tip: '填生产领料单号或销售发货单号，自动带出明细' },
         { k: 'type', label: '出库类型', type: 'select', opts: ['生产领料', '销售出库', '其他出库'], def: '生产领料' },
         { k: 'outDate', label: '出库日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '仓库', type: 'ref', ref: 'warehouse' },
@@ -350,7 +369,8 @@
       desc: '按工单领料',
       fields: [
         { k: 'code', label: '领料单号', type: 'text', req: true, auto: true, w: '140px' },
-        { k: 'moCode', label: '关联工单', type: 'text' },
+        { k: 'moCode', label: '关联工单', type: 'ref', ref: 'mo',
+          tip: '选择生产工单后自动带出产品与计划数量' },
         { k: 'pickDate', label: '领料日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '领料仓库', type: 'ref', ref: 'warehouse' },
         { k: 'items', label: '领料明细', type: 'items', cols: [
@@ -368,7 +388,9 @@
       desc: '完工产品入库',
       fields: [
         { k: 'code', label: '入库单号', type: 'text', req: true, auto: true, w: '140px' },
-        { k: 'moCode', label: '关联工单', type: 'text' },
+        { k: 'moCode', label: '关联工单', type: 'ref', ref: 'mo',
+          fill: { from: 'mo', items: null, map: { product: 'product', qty: 'planQty' } },
+          tip: '选择生产工单后自动带出产品与计划数量' },
         { k: 'product', label: '产品', type: 'ref', ref: 'material' },
         { k: 'qty', label: '入库数量', type: 'number' },
         { k: 'okQty', label: '合格数量', type: 'number' },
@@ -1112,9 +1134,18 @@
   }
 
   /* ---------- 表单：字段控件 ---------- */
-  function fieldHtml(f, val) {
+  function fieldHtml(f, val, rec) {
     var v = val == null ? '' : val;
     var inp = '';
+    /* 该自动的字段：只读展示，不让用户填 */
+    var ro = false, hint = '';
+    if (f.auto) { ro = true; hint = '系统自动生成'; }
+    if (f.k === 'status' && rec && (rec.flowId || rec.flowStatus)) { ro = true; hint = '由业务流转自动更新'; }
+    if (ro) {
+      return '<div class="erp-f"><label>' + f.label + '</label>' +
+        '<input class="erp-in erp-readonly" id="erpf_' + f.k + '" value="' + escAttr(v) + '" readonly>' +
+        '<span class="erp-hint">' + hint + '</span></div>';
+    }
     if (f.type === 'select') {
       var opts = f.opts || [];
       inp = '<select class="erp-in" id="erpf_' + f.k + '">';
@@ -1136,7 +1167,8 @@
     } else {
       inp = '<input type="text" class="erp-in" id="erpf_' + f.k + '" value="' + escAttr(v) + '">';
     }
-    return '<div class="erp-f"><label>' + f.label + (f.req ? ' <i>*</i>' : '') + '</label>' + inp + '</div>';
+    return '<div class="erp-f"><label>' + f.label + (f.req ? ' <i>*</i>' : '') + '</label>' + inp +
+      (f.tip ? '<span class="erp-hint">' + f.tip + '</span>' : '') + '</div>';
   }
 
   /* ---------- 明细行 ---------- */
@@ -1171,7 +1203,9 @@
     f.cols.forEach(function (c) { html += '<th style="min-width:' + (c.w || '100px') + '">' + c.label + '</th>'; });
     html += '<th style="min-width:56px">删</th></tr></thead><tbody>';
     if (!arr.length) {
-      html += '<tr><td colspan="' + (f.cols.length + 1) + '" class="erp-empty">点上方「＋ 添加明细行」录入</td></tr>';
+      html += '<tr><td colspan="' + (f.cols.length + 1) + '" class="erp-empty">' +
+        (fillFieldOf(ERP.current) ? '从上方「' + fillFieldOf(ERP.current).label + '」自动带出，或点「＋ 添加明细行」手工录入' :
+          '点上方「＋ 添加明细行」录入') + '</td></tr>';
     } else {
       arr.forEach(function (row, i) {
         html += '<tr>';
@@ -1279,12 +1313,15 @@
     var html = '<div class="erp-form">';
     ent.fields.forEach(function (f) {
       if (f.type === 'items') return;
-      html += fieldHtml(f, rec[f.k]);
+      html += fieldHtml(f, rec[f.k], rec);
     });
     html += '</div>';
     var f2 = itemField(ent);
     if (f2) {
+      var _fillField = null;
+      ent.fields.forEach(function (x) { if (x.fill) _fillField = x; });
       html += '<div class="erp-items"><div class="erp-items-head"><span>' + f2.label + '</span>' +
+        (_fillField ? '<span class="erp-fillhint">选「' + _fillField.label + '」可自动带出明细</span>' : '') +
         '<span class="erp-addrow" onclick="ERP.addItemRow()">＋ 添加明细行</span></div>' +
         '<div id="erpItemsBox"></div></div>';
     }
@@ -1299,6 +1336,68 @@
     if (m) m.classList.add('show');
     if (f2) ERP.renderItems();
     else ERP.calcTotals();
+    ERP.bindFill();
+  };
+
+  /* ==================== 单据联动：选来源单自动带出明细 ==================== */
+  function fillFieldOf(key) {
+    var ent = ENTITIES[key]; if (!ent) return null;
+    var hit = null;
+    (ent.fields || []).forEach(function (f) { if (f.fill && !hit) hit = f; });
+    return hit;
+  }
+  ERP.fillFieldOf = fillFieldOf;
+
+  ERP.bindFill = function () {
+    var ent = ENTITIES[ERP.current]; if (!ent) return;
+    (ent.fields || []).forEach(function (f) {
+      if (!f.fill) return;
+      var el = $('erpf_' + f.k); if (!el) return;
+      el.addEventListener('change', function () { ERP.applyFill(f, el.value, true); });
+      if (el.value) ERP.applyFill(f, el.value, false);
+    });
+  };
+
+  /* code: 来源单号；ask: 是否用户主动选择（需要提示） */
+  ERP.applyFill = function (f, code, ask) {
+    if (!code) return;
+    var cfg = f.fill || {};
+    var keys = cfg.lookIn && cfg.lookIn.length ? cfg.lookIn : [cfg.from];
+    var src = null, srcKey = '';
+    for (var i = 0; i < keys.length && !src; i++) {
+      if (!keys[i]) continue;
+      var arr = listOf(keys[i]);
+      for (var j = 0; j < arr.length; j++) {
+        if (String(arr[j].code) === String(code)) { src = arr[j]; srcKey = keys[i]; break; }
+      }
+    }
+    if (!src) { if (ask) toast('没有找到单号 ' + code, false); return; }
+    /* 表头联动 */
+    if (cfg.map) {
+      Object.keys(cfg.map).forEach(function (to) {
+        var from = cfg.map[to];
+        var val = src[from];
+        if (val == null || val === '') return;
+        var el = $('erpf_' + to);
+        if (el) el.value = val;
+      });
+    }
+    /* 明细联动 */
+    var box = cfg.items && src[cfg.items] ? src[cfg.items] : null;
+    if (box && box.length) {
+      /* 必须就地改写，保持与当前记录 items 的同一数组引用，否则保存会丢明细 */
+      var copy = JSON.parse(JSON.stringify(box));
+      if (ERP._items) {
+        ERP._items.length = 0;
+        for (var q = 0; q < copy.length; q++) ERP._items.push(copy[q]);
+      } else {
+        ERP._items = copy;
+      }
+      ERP.renderItems();
+      if (ask) toast('已从 ' + code + ' 带出 ' + ERP._items.length + ' 行明细，可按实际修改');
+    } else if (ask) {
+      toast(code + ' 没有明细行，请手工录入', false);
+    }
   };
 
   ERP.closeForm = function () {
@@ -1887,3 +1986,23 @@
 
 })(window);
 
+/* ===== ERPFORM_STYLE_V1：单据表单自动化后的样式 ===== */
+(function () {
+  if (document.getElementById('erpFormStyleV1')) return;
+  var st = document.createElement('style');
+  st.id = 'erpFormStyleV1';
+  st.textContent = `
+.erp-hint{display:block;font-size:11px;color:#94a3b8;margin-top:3px;line-height:1.3}
+.erp-readonly{background:#f1f5f9!important;color:#64748b!important;cursor:not-allowed}
+.erp-items-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.erp-fillhint{font-size:12px;color:#0f766e;background:#f0fdfa;border:1px solid #ccfbf1;
+  padding:2px 10px;border-radius:12px;line-height:1.6}
+.erp-items-head .erp-addrow{margin-left:auto}
+@media(max-width:560px){
+  .erp-items-head{gap:6px}
+  .erp-fillhint{font-size:11px;padding:2px 8px}
+  .erp-items-head .erp-addrow{margin-left:0}
+}
+`;
+  document.head.appendChild(st);
+})();
