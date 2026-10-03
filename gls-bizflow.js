@@ -340,20 +340,59 @@
   }
 
   /* 部门上级领导审批：通过 → 执行节点动作并自动流转下一环节；驳回 → 退回 */
+  /* 审批入口：先弹页内意见框（手机上 window.prompt 会直接返回 null，点了没反应） */
   function approve(fid, pass) {
     var f = getFlow(fid);
     if (!f || f.status !== FLOW_STATUS.APPR) { toast('当前无待审批事项', false); return; }
     var nd = curNode(f);
     if (!canApprove(f)) { toast('仅「' + nd.dept + '」部门主管或超管可审批此单', false); return; }
-    var by = curUser().realname || curUser().username || '';
-    /* 审批意见：通过可留空，驳回必须写明原因 */
+    openRemarkDlg(fid, pass, nd);
+  }
+
+  function closeRemarkDlg() {
+    var d = document.getElementById('bizRemarkDlg');
+    if (d && d.parentNode) d.parentNode.removeChild(d);
+  }
+
+  function openRemarkDlg(fid, pass, nd) {
+    closeRemarkDlg();
+    var f = getFlow(fid) || {};
+    var d = document.createElement('div');
+    d.id = 'bizRemarkDlg';
+    d.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.45);'
+      + 'z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px;';
+    d.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.22)">'
+      + '<div style="padding:15px 17px;border-bottom:1px solid #eef0f2">'
+      +   '<div style="font-weight:700;font-size:16px;color:#111827">' + (pass ? '审批通过' : '驳回') + ' · ' + esc(nd.name) + '</div>'
+      +   '<div style="font-size:12.5px;color:#6b7280;margin-top:4px">' + esc(f.no || '') + ' ｜ ' + esc(nd.dept || '') + '</div>'
+      + '</div>'
+      + (f._submitBy ? '<div style="padding:10px 17px 0;font-size:12.5px;color:#6b7280">提交人：' + esc(f._submitBy) + '</div>' : '')
+      + '<div style="padding:13px 17px 4px">'
+      +   '<div style="font-size:13px;color:#374151;margin-bottom:7px">' + (pass ? '审批意见（可留空）' : '驳回原因（必填）') + '</div>'
+      +   '<textarea id="bizRemarkText" rows="3" placeholder="' + (pass ? '可留空' : '请写明原因，便于提交人整改') + '"'
+      +   ' style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px;font-size:14px;resize:vertical;font-family:inherit"></textarea>'
+      + '</div>'
+      + '<div style="padding:10px 17px 16px;display:flex;gap:10px">'
+      +   '<span class="erp-btn" style="flex:1;text-align:center;padding:9px" onclick="BIZFLOW.closeRemarkDlg()">取消</span>'
+      +   '<span class="erp-btn ' + (pass ? 'primary' : 'danger') + '" style="flex:1;text-align:center;padding:9px"'
+      +   ' onclick="BIZFLOW.doApprove(\'' + fid + '\',' + (pass ? 'true' : 'false') + ')">' + (pass ? '确认通过' : '确认驳回') + '</span>'
+      + '</div></div>';
+    document.body.appendChild(d);
+    setTimeout(function () { var t = document.getElementById('bizRemarkText'); if (t) t.focus(); }, 80);
+  }
+
+  /* 真正执行审批 */
+  function doApprove(fid, pass) {
+    var f = getFlow(fid);
+    if (!f || f.status !== FLOW_STATUS.APPR) { toast('当前无待审批事项', false); closeRemarkDlg(); return; }
+    var nd = curNode(f);
+    if (!canApprove(f)) { toast('仅「' + nd.dept + '」部门主管或超管可审批此单', false); closeRemarkDlg(); return; }
     var remark = '';
-    try {
-      var _r = window.prompt(pass ? '审批意见（可留空）：' : '驳回原因（必填）：', '');
-      if (_r === null) return;
-      remark = String(_r || '').trim();
-    } catch (e) {}
+    var _t = document.getElementById('bizRemarkText');
+    if (_t) remark = String(_t.value || '').trim();
     if (!pass && !remark) { toast('驳回必须填写原因', false); return; }
+    closeRemarkDlg();
+    var by = curUser().realname || curUser().username || '';
     if (pass) {
       f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '通过', remark: remark });
       f.log.push(today() + ' ' + nowTime() + ' ' + by + '（' + nd.dept + '领导）审批通过「' + nd.name + '」' + (remark ? '，意见：' + remark : ''));
@@ -369,6 +408,12 @@
       notify(f._submitBy || f.creator || '相关人', '流程 ' + f.no + ' 环节「' + nd.name + '」被驳回，请重新处理', f.id);
       save();
     }
+    /* 办完就地刷新本模块待办，不用手动刷新页面 */
+    try {
+      if (typeof window.renderModuleTodo === 'function' && window.currentModule) {
+        window.renderModuleTodo(window.currentModule.id);
+      }
+    } catch (e) {}
   }
 
   /* 自动流转：推进到下一环节 */
@@ -883,6 +928,7 @@
     db: db, flows: flows, notices: notices, getFlow: getFlow,
     startFromSo: startFromSo, startFromRtn: startFromRtn,
     submit: submit, approve: approve, mrbDecide: mrbDecide,
+    doApprove: doApprove, openRemarkDlg: openRemarkDlg, closeRemarkDlg: closeRemarkDlg,
     MRB_KIND: MRB_KIND, MRB_KIND_NAME: MRB_KIND_NAME, MRB_DEST: MRB_DEST,
     MRB_DEFAULT_DEPTS: MRB_DEFAULT_DEPTS, MRB_ADVICE: MRB_OPTIONS,
     mrbAll: mrbAll, mrbGet: mrbGet, mrbCreate: mrbCreate, mrbOfFlow: mrbOfFlow,
@@ -1158,6 +1204,17 @@
     return '<div class="biz-next">➡ 通过后流转到 <b>' + esc(st.next.name) + '</b>【' + esc(st.next.dept) + '】</div>';
   }
 
+  /* 这里只做总览，实际操作去对应模块办 */
+  function gotoModuleBtn(f) {
+    var mid = '';
+    try { if (window.moduleOfFlow) mid = window.moduleOfFlow(f) || ''; } catch (e) {}
+    var nm = '';
+    try { if (mid && window.moduleName) nm = window.moduleName(mid); } catch (e) {}
+    if (!mid) return '<span class="erp-btn primary" onclick="BIZFLOW.approve(\'' + f.id + '\', true)">✓ 通过并流转</span>';
+    return '<span class="erp-btn primary" onclick="window.gotoModuleTodo(\'' + mid + '\')">→ 去【'
+      + esc(nm) + '】模块办理</span>';
+  }
+
   /* ---- 我的待办 ---- */
   function mrbSummaryHtml(m) {
     if (!m.reviewers || !m.reviewers.length) return '<div class="mrb-none">尚未指定会签人员</div>';
@@ -1202,7 +1259,8 @@
     var mrbConcl = (mrbObj && mrbObj.toConcl) || [];
     var mrbDone = (mrbObj && mrbObj.done) || [];
     var h = '<div class="biz-section">';
-    h += '<div class="biz-sec-title">📌 我的待办</div>';
+    h += '<div class="biz-sec-title">📌 我的待办<span style="font-size:12px;font-weight:400;color:#9ca3af;margin-left:8px">'
+       + '这里只做总览，办理请进对应模块</span></div>';
     if (!apprList.length && !mrbMine.length && !mrbConcl.length && !mrbDone.length) {
       h += '<div class="biz-empty">暂无待办事项</div></div>';
       return h;
@@ -1216,9 +1274,8 @@
         + nextBar(f)
         + docBlock(f)
         + '<div class="biz-todo-a">'
-        + '<span class="erp-btn primary" onclick="BIZFLOW.approve(\'' + f.id + '\', true)">✓ 通过并流转</span>'
-        + '<span class="erp-btn danger" onclick="BIZFLOW.approve(\'' + f.id + '\', false)">✕ 驳回</span>'
-        + '<span class="erp-btn" onclick="BIZFLOW_UI.detail(\'' + f.id + '\')">详情</span>'
+        + gotoModuleBtn(f)
+        + '<span class="erp-btn" onclick="BIZFLOW_UI.detail(\'' + f.id + '\')">查看详情</span>'
         + '</div></div>';
     });
     /* ② 待我会签 */
@@ -1303,11 +1360,17 @@
         + '<td class="biz-ops">'
         + '<span class="erp-op" onclick="BIZFLOW_UI.detail(\'' + f.id + '\')">详情</span>';
       if (f.status === B.FLOW_STATUS.RUN) {
-        var nd2 = B.curNode(f);
-        if (nd2 && nd2.branch) {
-          h += '<span class="erp-op" onclick="BIZFLOW_UI.submitDlg(\'' + f.id + '\')">提交检验</span>';
+        var _mid3 = '';
+        try { if (window.moduleOfFlow) _mid3 = window.moduleOfFlow(f) || ''; } catch (e) {}
+        if (_mid3) {
+          h += '<span class="erp-op" onclick="window.gotoModuleTodo(\'' + _mid3 + '\')">去本模块办理</span>';
         } else {
-          h += '<span class="erp-op" onclick="BIZFLOW.submit(\'' + f.id + '\')">提交审批</span>';
+          var nd2 = B.curNode(f);
+          if (nd2 && nd2.branch) {
+            h += '<span class="erp-op" onclick="BIZFLOW_UI.submitDlg(\'' + f.id + '\')">提交检验</span>';
+          } else {
+            h += '<span class="erp-op" onclick="BIZFLOW.submit(\'' + f.id + '\')">提交审批</span>';
+          }
         }
       }
       h += '</td></tr>';

@@ -149,9 +149,14 @@
     setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
   }
 
-  function pop(text, kind) {
+  function pop(text, kind, opts) {
     var h = box();
     if (!h) return;
+    opts = opts || {};
+    /* 同一时刻只留一条：新的顶掉旧的，避免堆一屏 */
+    try {
+      while (h.firstChild) h.removeChild(h.firstChild);
+    } catch (e) {}
     var c = kind === 'todo'
       ? { bg: '#fff7ed', bd: '#fdba74', bar: '#ea580c', fg: '#9a3412', t: '待你审批' }
       : { bg: '#ffffff', bd: '#cfe0d8', bar: '#2f9e6e', fg: '#1f2d28', t: '新消息' };
@@ -165,10 +170,22 @@
       'word-break:break-word', 'opacity:0', 'transform:translateY(8px)',
       'transition:opacity .2s ease,transform .2s ease', 'cursor:pointer'
     ].join(';');
+    var mid = opts.mid || '';
+    var mname = '';
+    try { if (mid && window.moduleName) mname = window.moduleName(mid); } catch (e) {}
     d.innerHTML = '<div style="font-weight:700;margin-bottom:3px;">' + c.t + '</div>'
       + esc(text || '（无内容）')
+      + (mname
+          ? '<div style="margin-top:6px;font-size:12.5px;background:rgba(22,101,52,.10);'
+            + 'border-radius:5px;padding:5px 8px;">'
+            + (c.t === '待你审批' ? '请到' : '已送到') + '【' + esc(mname) + '】模块处理'
+            + '<span style="opacity:.6"> · 点这里直接过去</span></div>'
+          : '')
       + '<div style="margin-top:5px;font-size:12px;opacity:.65;">点一下收起</div>';
-    d.onclick = function () { close(d); };
+    d.onclick = function () {
+      if (mid) { try { close(d); window.gotoModuleTodo(mid); return; } catch (e) {} }
+      close(d);
+    };
     h.appendChild(d);
     setTimeout(function () { d.style.opacity = '1'; d.style.transform = 'translateY(0)'; }, 20);
     setTimeout(function () { close(d); }, kind === 'todo' ? 20000 : 9000);
@@ -251,6 +268,16 @@
       if (!d) { busy = false; return; }
 
       var ns = d.notices || [];
+      /* 建 id -> 流程 索引，消息靠 flowId 反查它现在归哪个模块 */
+      var byId = {};
+      for (var bi = 0; bi < (d.flows || []).length; bi++) byId[d.flows[bi].id] = d.flows[bi];
+      function modOfFlowId(fid) {
+        try {
+          var fl = byId[fid];
+          if (!fl || !window.moduleOfFlow) return '';
+          return window.moduleOfFlow(fl) || '';
+        } catch (e) { return ''; }
+      }
       var anchor = getAnchor(u);       // null = 从没锚过；'' = 锚过但当时没消息
       var fresh = [];
 
@@ -273,7 +300,7 @@
 
         for (var j = fresh.length - 1; j >= 0; j--) {
           if (!isMine(fresh[j], u)) continue;
-          pop(fresh[j].text, 'msg');
+          pop(fresh[j].text, 'msg', { mid: modOfFlowId(fresh[j].flowId) });
           desktopNotify(fresh[j].text);
         }
 
@@ -298,7 +325,9 @@
         changed = true;
         if (!firstTime) {
           var nm = nodeName(f);
-          pop('流程 ' + (f.no || f.id) + ' 环节「' + (nm || '审批') + '」等你审批', 'todo');
+          var _m2 = '';
+          try { if (window.moduleOfFlow) _m2 = window.moduleOfFlow(f) || ''; } catch (e) {}
+          pop('流程 ' + (f.no || f.id) + ' 环节「' + (nm || '审批') + '」等你审批', 'todo', { mid: _m2 });
           desktopNotify('流程 ' + (f.no || f.id) + ' 等你审批');
         }
       }
