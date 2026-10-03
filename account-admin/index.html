@@ -978,6 +978,18 @@ function orgAddMember(deptId, post) {
   document.getElementById('assignModal').classList.add('show');
 }
 function closeAssignModal() { document.getElementById('assignModal').classList.remove('show'); }
+
+// 支持从工作台直接以 #org / #accounts 等锚点进入对应页面
+function navToByHash() {
+  var h = (location.hash || '').replace('#', '');
+  if (!h || !PAGE_TITLES[h]) return false;
+  var ns = document.querySelectorAll('.sidebar .nav-item');
+  for (var i = 0; i < ns.length; i++) {
+    if ((ns[i].getAttribute('onclick') || '').indexOf("'" + h + "'") >= 0) { navTo(h, ns[i]); return true; }
+  }
+  navTo(h, null);
+  return true;
+}
 function doAssign() {
   const uname = document.getElementById('assignAccount').value;
   if (!uname) { showToast('请先选择一个账号', 'error'); return; }
@@ -1298,6 +1310,10 @@ if (session) {
 updateTime();
 setInterval(updateTime, 1000);
 </script>
-<script src="../gls-datahub.js?v=2"></script>
+<script src="../gls-datahub.js?v=2">
+// 首次加载时按 hash 定位页面
+setTimeout(function () { try { navToByHash(); } catch (e) {} }, 260);
+window.addEventListener('hashchange', function () { try { navToByHash(); } catch (e) {} });
+</script>
 </body>
 </html>
