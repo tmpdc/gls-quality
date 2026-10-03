@@ -1347,26 +1347,42 @@
 
     // 6) saveForm —— 重写，带上关联字段
     global.saveForm = function () {
-      var nameEl = $('formName');
-      if (!nameEl) return;
-      var name = nameEl.value.trim();
-      if (!name) { toast('请输入名称', 'error'); return; }
+      /* 字段引擎优先：字段可在界面上增删，不再依赖固定 id */
+      var _fd = null, name = '';
+      if (window.FIELDS && typeof FIELDS.collect === 'function') {
+        _fd = FIELDS.collect(currentModule.id);
+        var _vd = FIELDS.validate(currentModule.id, _fd);
+        if (!_vd.ok) { toast(_vd.msg, 'error'); return; }
+        name = String(_fd.name || '').trim();
+        if (!name) { toast('请输入名称', 'error'); return; }
+      } else {
+        var nameEl = $('formName');
+        if (!nameEl) return;
+        name = nameEl.value.trim();
+        if (!name) { toast('请输入名称', 'error'); return; }
+      }
 
       function v(id) { var e = $(id); return e ? e.value.trim() : ''; }
       function rw(id) { var e = $(id); return e ? e.value : ''; }
 
-      var data = {
-        name: name,
-        description: v('formDesc'),
-        status: (($('formStatus') || {}).value) || 'pending',
-        process: rw('formProcess'),
-        recordTemplate: rw('formRecordTemplate'),
-        template: v('formTemplate'),
-        knowledge: v('formKnowledge'),
-        logic: v('formLogic'),
-        operation: v('formOperation'),
-        implementation: rw('formImplementation')
-      };
+      var data;
+      if (_fd) {
+        data = Object.assign({}, _fd);
+        if (!data.status) data.status = 'pending';
+      } else {
+        data = {
+          name: name,
+          description: v('formDesc'),
+          status: (($('formStatus') || {}).value) || 'pending',
+          process: rw('formProcess'),
+          recordTemplate: rw('formRecordTemplate'),
+          template: v('formTemplate'),
+          knowledge: v('formKnowledge'),
+          logic: v('formLogic'),
+          operation: v('formOperation'),
+          implementation: rw('formImplementation')
+        };
+      }
 
       var pkTpl = collectPickedSafe('pickTemplates');
       if (pkTpl) data.relatedTemplates = pkTpl;
