@@ -1204,8 +1204,7 @@
     html += '<th style="min-width:56px">删</th></tr></thead><tbody>';
     if (!arr.length) {
       html += '<tr><td colspan="' + (f.cols.length + 1) + '" class="erp-empty">' +
-        (fillFieldOf(ERP.current) ? '从上方「' + fillFieldOf(ERP.current).label + '」自动带出，或点「＋ 添加明细行」手工录入' :
-          '点上方「＋ 添加明细行」录入') + '</td></tr>';
+        (fillFieldOf(ERP.current) ? '从上方「' + fillFieldOf(ERP.current).label + '」自动带出' : '暂无明细') + '</td></tr>';
     } else {
       arr.forEach(function (row, i) {
         html += '<tr>';
@@ -1217,6 +1216,26 @@
     box.innerHTML = html;
     ERP.calcTotals();
   };
+
+  /* 直接在表格末尾续一行并立即显示：不重建整表，所以输入焦点不丢，也不折叠 */
+  function appendRowLive() {
+    if (!ERP._items) ERP._items = [];
+    var ent = ENTITIES[ERP.current], f = itemField(ent);
+    if (!f) return;
+    var row = {};
+    f.cols.forEach(function (c) { row[c.k] = ''; });
+    ERP._items.push(row);
+    var i = ERP._items.length - 1;
+    var tb = document.querySelector('#erpItemsBox table.items tbody');
+    if (!tb) { ERP.renderItems(); return; }
+    var tr = document.createElement('tr');
+    var h = '';
+    f.cols.forEach(function (c) { h += '<td>' + itemCellHtml(c, row, i) + '</td>'; });
+    h += '<td class="erp-ops"><span class="erp-op danger" onclick="ERP.delItemRow(' + i + ')">✕</span></td>';
+    tr.innerHTML = h;
+    tb.appendChild(tr);
+    ERP.calcTotals();
+  }
 
   ERP.addItemRow = function () {
     if (!ERP._items) ERP._items = [];
@@ -1248,6 +1267,12 @@
         var src = findRec(c.ref || f.cols[0].ref, v);
         if (src) arr[i][c.k] = src[parts[1]] == null ? '' : src[parts[1]];
       });
+    }
+    /* 一旦填到最后一行，就在下方直接续一行，保证一直有空格可填 */
+    if (f && i === arr.length - 1) {
+      var _has = false;
+      f.cols.forEach(function (c) { if (String(arr[i][c.k] == null ? '' : arr[i][c.k]).trim() !== '') _has = true; });
+      if (_has) appendRowLive();
     }
     if (rerender) ERP.renderItems();
     else ERP.calcTotals();
@@ -1300,10 +1325,10 @@
     }
     ERP._edit = rec;
     ERP._items = itemField(ent) ? (rec[itemField(ent).k] || (rec[itemField(ent).k] = [])) : null;
-    /* 新增时直接铺好可填的空白明细行，不用先点「＋ 添加明细行」 */
+    /* 新增时直接把明细行铺出来，始终留有空行可填，不需要手动添加 */
     if (ERP._isNew && ERP._items && !ERP._items.length) {
       var _if = itemField(ent), _cols = (_if && _if.cols) || [];
-      for (var _r = 0; _r < 3; _r++) {
+      for (var _r = 0; _r < 8; _r++) {
         var _row = {};
         _cols.forEach(function (c) { _row[c.k] = ''; });
         ERP._items.push(_row);
@@ -1322,7 +1347,7 @@
       ent.fields.forEach(function (x) { if (x.fill) _fillField = x; });
       html += '<div class="erp-items"><div class="erp-items-head"><span>' + f2.label + '</span>' +
         (_fillField ? '<span class="erp-fillhint">选「' + _fillField.label + '」可自动带出明细</span>' : '') +
-        '<span class="erp-addrow" onclick="ERP.addItemRow()">＋ 添加明细行</span></div>' +
+        '</div>' +
         '<div id="erpItemsBox"></div></div>';
     }
     var _ft = $('erpModal') ? $('erpModal').querySelector('.modal-footer') : null;
@@ -1424,6 +1449,19 @@
       if (f.req && !String(rec[f.k] == null ? '' : rec[f.k]).trim()) miss.push(f.label);
     });
     if (miss.length) { toast('请填写：' + miss.join('、')); return; }
+    /* 只保留真正填过的明细行，多铺的空白行不落库 */
+    var _if2 = itemField(ent);
+    if (_if2 && ERP._items) {
+      var _cols2 = _if2.cols || [];
+      var _keep = ERP._items.filter(function (r) {
+        for (var _j = 0; _j < _cols2.length; _j++) {
+          if (String(r[_cols2[_j].k] == null ? '' : r[_cols2[_j].k]).trim() !== '') return true;
+        }
+        return false;
+      });
+      ERP._items.length = 0;
+      _keep.forEach(function (r) { ERP._items.push(r); });
+    }
     var d = getData();
     if (!d[key]) d[key] = [];
     if (ERP._isNew) d[key].push(rec);
