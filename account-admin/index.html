@@ -1311,15 +1311,20 @@ updateTime();
 setInterval(updateTime, 1000);
 </script>
 <script src="../gls-datahub.js?v=2">
-// 首次加载时按 hash 定位页面（首页初始化可能覆盖，做几次机会）
+// 首次加载时定位页面（hash / sessionStorage 双保险，多次重试覆盖首页初始化）
 (function () {
-  var raw = (location.hash || '').replace('#', '');
-  if (!raw) return;
+  var target = '';
+  try { target = (location.hash || '').replace('#', ''); } catch (e) {}
+  if (!target) { try { target = sessionStorage.getItem('gls_admin_page') || ''; } catch (e) {} }
+  try { sessionStorage.removeItem('gls_admin_page'); } catch (e) {}
+  if (!target || !PAGE_TITLES[target]) return;
   var tries = 0;
   (function tick() {
     tries++;
-    try { navToByHash(); } catch (e) {}
-    if (tries < 8) setTimeout(tick, 320);
+    var ok = false;
+    try { ok = navToByHash(); } catch (e) {}
+    if (ok) { try { history.replaceState(null, '', '#' + target); } catch (e) {} }
+    if (tries < 25) setTimeout(tick, 220);
   })();
 })();
 window.addEventListener('hashchange', function () { try { navToByHash(); } catch (e) {} });
