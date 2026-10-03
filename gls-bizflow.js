@@ -266,6 +266,45 @@
   /* ==================== 提交审批 / 审批 / MRB 评审 ==================== */
   function curNode(f) { return nodeById(f.kind, f.cur); }
 
+  /* 站点定位：全项目统一口径算「第几站 / 共几站 / 当前站 / 下一站」
+     列表、待办、详情都调它，避免各处各算一套、说法不一致 */
+  function station(f) {
+    var tmpl = (f && f.kind === 'after') ? FLOW_AFTER : FLOW_BIZ;
+    var idx = -1, cur = null, i, j;
+    for (i = 0; i < tmpl.length; i++) {
+      if (f && tmpl[i].id === f.cur) { idx = i; cur = tmpl[i]; break; }
+    }
+    /* 下一站优先按当前节点自己的 next 指针找（能跟上分支）；
+       找不到就按模板顺序取下一个，保证任何时候都有个说法 */
+    var next = null;
+    if (cur && cur.next) {
+      for (j = 0; j < tmpl.length; j++) {
+        if (tmpl[j].id === cur.next) { next = tmpl[j]; break; }
+      }
+    }
+    if (!next && idx >= 0 && idx + 1 < tmpl.length) next = tmpl[idx + 1];
+    return {
+      at: idx + 1,                              /* 第几站，1 起；0 = 没定位到 */
+      total: tmpl.length,                       /* 全程共几站 */
+      cur: cur,                                 /* 当前站定义（含 name/dept/icon） */
+      next: next,                               /* 下一站定义 */
+      name: cur ? cur.name : '',
+      dept: cur ? cur.dept : '',
+      icon: cur ? cur.icon : '▪'
+    };
+  }
+
+  /* 一句人话：把「现在在哪、归谁、接下来去哪」压成一行 */
+  function stationText(f) {
+    var st = station(f);
+    if (!st.cur) return '流程已结束';
+    var t = '第 ' + st.at + '/' + st.total + ' 站 · ' + st.name + '【' + st.dept + '】';
+    if (f && f.status === FLOW_STATUS.DONE) return t + ' · 已全部完成';
+    if (f && f.status === FLOW_STATUS.CLOSE) return t + ' · 已关闭';
+    if (st.next) t += ' → 下一站：' + st.next.name + '【' + st.next.dept + '】';
+    return t;
+  }
+
   /* 当前环节完成后提交上级审批（检验环节需传 result: 'pass'|'fail'） */
   function submit(fid, opts) {
     opts = opts || {};
@@ -852,7 +891,8 @@
     mrbDestDept: mrbDestDept, mrbKindOf: mrbKindOf, mrbCanSee: mrbCanSee,
     mrbMine: mrbMine, mrbToConclude: mrbToConclude,
     mrbSubmitReview: mrbSubmitReview, mrbConclude: mrbConclude,
-    curNode: curNode, bomNeed: bomNeed, stockBal: stockBal, canApprove: canApprove, canMrb: canMrb,
+    curNode: curNode, station: station, stationText: stationText,
+    bomNeed: bomNeed, stockBal: stockBal, canApprove: canApprove, canMrb: canMrb,
     deptManagers: deptManagers, accountOf: accountOf, notifyDept: notifyDept,
     erpList: erpList, erpEnt: erpEnt, erpData: erpData, findRec: findRec,
     notify: notify, markRead: function (id) {
@@ -1094,6 +1134,30 @@
     return '<div class="biz-docbox">' + h + '</div>';
   }
 
+  /* ---- 站点徽章：第 N/M 站 · 环节名【部门】---- */
+  function stationBar(f, big) {
+    var st = B.station ? B.station(f) : null;
+    if (!st || !st.cur) return '';
+    var size = big ? 'font-size:15px' : 'font-size:13.5px';
+    var h = '<div class="biz-station" style="' + size + '">';
+    h += '<span class="biz-station-no">第 ' + st.at + '<span style="opacity:.55">/' + st.total + '</span> 站</span>';
+    h += '<span class="biz-station-name">' + esc(st.icon) + ' ' + esc(st.name) + '</span>';
+    if (st.dept) h += '<span class="biz-station-dept">' + esc(st.dept) + '</span>';
+    h += '</div>';
+    return h;
+  }
+
+  /* 下一站提示 */
+  function nextBar(f) {
+    var st = B.station ? B.station(f) : null;
+    if (!st || !st.cur) return '';
+    if (f.status === '已完成') return '<div class="biz-next done">✔ 全程 ' + st.total + ' 站已走完</div>';
+    if (f.status === '已关闭') return '<div class="biz-next rej">✕ 流程已关闭</div>';
+    if (f.status === '已驳回') return '<div class="biz-next rej">↩ 已被驳回，退回处理</div>';
+    if (!st.next) return '<div class="biz-next done">✔ 这是最后一站</div>';
+    return '<div class="biz-next">➡ 通过后流转到 <b>' + esc(st.next.name) + '</b>【' + esc(st.next.dept) + '】</div>';
+  }
+
   /* ---- 我的待办 ---- */
   function mrbSummaryHtml(m) {
     if (!m.reviewers || !m.reviewers.length) return '<div class="mrb-none">尚未指定会签人员</div>';
@@ -1147,7 +1211,9 @@
     apprList.forEach(function (f) {
       var nd = B.curNode(f);
       h += '<div class="biz-todo appr"><div class="biz-todo-t">【待审批】' + esc(f.no) + ' · ' + esc(f.title) + '</div>'
-        + '<div class="biz-todo-s">当前环节：' + esc(nd ? nd.name : '') + ' · 提交人：' + esc(f._submitBy || '') + ' · 审批人：' + esc(f.approver || '') + '</div>'
+        + stationBar(f, true)
+        + '<div class="biz-todo-s">提交人：' + esc(f._submitBy || '') + ' · 审批人：' + esc(f.approver || '') + '</div>'
+        + nextBar(f)
         + docBlock(f)
         + '<div class="biz-todo-a">'
         + '<span class="erp-btn primary" onclick="BIZFLOW.approve(\'' + f.id + '\', true)">✓ 通过并流转</span>'
@@ -1225,14 +1291,14 @@
       return h;
     }
     h += '<div class="biz-tablewrap"><table class="biz-table"><thead><tr>'
-      + '<th>流程号</th><th>类型</th><th>标题</th><th>产品</th><th>数量</th><th>当前环节</th><th>状态</th><th>操作</th>'
+      + '<th>流程号</th><th>类型</th><th>标题</th><th>产品</th><th>数量</th><th>当前环节 → 下一站</th><th>状态</th><th>操作</th>'
       + '</tr></thead><tbody>';
     flows.slice().reverse().forEach(function (f) {
       var nd = B.curNode(f);
       var kind = f.kind === 'after' ? '售后翻新' : '正常生产';
       h += '<tr><td>' + esc(f.no) + '</td><td>' + kind + '</td><td>' + esc(f.title) + '</td>'
         + '<td>' + esc(f.product || '-') + '</td><td>' + esc(f.planQty || '-') + '</td>'
-        + '<td>' + esc(nd ? nd.name : '-') + '</td>'
+        + '<td class="biz-td-station">' + stationBar(f) + nextCell(f) + '</td>'
         + '<td><span class="biz-st ' + (f.status === '待审批' ? 'appr' : f.status === '待评审' ? 'mrb' : f.status === '已完成' ? 'done' : 'run') + '">' + f.status + '</span></td>'
         + '<td class="biz-ops">'
         + '<span class="erp-op" onclick="BIZFLOW_UI.detail(\'' + f.id + '\')">详情</span>';
@@ -1248,6 +1314,17 @@
     });
     h += '</tbody></table></div></div>';
     return h;
+  }
+
+  /* 列表里紧凑的下一站：只写「→ 名字【部门】」 */
+  function nextCell(f) {
+    var st = B.station ? B.station(f) : null;
+    if (!st || !st.cur) return '';
+    if (f.status === '已完成') return '<div class="biz-cell-next done">✔ 已走完 ' + st.total + ' 站</div>';
+    if (f.status === '已关闭') return '<div class="biz-cell-next rej">✕ 已关闭</div>';
+    if (f.status === '已驳回') return '<div class="biz-cell-next rej">↩ 已驳回</div>';
+    if (!st.next) return '<div class="biz-cell-next done">✔ 最后一站</div>';
+    return '<div class="biz-cell-next">→ ' + esc(st.next.name) + '【' + esc(st.next.dept) + '】</div>';
   }
 
   /* ---- 发起流程 ---- */
@@ -1320,8 +1397,9 @@
       + '<div class="biz-detail-info">'
       + '类型：' + (f.kind === 'after' ? '售后翻新' : '正常生产') + ' ｜ 产品：' + esc(f.product || '-')
       + ' ｜ 数量：' + esc(f.planQty || '-') + ' ｜ 发起：' + esc(f.creator || '') + ' ｜ 时间：' + esc(f.created)
-      + ' ｜ 当前环节：<b>' + esc(nd ? nd.name : '-') + '</b> ｜ 状态：<b>' + f.status + '</b>'
-      + '</div>';
+      + ' ｜ 状态：<b>' + f.status + '</b>'
+      + '</div>'
+      + '<div class="biz-detail-station">' + stationBar(f, true) + nextBar(f) + '</div>';
     if (f.status === B.FLOW_STATUS.RUN && nd) {
       h += '<div class="biz-detail-actions">';
       if (nd.branch) h += '<span class="erp-btn primary" onclick="BIZFLOW_UI.submitDlg(\'' + f.id + '\')">提交检验结果</span>';
@@ -1651,6 +1729,18 @@
       '.biz-doc-items th,.biz-doc-items td{white-space:nowrap}',
       '.biz-doc-none,.biz-doc-none-note{font-size:12px;color:#9ca3af}',
       '.biz-todo-t{word-break:break-word}',
+      '.biz-station{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:7px 0 5px}',
+      '.biz-station-no{flex:0 0 auto;background:#166534;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;letter-spacing:.3px}',
+      '.biz-station-name{font-weight:700;color:#14532d}',
+      '.biz-station-dept{flex:0 0 auto;background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:5px;padding:1px 8px;font-size:12px}',
+      '.biz-next{margin:5px 0 2px;font-size:13px;color:#374151;background:#f0fdf4;border-left:3px solid #22c55e;border-radius:0 6px 6px 0;padding:6px 10px}',
+      '.biz-next.done{color:#166534;background:#f0fdf4;border-left-color:#16a34a}',
+      '.biz-next.rej{color:#b91c1c;background:#fef2f2;border-left-color:#dc2626}',
+      '.biz-cell-next{margin-top:3px;font-size:12px;color:#6b7280;white-space:nowrap}',
+      '.biz-cell-next.done{color:#16a34a}',
+      '.biz-cell-next.rej{color:#dc2626}',
+      '.biz-td-station{min-width:170px}',
+      '.biz-detail-station{margin:10px 0 4px;padding:10px 12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px}',
       '@media(max-width:560px){',
       '.biz-doc{padding:9px 10px}',
       '.biz-doc-t th{width:84px;font-size:12px}',
