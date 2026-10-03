@@ -495,8 +495,7 @@ function ensureSuperAdmin() {
       filtered.unshift({ id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' });
     }
     if (filtered.length !== arr.length || !hasNew) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-      if (window.DATAHUB && DATAHUB.set) { DATAHUB.set('accounts', filtered); }
+      saveAccounts(filtered);
     }
     return filtered;
   } catch (e) { return []; }
@@ -533,11 +532,27 @@ function initDefaultAccounts() {
   }
 }
 
+// 账号与工作台共用同一中央数据键，新建账号立即可登录（板块数据打通）
+const CENTRAL_KEY = 'gls_quality_data_v2';
+function readCentral() {
+  try {
+    var o = JSON.parse(localStorage.getItem(CENTRAL_KEY) || '{}');
+    return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {};
+  } catch (e) { return {}; }
+}
+function writeCentral(obj) {
+  try { localStorage.setItem(CENTRAL_KEY, JSON.stringify(obj)); } catch (e) {}
+}
 function getAccounts() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  var c = readCentral();
+  if (Array.isArray(c.accounts)) return c.accounts;
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; }
 }
 function saveAccounts(accounts) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
+  var c = readCentral();
+  c.accounts = accounts;
+  writeCentral(c);
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts)); } catch (e) {}
 }
 function getLogs() {
   return JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
@@ -620,20 +635,23 @@ function doLogin() {
 
 // 该角色是否拥有任意系统管理权限（决定登录后进后台还是工作台）
 function canAnySys(roleKey) {
+  var ps = null;
   try {
     var o = JSON.parse(localStorage.getItem('gls_roles_v1') || 'null');
     if (o && o.roles) {
       for (var i = 0; i < o.roles.length; i++) {
-        if (o.roles[i].key === roleKey) {
-          var ps = o.roles[i].perms || [];
-          if (ps.indexOf('*') >= 0) return true;
-          return ps.some(function (p) { return p.indexOf('sys.') === 0; });
-        }
+        if (o.roles[i].key === roleKey) { ps = o.roles[i].perms || []; break; }
       }
-      return false;
     }
   } catch (e) {}
-  return roleKey === 'admin';
+  if (!ps) {
+    // 角色表还没生成（新设备）→ 内置默认
+    if (roleKey === 'admin') return true;
+    if (roleKey === 'manager') return true;
+    return false;
+  }
+  if (ps.indexOf('*') >= 0) return true;
+  return ps.some(function (p) { return p.indexOf('sys.') === 0; });
 }
 
 function showLoginError(msg) {
