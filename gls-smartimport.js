@@ -1241,6 +1241,7 @@ function glsSheetToHtml(ws) {
       } else if (!canPrint) {
         toast('已生成打印页，请点页面顶部「🖨 打印 / 另存为 PDF」按钮');
       }
+    };
     setTimeout(__autoPrint, 520);
   }
   /* 直接填写：把模板表格变可编辑并打印/导出 */
