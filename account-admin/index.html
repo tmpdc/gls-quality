@@ -1293,6 +1293,20 @@ document.getElementById('loginUsername').addEventListener('keypress', e => {
 
 // ===== 初始化 =====
 initDefaultAccounts();
+// 无条件清理示例账号（历史数据），保证系统里不出现示例人名
+(function purgeDemoAccounts() {
+  try {
+    var DEMO = ['zhangsan', 'lisi', 'wangwu', 'zhaoliu', 'admin'];
+    var arr = getAccounts();
+    if (!Array.isArray(arr) || !arr.length) return;
+    var kept = arr.filter(function (a) { return a && DEMO.indexOf(a.username) < 0; });
+    if (kept.length !== arr.length) {
+      if (window.DATAHUB) { try { DATAHUB.set('accounts', kept); } catch (e) {} }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(kept)); } catch (e) {}
+      console.log('[GLS] 已清理示例账号 ' + (arr.length - kept.length) + ' 个');
+    }
+  } catch (e) {}
+})();
   ensureSuperAdmin();
 const remembered = localStorage.getItem('gls_remember_user');
 if (remembered) document.getElementById('loginUsername').value = remembered;
