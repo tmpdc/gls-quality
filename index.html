@@ -476,10 +476,11 @@ const SESSION_KEY = 'gls_current_user';
 
 // 角色定义
 const ROLES = {
-  admin: { name: '超级管理员', desc: '拥有系统全部权限，可管理账号、角色、查看所有数据', perms: ['全部权限'] },
-  manager: { name: '部门主管', desc: '可管理本部门账号，查看部门数据，审批业务流程', perms: ['账号管理(本部门)', '数据查看', '业务审批', '工作台操作'] },
-  staff: { name: '普通员工', desc: '可使用工作台功能，录入和查看本人相关数据', perms: ['工作台操作', '数据录入', '本人数据查看'] },
-  viewer: { name: '只读用户', desc: '仅可查看数据，不可录入或修改', perms: ['数据查看(只读)'] }
+  admin:   { name: '超级管理员', desc: '拥有全部能力，可改动流程、框架类型、角色权限等系统配置' },
+  manager: { name: '管理员',     desc: '管理所有已定好的功能（业务、账号、模板、数据）' },
+  deptmgr: { name: '经理',       desc: '可管理本部门全部功能，可查看其他部门的信息' },
+  staff:   { name: '员工',       desc: '只能操作与自己相关的数据，可查看本部门信息' },
+  guest:   { name: '游客',       desc: '可查看所有部门的信息，不能操作任何部门的任何功能' }
 };
 
 // 初始化默认账号
@@ -505,11 +506,7 @@ function initDefaultAccounts() {
   const existing = localStorage.getItem(STORAGE_KEY);
   if (!existing) {
     const defaults = [
-      { id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' },
-      { id: 2, username: 'zhangsan', password: '123456', realname: '张三', role: 'manager', dept: '品质部', phone: '13800138001', email: 'zhangsan@gls.com', status: 'active', createdAt: '2026-03-15 09:30:00', lastLogin: '2026-09-09 14:22:00' },
-      { id: 3, username: 'lisi', password: '123456', realname: '李四', role: 'staff', dept: '生产部', phone: '13800138002', email: 'lisi@gls.com', status: 'active', createdAt: '2026-04-20 10:15:00', lastLogin: '2026-09-08 08:45:00' },
-      { id: 4, username: 'wangwu', password: '123456', realname: '王五', role: 'staff', dept: '研发部', phone: '13800138003', email: 'wangwu@gls.com', status: 'active', createdAt: '2026-05-10 11:00:00', lastLogin: '' },
-      { id: 5, username: 'zhaoliu', password: '123456', realname: '赵六', role: 'viewer', dept: '销售部', phone: '13800138004', email: 'zhaoliu@gls.com', status: 'disabled', createdAt: '2026-06-01 14:30:00', lastLogin: '2026-08-15 16:20:00' }
+      { id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', post: '', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' }
     ];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
   } else {
@@ -517,6 +514,13 @@ function initDefaultAccounts() {
     try {
       let arr = JSON.parse(existing);
       if (!Array.isArray(arr)) arr = [];
+      const DEMO = ['zhangsan', 'lisi', 'wangwu', 'zhaoliu', 'admin'];
+      arr = arr.filter(function (a) { return a && DEMO.indexOf(a.username) < 0; });
+      arr.forEach(function (a) {
+        if (typeof a.post !== 'string') a.post = '';
+        if (a.role === 'viewer') a.role = 'guest';
+        if (a.role === 'deptmgr') a.role = 'deptmgr';
+      });
       const filtered = arr.filter(function (a) { return a && a.username !== 'tmpdc031'; });
       const hasNew = filtered.some(function (a) { return a && a.username === 'tmpdc031'; });
       if (!hasNew) {
@@ -607,9 +611,29 @@ function doLogin() {
 
   showToast('登录成功，欢迎回来！', 'success');
   setTimeout(() => {
-    if (account.role === 'admin') { enterAdmin(); }
+    // 有系统管理类权限 → 进账号后台；否则直接进质量管理工作台
+    if (canAnySys(account.role)) { enterAdmin(); }
     else { window.location.href = 'page.html'; }
   }, 500);
+}
+
+
+// 该角色是否拥有任意系统管理权限（决定登录后进后台还是工作台）
+function canAnySys(roleKey) {
+  try {
+    var o = JSON.parse(localStorage.getItem('gls_roles_v1') || 'null');
+    if (o && o.roles) {
+      for (var i = 0; i < o.roles.length; i++) {
+        if (o.roles[i].key === roleKey) {
+          var ps = o.roles[i].perms || [];
+          if (ps.indexOf('*') >= 0) return true;
+          return ps.some(function (p) { return p.indexOf('sys.') === 0; });
+        }
+      }
+      return false;
+    }
+  } catch (e) {}
+  return roleKey === 'admin';
 }
 
 function showLoginError(msg) {
