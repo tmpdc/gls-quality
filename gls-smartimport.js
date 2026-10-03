@@ -1210,16 +1210,34 @@ function glsSheetToHtml(ws) {
       + '<div class="tpl-print-bar"><button onclick="window.print()">打印 / 另存为 PDF</button></div>'
       + (useTitle ? '<div class="tpl-print-title">' + esc(useTitle) + '</div>' : '')
       + html + '</body></html>';
+
     w.document.open(); w.document.write(doc); w.document.close();
-    setTimeout(function () {
+    var __autoPrint = function () {
       try {
         Array.prototype.forEach.call(w.document.querySelectorAll('table'), function (tb) {
           if (maxCols >= 5) tb.style.minWidth = (maxCols * 26) + 'px';
           tb.style.width = '100%';
         });
-        w.focus();
       } catch (e) {}
-    }, 300);
+      var ua = navigator.userAgent || '';
+      if (/MicroMessenger/i.test(ua)) {
+        toast('微信内不支持直接调起打印，请点右上角「…」→「在浏览器打开」后再打印');
+        return;
+      }
+      var canPrint = true;
+      try { canPrint = (typeof w.print === 'function'); } catch (e) { canPrint = false; }
+      if (!canPrint) {
+        toast('当前浏览器不支持自动打印，请在打印页手动点「打印 / 另存为 PDF」');
+        return;
+      }
+      try { w.focus(); } catch (e) {}
+      var delay = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 750 : 420;
+      setTimeout(function () {
+        try { w.print(); }
+        catch (e) { toast('自动调起打印被拦截，请在打印页手动点「打印 / 另存为 PDF」'); }
+      }, delay);
+    };
+    setTimeout(__autoPrint, 520);
   }
   /* 直接填写：把模板表格变可编辑并打印/导出 */
   function fillTemplate(tpl) {
