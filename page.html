@@ -1909,6 +1909,7 @@ function renderHome() {
   ];
   if (isAdmin) {
     quicks.push({ icon: '👤', name: '账号管理', fn: "location.href='account-admin/index.html'" });
+    quicks.push({ icon: '🏢', name: '组织架构', fn: "location.href='account-admin/index.html#org'" });
   } else {
     quicks.push({ icon: '🔔', name: '知识查询', fn: "navigateTo('module', 'knowledge')" });
   }
