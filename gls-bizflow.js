@@ -775,6 +775,12 @@
       });
     });
     mrbAll().push(m); save();
+    /* 通知每一位默认会签人：明确告诉去哪提交意见 */
+    m.reviewers.forEach(function (r) {
+      notify(r.user || r.username,
+        '不合格评审 ' + m.no + ' 邀请你会签（' + (m.materialName || m.material || '—') + ' · ' + m.kindName + '）：请进【异常处理】模块 → 待我处理 → 填写评审意见',
+        m.flowId);
+    });
     return m;
   }
   function mrbAddReviewer(id, username) {
@@ -789,7 +795,7 @@
     m.reviewers.push({ id: uid('rv'), dept: u.department || '', user: u.realname || u.username,
       username: u.username, status: 'pending', advice: [], opinion: '', time: '' });
     save();
-    notify(u.realname || u.username, '不合格评审 ' + m.no + ' 邀请你参与（' + (m.materialName || m.material) + ' · ' + m.kindName + '）', m.flowId);
+    notify(u.realname || u.username, '不合格评审 ' + m.no + ' 邀请你会签（' + (m.materialName || m.material || '—') + ' · ' + m.kindName + '）：请进【异常处理】模块 → 待我处理 → 填写评审意见', m.flowId);
     return true;
   }
   function mrbDelReviewer(id, rid) {
@@ -1609,9 +1615,19 @@
     var m = B.mrbGet(mrbId); if (!m) { toast('评审单不存在', false); return; }
     if (m.stage === 'concluded') { toast('已定稿，不可调整', false); return; }
     var body = mrbInfoHtml(m) + '<div class="mrb-lb">当前会签人</div>' + mrbSumEditable(m)
-      + '<div class="mrb-lb">添加会签人（按部门选人）</div>'
-      + '<div class="mrb-addrow"><select id="mrbAddUser" class="mrb-sel">' + mrbUserOptions(m) + '</select>'
-      + '<span class="erp-btn" onclick="BIZFLOW_UI.mrbAddRv(\'' + m.id + '\')">＋ 加入</span></div>';
+      + '<div class="mrb-tip">会签人操作路径：进【异常处理】模块 → 待我处理 → 点「填写评审意见」提交（提交后锁定留痕）。名单内的人会收到站内提醒。</div>';
+    var add = mrbAddable(m);
+    body += '<div class="mrb-lb">添加会签人（按部门选人）</div>';
+    if (add.count > 0) {
+      body += '<div class="mrb-addrow"><select id="mrbAddUser" class="mrb-sel">' + mrbUserOptions(m) + '</select>'
+        + '<span class="erp-btn" onclick="BIZFLOW_UI.mrbAddRv(\'' + m.id + '\')">＋ 加入</span></div>';
+    } else {
+      body += '<div class="mrb-warn">暂无可加入的人员：'
+        + (add.total === 0
+          ? '账号库里还没有带部门的人员账号。请先到账号后台添加人员并填好所属部门，再回到这里加入会签。'
+          : '账号库里的 ' + add.total + ' 人已全部在本评审名单中。如需增加会签人，请先到账号后台添加对应部门的人员账号。')
+        + '</div>';
+    }
     var p = B.mrbProgress(m);
     body += p.all && p.total > 0 ? '<div class="mrb-note">✓ 会签意见已收齐，可回到列表确认结论定稿。</div>'
       : '<div class="mrb-note">已提交意见的人不可移除（留痕要求）。</div>';
@@ -1634,21 +1650,26 @@
     h += '</tbody></table></div>';
     return h;
   }
-  function mrbUserOptions(m) {
-    var accs = B.mrbAccounts(), inSet = {}, byDept = {}, order = [];
+  /* 可加入会签的人 = 账号库的人 减去 已在名单的人；空态要能说清原因 */
+  function mrbAddable(m) {
+    var accs = B.mrbAccounts(), inSet = {}, byDept = {}, order = [], cnt = 0;
     m.reviewers.forEach(function (r) { if (r.username) inSet[r.username] = true; });
     accs.forEach(function (u) {
+      if (inSet[u.username]) return;
       var dp = u.department || '未分配部门';
       if (!byDept[dp]) { byDept[dp] = []; order.push(dp); }
-      byDept[dp].push(u);
+      byDept[dp].push(u); cnt++;
     });
+    return { byDept: byDept, order: order, count: cnt, total: accs.length };
+  }
+  function mrbUserOptions(m) {
+    var a = mrbAddable(m);
     var h = '<option value="">请选择人员</option>';
-    order.forEach(function (dp) {
+    a.order.forEach(function (dp) {
       h += '<optgroup label="' + esc(dp) + '">';
-      byDept[dp].forEach(function (u) {
-        if (inSet[u.username]) return;
+      a.byDept[dp].forEach(function (u) {
         var role = u.role === 'manager' ? '（主管）' : (u.role === 'admin' ? '（管理员）' : '');
-        h += '<option value="' + esc(u.username) + '">' + esc((u.realname || u.username) + role + ' · ' + (u.post || '')) + '</option>';
+        h += '<option value="' + esc(u.username) + '">' + esc((u.realname || u.username) + role + ' · ' + (u.post || '') + ' · ' + dp) + '</option>';
       });
       h += '</optgroup>';
     });
@@ -1770,6 +1791,7 @@
     mrbModal: mrbModal, mrbClose: mrbClose, mrbReview: mrbReview, mrbReviewSave: mrbReviewSave,
     mrbConcludeDlg: mrbConcludeDlg, mrbConcludeSave: mrbConcludeSave, mrbDestTip: mrbDestTip,
     mrbEditRvl: mrbEditRvl, mrbAddRv: mrbAddRv, mrbDelRv: mrbDelRv, mrbDetail: mrbDetail,
+    mrbAddable: mrbAddable,
     openHome: openHome, openStart: openStart, openNotices: openNotices,
     detail: detail, submitDlg: submitDlg, help: help, goInsp: goInsp, goMrb: goMrb,
     updateBadge: updateBadge, injectBiz: injectBiz
