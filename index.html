@@ -596,7 +596,7 @@ function doLogin() {
   account.lastLogin = formatDateTime(new Date());
   saveAccounts(accounts);
 
-  const session = { id: account.id, username: account.username, realname: account.realname, role: account.role, loginTime: Date.now() };
+  const session = { id: account.id, username: account.username, realname: account.realname, role: account.role, dept: account.dept || '', post: account.post || '', loginTime: Date.now() };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
   if (document.getElementById('rememberMe').checked) {
