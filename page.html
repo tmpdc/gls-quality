@@ -39,11 +39,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .mtodo-title.small { font-size: 13px; font-weight: 600; color: #6b7280; }
 .mtodo-hint { font-size: 12px; color: #9ca3af; margin-left: auto; }
 .mtodo-card { border: 1px solid #fecaca; background: #fffbfb; border-left: 4px solid #dc2626; border-radius: 8px; padding: 10px 12px; margin-bottom: 9px; }
-.mtodo-t { font-size: 14px; font-weight: 600; color: #111827; word-break: break-word; }
-.mtodo-s { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 7px 0 5px; font-size: 13px; }
-.mtodo-station { background: #166534; color: #fff; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 700; }
-.mtodo-node { font-weight: 700; color: #14532d; }
-.mtodo-dept { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; border-radius: 5px; padding: 1px 7px; font-size: 11.5px; }
+/* 单据号弱化为辅助信息，把视觉重心让给「当前环节」 */
+.mtodo-t { font-size: 13.5px; font-weight: 600; color: #4b5563; word-break: break-word; }
+.mtodo-s { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 4px 0 0; font-size: 13px; }
+.mtodo-station { background: #166534; color: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.mtodo-dept { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; border-radius: 5px; padding: 2px 9px; font-size: 12px; }
+/* 当前环节：独占一行、特大加粗，一眼就看到现在卡在哪一站 */
+.mtodo-node { font-size: 22px; font-weight: 800; color: #14532d; line-height: 1.25; margin: 7px 0 5px; }
 .mtodo-next { font-size: 12.5px; color: #374151; background: #f0fdf4; border-left: 3px solid #22c55e; border-radius: 0 5px 5px 0; padding: 5px 9px; margin: 5px 0; }
 .mtodo-a { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 .mtodo-btn { display: inline-block; padding: 6px 13px; border-radius: 6px; font-size: 13px; cursor: pointer; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
@@ -2159,9 +2161,9 @@ function renderModuleTodo(mid) {
         + '<div class="mtodo-t">' + esc4(f.no) + ' · ' + esc4(f.title) + '</div>'
         + '<div class="mtodo-s">'
         +   (st && st.cur ? '<span class="mtodo-station">第 ' + st.at + '/' + st.total + ' 站</span>' : '')
-        +   '<span class="mtodo-node">' + esc4(nd ? nd.name : '') + '</span>'
         +   (nd && nd.dept ? '<span class="mtodo-dept">' + esc4(nd.dept) + '</span>' : '')
         + '</div>'
+        + (nd && nd.name ? '<div class="mtodo-node">' + esc4(nd.name) + '</div>' : '')
         + (st && st.next ? '<div class="mtodo-next">通过后流转到 ' + esc4(st.next.name) + '【' + esc4(st.next.dept) + '】</div>' : '')
         + '<div class="mtodo-a">'
         +   '<span class="mtodo-btn primary" onclick="BIZFLOW.approve(\'' + f.id + '\',true);renderModuleTodo(\'' + mid + '\');">✓ 通过并流转</span>'
