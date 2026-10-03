@@ -1204,7 +1204,7 @@ function glsSheetToHtml(ws) {
       + 'white-space:normal !important;overflow:visible !important}'
       + 'img{max-width:100%}'
       + '.tpl-print-title{font-size:16px;font-weight:700;text-align:center;margin:0 0 8px}'
-      + '.tpl-print-bar{text-align:right;margin:0 0 8px}'
+      + '.tpl-print-bar{text-align:right;margin:0 0 10px}''.tpl-print-bar button{font-size:16px;padding:10px 18px;border-radius:8px;''border:1px solid #2e7d52;background:#2e7d52;color:#fff;cursor:pointer}'
       + '@media print{.tpl-print-bar{display:none}body{margin:0}}'
       + '</style></head><body>'
       + '<div class="tpl-print-bar"><button onclick="window.print()">打印 / 另存为 PDF</button></div>'
@@ -1220,23 +1220,26 @@ function glsSheetToHtml(ws) {
         });
       } catch (e) {}
       var ua = navigator.userAgent || '';
-      if (/MicroMessenger/i.test(ua)) {
-        toast('微信内不支持直接调起打印，请点右上角「…」→「在浏览器打开」后再打印');
-        return;
-      }
-      var canPrint = true;
-      try { canPrint = (typeof w.print === 'function'); } catch (e) { canPrint = false; }
-      if (!canPrint) {
-        toast('当前浏览器不支持自动打印，请在打印页手动点「打印 / 另存为 PDF」');
-        return;
-      }
+      var isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+      var inWx = /MicroMessenger/i.test(ua);
       try { w.focus(); } catch (e) {}
-      var delay = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 750 : 420;
-      setTimeout(function () {
-        try { w.print(); }
-        catch (e) { toast('自动调起打印被拦截，请在打印页手动点「打印 / 另存为 PDF」'); }
-      }, delay);
-    };
+      var canPrint = false;
+      try { canPrint = (typeof w.print === 'function'); } catch (e) { canPrint = false; }
+      if (canPrint) {
+        setTimeout(function () {
+          try { w.print(); } catch (e) {}
+        }, isMob ? 800 : 420);
+      }
+      // 微信/部分内置浏览器可能不弹打印窗口，给明确兜底指引
+      if (inWx) {
+        setTimeout(function () {
+          var ok = false;
+          try { ok = !w.closed; } catch (e) { ok = false; }
+          if (ok) toast('已生成打印页：点页面顶部「🖨 打印 / 另存为 PDF」按钮即可；若按钮无效，请点右上角「…」→「在浏览器打开」');
+        }, isMob ? 1500 : 900);
+      } else if (!canPrint) {
+        toast('已生成打印页，请点页面顶部「🖨 打印 / 另存为 PDF」按钮');
+      }
     setTimeout(__autoPrint, 520);
   }
   /* 直接填写：把模板表格变可编辑并打印/导出 */
