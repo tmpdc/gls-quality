@@ -27,11 +27,12 @@
     try { o = JSON.parse(localStorage.getItem(CFG_KEY) || '{}') || {}; } catch (e) { o = {}; }
     return {
       mode: o.mode || 'auto',                          // auto | server | off
-      base: String(o.base || '').replace(/\/+$/, '')   // 例：http://192.168.1.16:8686
+      base: String(o.base || '').replace(/\/+$/, ''),  // 例：http://192.168.1.16:8686
+      token: String(o.token || '')                     // 访问口令换来的令牌（服务端没开口令就是空）
     };
   }
   function saveCfg(c) {
-    cfg = { mode: c.mode, base: String(c.base || '').replace(/\/+$/, '') };
+    cfg = { mode: c.mode, base: String(c.base || '').replace(/\/+$/, ''), token: String(c.token || '') };
     try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch (e) { }
   }
   var cfg = readCfg();
@@ -41,6 +42,46 @@
     API = (cfg.mode === 'server' && cfg.base) ? cfg.base : '';
   }
   function url(p) { return (API || '') + p; }
+
+  /* 带上访问令牌（服务端没开口令时它就是空，不影响原来用法） */
+  function authHeaders(h) {
+    var o = {};
+    if (h) { for (var k in h) { if (Object.prototype.hasOwnProperty.call(h, k)) o[k] = h[k]; } }
+    if (cfg.token) o['X-GLS-Token'] = cfg.token;
+    return o;
+  }
+
+  var _authWarned = false;
+  function on401() {
+    _online = false; remote.alive = false;
+    if (_authWarned) return;
+    _authWarned = true;
+    if (cfg.token) {
+      cfg.token = '';
+      try { localStorage.setItem(CFG_KEY, JSON.stringify({ mode: cfg.mode, base: cfg.base, token: '' })); } catch (e) { }
+    }
+    /* 页面可能在 head 阶段就被拦下，那时 body 还没建好，等它出现再提示 */
+    var tries = 0;
+    var show = function () {
+      if (!document.body) {
+        if (++tries < 25) { setTimeout(show, 200); }
+        return;
+      }
+      banner('这台服务器开了访问口令，请在右下角设置里填一下', 'warn', '去设置', openPanel);
+    };
+    show();
+  }
+
+  /* 统一请求入口：自动带令牌、自动处理口令不对 */
+  function apiFetch(path, opts) {
+    var o = opts || {};
+    o.cache = 'no-store';
+    o.headers = authHeaders(o.headers);
+    return fetch(url(path), o).then(function (r) {
+      if (r.status === 401) { on401(); return null; }
+      return r;
+    });
+  }
 
   var remote = { alive: false, v: 0 };
   var _pushTm = null;
@@ -129,8 +170,8 @@
   }
 
   function refreshFromServer(silent) {
-    return fetch(url('/api/load'), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    return apiFetch('/api/load')
+      .then(function (r) { return (r && r.ok) ? r.json() : null; })
       .then(function (full) {
         if (!full || !full.data) return;
         if (full.v < localV()) return;      // 服务端反而旧，忽略
@@ -152,13 +193,13 @@
     if (_pushing) { _pending = true; return; }
     _pushing = true;
 
-    fetch(url('/api/save'), {
+    apiFetch('/api/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
       body: JSON.stringify({ v: remote.v, data: data })
     })
       .then(function (r) {
+        if (!r) return { status: 401, body: {} };
         return r.json().then(function (j) { return { status: r.status, body: j }; })
           .catch(function () { return { status: r.status, body: {} }; });
       })
@@ -187,8 +228,8 @@
   /* ---------------------------------------------------------- 轮询 */
   function poll() {
     if (document.hidden || !remote.alive) return;
-    fetch(url('/api/version'), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    apiFetch('/api/version')
+      .then(function (r) { return (r && r.ok) ? r.json() : null; })
       .then(function (j) {
         if (!j || typeof j.v !== 'number') return;
         if (j.v === remote.v) return;
@@ -214,8 +255,8 @@
       _bootLock = false;
       return;
     }
-    fetch(url('/api/version'), { cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    apiFetch('/api/version')
+      .then(function (r) { return (r && r.ok) ? r.json() : null; })
       .then(function (j) {
         if (!j || typeof j.v !== 'number') { _online = false; _bootLock = false; return; }
         _online = true;
@@ -311,6 +352,14 @@
       + '<div id="glsConnTest" style="font-size:12.5px;color:#6b7f72;margin-top:7px;min-height:18px">'
       + '点右边按钮可以先测一下通不通</div></div>';
 
+    html += '<div style="margin:12px 0 6px">'
+      + '<div style="font-size:12.5px;color:#6b7f72;margin-bottom:6px">访问口令'
+      + '<span style="color:#9aa8a1">（服务器开了外网访问才需要填，内网留空）</span></div>'
+      + '<input id="glsConnToken" type="password" value="' + (cfg.token || '').replace(/"/g, '&quot;')
+      + '" placeholder="没设口令就留空" autocomplete="new-password" '
+      + 'style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #dfe7e2;'
+      + 'border-radius:9px;font-size:14px;outline:none"></div>';
+
     html += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">'
       + '<button id="glsConnTestBtn" style="padding:10px 16px;border-radius:9px;border:1.5px solid #dfe7e2;'
       + 'background:#fff;font-size:14px;cursor:pointer">测试连接</button>'
@@ -335,11 +384,38 @@
       var tip = box.querySelector('#glsConnTest');
       if (!v) { tip.textContent = '先填服务器地址'; tip.style.color = '#b7791f'; return; }
       tip.textContent = '正在测试…'; tip.style.color = '#6b7f72';
+      var pw = (box.querySelector('#glsConnToken').value || '');
       fetch(v + '/api/ping', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
-          if (j && j.ok) { tip.textContent = '通！' + (j.name || '服务正常'); tip.style.color = '#1f7a4d'; }
-          else { tip.textContent = '能连上，但对方不是本系统的服务'; tip.style.color = '#b7791f'; }
+          if (!j || !j.ok) { tip.textContent = '能连上，但对方不是本系统的服务'; tip.style.color = '#b7791f'; return; }
+          /* 服务在 —— 再看这台要不要口令，顺便验一下填的口令对不对 */
+          return fetch(v + '/api/auth/status', { cache: 'no-store' })
+            .then(function (r2) { return r2.ok ? r2.json() : null; })
+            .then(function (st) {
+              if (!st || !st.need) {
+                tip.textContent = '通！' + (j.name || '服务正常') + '（这台没设口令）';
+                tip.style.color = '#1f7a4d'; return;
+              }
+              if (!pw) {
+                tip.textContent = '服务正常，但这台开了访问口令，请在上面的「访问口令」里填';
+                tip.style.color = '#b7791f'; return;
+              }
+              return fetch(v + '/api/login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw })
+              }).then(function (r3) {
+                return r3.json().then(function (a) { return { code: r3.status, body: a }; });
+              }).then(function (x) {
+                if (x.code === 200 && x.body && x.body.ok) {
+                  tip.textContent = '通！口令正确，点「保存并重连」就可以了';
+                  tip.style.color = '#1f7a4d';
+                } else {
+                  tip.textContent = '口令不对';
+                  tip.style.color = '#c0392b';
+                }
+              });
+            });
         })
         .catch(function () {
           tip.textContent = '连不上：确认服务已启动、地址和端口写对、同一网络、防火墙已放行';
@@ -349,16 +425,34 @@
 
     box.querySelector('#glsConnSave').onclick = function () {
       var mode = (box.querySelector('input[name=glsConnMode]:checked') || {}).value || 'auto';
-      var base = (box.querySelector('#glsConnBase').value || '').trim();
+      var base = (box.querySelector('#glsConnBase').value || '').trim().replace(/\/+$/, '');
+      var pw = (box.querySelector('#glsConnToken').value || '');
+      var tip = box.querySelector('#glsConnTest');
       if (mode === 'server' && !base) {
-        var tip = box.querySelector('#glsConnTest');
         tip.textContent = '选了「指定服务器」就要把地址填上';
         tip.style.color = '#c0392b';
         return;
       }
-      saveCfg({ mode: mode, base: base });
-      try { sessionStorage.removeItem('gls_sync_reloaded'); } catch (e) { }
-      location.reload();
+      var finish = function (tok) {
+        saveCfg({ mode: mode, base: base, token: tok });
+        try { sessionStorage.removeItem('gls_sync_reloaded'); } catch (e) { }
+        location.reload();
+      };
+      if (!pw) { finish(''); return; }        // 没填口令：按服务端没开口令来
+      /* 填了口令：先换成令牌，换不到就明说，不静默失败 */
+      var u = (mode === 'server' && base) ? base : '';
+      tip.textContent = '正在校验口令…'; tip.style.color = '#6b7f72';
+      fetch(u + '/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      }).then(function (r) {
+        return r.json().then(function (j) { return { code: r.status, body: j }; });
+      }).then(function (x) {
+        if (x.code === 200 && x.body && x.body.ok) { finish(x.body.token || ''); return; }
+        tip.textContent = '口令不对，没有保存'; tip.style.color = '#c0392b';
+      }).catch(function () {
+        tip.textContent = '连不上服务器，先确认地址对不对'; tip.style.color = '#c0392b';
+      });
     };
   }
 
@@ -398,7 +492,8 @@
     pushNow: function () { return push(true); },
     version: function () { return remote.v; },
     apiBase: function () { return API; },
-    getConfig: function () { return { mode: cfg.mode, base: cfg.base }; },
+    getConfig: function () { return { mode: cfg.mode, base: cfg.base, hasToken: !!cfg.token }; },
+    needAuth: function () { return _authWarned; },
     setConfig: function (c) { saveCfg(c || {}); try { sessionStorage.removeItem('gls_sync_reloaded'); } catch (e) { } },
     openSettings: openPanel
   };
