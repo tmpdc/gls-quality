@@ -922,6 +922,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <div class="toast" id="toast"></div>
 
 <script>
+/* v-fields */
+
 // ==================== 数据管理 ====================
 const STORAGE_KEY = 'gls_quality_data_v2';
 const SESSION_KEY = 'gls_current_user';
@@ -3019,7 +3021,8 @@ function openAddForm() {
 }
 
 function openForm() {
-  const title = isEditing ? '编辑' : '添加' + currentModule.name;
+  if (!currentModule || !currentModule.id) { showToast('请先进入一个模块，再新增记录', 'error'); return; }
+  const title = isEditing ? '编辑' : '添加' + (currentModule.name || '');
   document.getElementById('formModalTitle').textContent = title;
   
   const item = isEditing ? currentItem : { name: '', description: '', status: 'pending', template: '', knowledge: '', logic: '', operation: '' };
@@ -3029,66 +3032,14 @@ function openForm() {
     statusOptions += `<option value="${s.id}" ${item.status === s.id ? 'selected' : ''}>${s.name}</option>`;
   });
   
-  document.getElementById('formModalBody').innerHTML = `
-    <div class="form-group">
-      <label>名称 <span class="required">*</span></label>
-      <input type="text" id="formName" value="${item.name}" placeholder="请输入名称">
-    </div>
-    <div class="form-group">
-      <label>描述</label>
-      <input type="text" id="formDesc" value="${item.description || ''}" placeholder="简要描述">
-    </div>
-    <div class="form-group">
-      <label>状态</label>
-      <select id="formStatus">${statusOptions}</select>
-    </div>
-    <div class="form-group">
-      <label>🔄 流程步骤（支持HTML格式）</label>
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="document.getElementById('formProcess').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
-      <button type="button" onclick="openImportPicker('process', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formProcess" placeholder="输入流程步骤，可用HTML标签，如：<ol><li>步骤1</li><li>步骤2</li></ol>" style="height:120px;">${item.process || ''}</textarea>
-      <div class="form-hint">过程流程图、作业步骤、节点说明，支持HTML表格和列表</div>
-    </div>
-    <div class="form-group">
-      <label>📋 记录模板（支持HTML格式，可编辑）</label>
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="document.getElementById('formRecordTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
-      <button type="button" onclick="openImportPicker('recordTemplate', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formRecordTemplate" placeholder="输入记录模板，可用HTML表格，如：<table><tr><td>项目</td><td>标准</td><td>实测</td></tr></table>" style="height:150px;">${item.recordTemplate || ''}</textarea>
-      <div class="form-hint">记录表单、检验报告、审批表等，带格式的模板，可直接复制使用</div>
-    </div>
-    <div class="form-group">
-      <label>📋 模板</label>
-      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;"><button type="button" onclick="document.getElementById('formTemplate').value=''" style="font-size:13px;padding:6px 12px;border:1px solid #d1d5db;background:#fff;color:#666;border-radius:6px;cursor:pointer;">清空</button></div>
-      <button type="button" onclick="openImportPicker('template', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formTemplate" placeholder="输入模板内容，可包含表格、步骤等">${item.template || ''}</textarea>
-      <div class="form-hint">标准模板、表单格式、检验项目等</div>
-    </div>
-    <div class="form-group">
-      <label>📚 知识点</label>
-      <button type="button" onclick="openImportPicker('knowledge', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formKnowledge" placeholder="输入相关知识点">${item.knowledge || ''}</textarea>
-      <div class="form-hint">标准依据、理论知识、关键参数等</div>
-    </div>
-    <div class="form-group">
-      <label>🧠 底层逻辑</label>
-      <button type="button" onclick="openImportPicker('logic', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formLogic" placeholder="输入底层逻辑分析">${item.logic || ''}</textarea>
-      <div class="form-hint">为什么这么做、原理机制、因果关系等</div>
-    </div>
-    <div class="form-group">
-      <label>📝 操作步骤</label>
-      <button type="button" onclick="openImportPicker('operation', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formOperation" placeholder="输入具体操作步骤">${item.operation || ''}</textarea>
-      <div class="form-hint">具体操作步骤、执行方法、注意事项等</div>
-    </div>
-    <div class="form-group">
-      <label>✅ 落实情况（支持HTML表格）</label>
-      <button type="button" onclick="openImportPicker('implementation', true)" style="font-size:13px;padding:6px 12px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:6px;cursor:pointer;margin-bottom:6px;">📥 导入</button>
-      <textarea id="formImplementation" placeholder="输入落实情况跟踪表，可用HTML表格" style="height:120px;">${item.implementation || ''}</textarea>
-      <div class="form-hint">任务分解、责任人、完成时间、完成状态跟踪表</div>
-    </div>
-  `;
-  
+  const values = Object.assign({ status: 'pending' }, item);
+  if (window.FIELDS) {
+    /* 表单项目全部来自配置：点「⚙ 配置项目」可随时增/减/改，不用改代码 */
+    document.getElementById('formModalBody').innerHTML = FIELDS.render(currentModule.id, values);
+  } else {
+    document.getElementById('formModalBody').innerHTML = legacyFormHtml(item, statusOptions);
+  }
+
   document.getElementById('formModal').classList.add('show');
 }
 
@@ -3096,26 +3047,51 @@ function closeForm() {
   document.getElementById('formModal').classList.remove('show');
 }
 
+
+/* 引擎未加载时的兜底表单（极简，保证可用） */
+function legacyFormHtml(item, statusOptions) {
+  return `
+    <div class="form-group"><label>名称 <span class="required">*</span></label>
+      <input type="text" id="fx_${currentModule.id}_name" value="${item.name || ''}"></div>
+    <div class="form-group"><label>描述</label>
+      <input type="text" id="fx_${currentModule.id}_description" value="${item.description || ''}"></div>
+    <div class="form-group"><label>状态</label>
+      <select id="fx_${currentModule.id}_status">${statusOptions}</select></div>
+    <div class="form-group"><label>流程步骤</label>
+      <textarea id="fx_${currentModule.id}_process" style="height:120px">${item.process || ''}</textarea></div>
+    <div class="form-group"><label>记录模板</label>
+      <textarea id="fx_${currentModule.id}_recordTemplate" style="height:150px">${item.recordTemplate || ''}</textarea></div>
+    <div class="form-group"><label>模板</label>
+      <textarea id="fx_${currentModule.id}_template">${item.template || ''}</textarea></div>
+    <div class="form-group"><label>知识点</label>
+      <textarea id="fx_${currentModule.id}_knowledge">${item.knowledge || ''}</textarea></div>
+    <div class="form-group"><label>底层逻辑</label>
+      <textarea id="fx_${currentModule.id}_logic">${item.logic || ''}</textarea></div>
+    <div class="form-group"><label>操作步骤</label>
+      <textarea id="fx_${currentModule.id}_operation">${item.operation || ''}</textarea></div>
+    <div class="form-group"><label>落实情况</label>
+      <textarea id="fx_${currentModule.id}_implementation">${item.implementation || ''}</textarea></div>
+  `;
+}
+
 function saveForm() {
-  const name = document.getElementById('formName').value.trim();
-  if (!name) {
-    showToast('请输入名称', 'error');
-    return;
+  let data;
+  if (window.FIELDS) {
+    const d = FIELDS.collect(currentModule.id);
+    const vd = FIELDS.validate(currentModule.id, d);
+    if (!vd.ok) { showToast(vd.msg, 'error'); return; }
+    if (!String(d.name || '').trim()) { showToast('请输入名称', 'error'); return; }
+    data = Object.assign({}, d);
+  } else {
+    const name = document.getElementById('formName').value.trim();
+    if (!name) { showToast('请输入名称', 'error'); return; }
+    data = {
+      name: name,
+      description: document.getElementById('formDesc').value.trim(),
+      status: document.getElementById('formStatus').value
+    };
   }
-  
-  const data = {
-    name: name,
-    description: document.getElementById('formDesc').value.trim(),
-    status: document.getElementById('formStatus').value,
-    process: document.getElementById('formProcess').value,
-    recordTemplate: document.getElementById('formRecordTemplate').value,
-    template: document.getElementById('formTemplate').value.trim(),
-    knowledge: document.getElementById('formKnowledge').value.trim(),
-    logic: document.getElementById('formLogic').value.trim(),
-    operation: document.getElementById('formOperation').value.trim(),
-    implementation: document.getElementById('formImplementation').value,
-  };
-  
+
   if (isEditing) {
     const index = appData[currentModule.id].findIndex(item => item.id === editingId);
     if (index > -1) {
@@ -3226,13 +3202,13 @@ window.onerror = function(msg, url, line, col, error) {
   document.body.appendChild(errorDiv);
 };
 </script>
-<script src="gls-erp.js?v=18"></script>
+<script src="gls-erp.js?v=19"></script>
 <script src="gls-flow.js?v=3"></script>
 <script src="gls-erp-core.js?v=16"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-<script src="gls-inspect.js?v=2"></script>
+<script src="gls-inspect.js?v=3"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
   <script src="gls-bizflow.js?v=5"></script>
@@ -3268,5 +3244,7 @@ init();
   } catch (e) {}
 })();
 </script>
+<script src="gls-fields.js?v=1"></script>
+<script src="gls-fields-ui.js?v=1"></script>
 </body>
 </html>
