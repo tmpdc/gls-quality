@@ -2146,7 +2146,8 @@ function renderModuleTodo(mid) {
       follow.push(f);
     }
   });
-  if (!mine.length && !follow.length) return;
+  const isMrb = (mid === 'abnormal');
+  if (!mine.length && !follow.length && !isMrb) return;
 
   let h = '';
   if (mine.length) {
@@ -2188,7 +2189,67 @@ function renderModuleTodo(mid) {
     });
     h += '</div>';
   }
+  if (isMrb) h += renderMrbTodo(mid);
   box.innerHTML = h;
+}
+
+/* 不合格评审（MRB）会签待办：送进【异常处理】模块，会签人不用再去业务流转翻 */
+function renderMrbTodo(mid) {
+  if (!window.BIZFLOW) return '';
+  let all = [], mine = [];
+  try { all = BIZFLOW.mrbAll() || []; } catch (e) { return ''; }
+  try { mine = BIZFLOW.mrbMine() || []; } catch (e) {}
+
+  const open = all.filter(m => m.stage !== 'concluded');
+  const mineIds = {};
+  mine.forEach(x => { if (x.m && x.m.id) mineIds[x.m.id] = x; });
+
+  /* 待我会签 */
+  let a = '';
+  if (mine.length) {
+    a += '<div class="mtodo">';
+    a += '<div class="mtodo-hd"><span class="mtodo-badge">' + mine.length + '</span>'
+       + '<span class="mtodo-title">待我会签</span>'
+       + '<span class="mtodo-hint">不合格评审，在本模块直接签</span></div>';
+    mine.forEach(x => {
+      const m = x.m, rv = x.rv;
+      const p = (function () { try { return BIZFLOW.mrbProgress(m); } catch (e) { return null; } })();
+      a += '<div class="mtodo-card urgent">'
+        + '<div class="mtodo-t">' + esc4(m.no) + ' · ' + esc4(m.kindName || '') + '</div>'
+        + '<div class="mtodo-s">'
+        +   '<span class="mtodo-station">' + esc4(m.nodeName || '不合格评审') + '</span>'
+        +   (rv && rv.dept ? '<span class="mtodo-dept">' + esc4(rv.dept) + '</span>' : '')
+        +   (p ? '<span class="mtodo-dept">会签进度 ' + p.done + '/' + p.total + '</span>' : '')
+        + '</div>'
+        + '<div class="mtodo-node">' + esc4(m.materialName || m.material || '不合格品评审') + '</div>'
+        + (m.desc ? '<div class="mtodo-next">问题：' + esc4(m.desc) + '</div>' : '')
+        + '<div class="mtodo-a">'
+        +   '<span class="mtodo-btn primary" onclick="BIZFLOW_UI.mrbReview(\'' + m.id + '\',\'' + (rv ? rv.id : '') + '\');">✍ 填写评审意见</span>'
+        +   '<span class="mtodo-btn" onclick="BIZFLOW_UI.mrbDetail(\'' + m.id + '\')">详情</span>'
+        + '</div></div>';
+    });
+    a += '</div>';
+  }
+
+  /* 本模块进行中的评审（只读） */
+  const others = open.filter(m => !mineIds[m.id]);
+  let b = '';
+  if (others.length) {
+    b += '<div class="mtodo follow">';
+    b += '<div class="mtodo-hd"><span class="mtodo-title small">不合格评审进行中（' + others.length + '）</span>'
+       + '<span class="mtodo-hint">仅供查看</span></div>';
+    others.forEach(m => {
+      const p = (function () { try { return BIZFLOW.mrbProgress(m); } catch (e) { return null; } })();
+      b += '<div class="mtodo-row" onclick="BIZFLOW_UI.mrbDetail(\'' + m.id + '\')">'
+        + '<span class="mtodo-row-no">' + esc4(m.no) + '</span>'
+        + '<span class="mtodo-row-node">' + esc4(m.materialName || m.material || '不合格评审')
+        + (p ? ' · 会签 ' + p.done + '/' + p.total : '') + '</span>'
+        + '<span class="mtodo-row-st st-appr">' + esc4(m.kindName || '') + '</span>'
+        + '</div>';
+    });
+    b += '</div>';
+  }
+  return a + b;
 }
 
 /* 暴露给 gls-live-notify.js 用：让提示能说明「送到哪个模块」并支持一键跳转 */
@@ -2198,6 +2259,7 @@ window.moduleName = function (mid) {
   return m ? m.name : '';
 };
 window.renderModuleTodo = renderModuleTodo;
+window.renderMrbTodo = renderMrbTodo;
 Object.defineProperty(window, 'currentModule', {
   get: function () { try { return currentModule; } catch (e) { return null; } }
 });
