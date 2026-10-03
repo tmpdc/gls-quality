@@ -428,6 +428,27 @@
         '<button class="btn btn-save" onclick="exportTemplate(\'' + escAttr(tplId) + '\',\'' + escAttr(r.moduleId) + '\')">⬇ 导出 Excel</button>';
     }
     var pm = $('previewModal'); if (pm) pm.classList.add('show');
+
+    // 宽表不压扁：按列数设 min-width，窄屏横向滑动查看
+    try {
+      var pbx = $('previewBody');
+      if (pbx) {
+        var mx = 0;
+        Array.prototype.forEach.call(pbx.querySelectorAll('table'), function (tb) {
+          Array.prototype.forEach.call(tb.rows, function (r) {
+            var n = 0;
+            Array.prototype.forEach.call(r.cells, function (c) { n += (c.colSpan || 1); });
+            if (n > mx) mx = n;
+          });
+        });
+        if (mx >= 5) {
+          pbx.style.overflowX = 'auto';
+          Array.prototype.forEach.call(pbx.querySelectorAll('table'), function (tb) {
+            tb.style.minWidth = Math.max(560, mx * 62) + 'px';
+          });
+        }
+      }
+    } catch (e) {}
   };
 
   global.closePreview = function () {
