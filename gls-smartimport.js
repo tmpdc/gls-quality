@@ -1148,20 +1148,53 @@ function glsSheetToHtml(ws) {
     if (!html) { toast('该模板没有可打印内容'); return; }
     var w = window.open('', '_blank');
     if (!w) { toast('浏览器拦截了新窗口，请允许弹出窗口后重试'); return; }
+
+    // 先量出最大列数，据此决定纸张方向与缩放（宽表不挤成一团）
+    var probe = document.createElement('div');
+    probe.innerHTML = html;
+    var maxCols = 0;
+    Array.prototype.forEach.call(probe.querySelectorAll('table'), function (tb) {
+      Array.prototype.forEach.call(tb.rows, function (r) {
+        var n = 0;
+        Array.prototype.forEach.call(r.cells, function (c) { n += (c.colSpan || 1); });
+        if (n > maxCols) maxCols = n;
+      });
+    });
+    var landscape = maxCols > 8;
+    // A4 可用宽度（px，按 96dpi 折算）：横向 281mm≈1062，纵向 194mm≈733
+    var availW = landscape ? 1062 : 733;
+    var needW = maxCols * 26;                       // 每列至少 26px，保证 2 个中文能排下
+    var zoom = 1;
+    if (needW > availW) zoom = Math.max(0.34, availW / needW);
+
     var doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(title || '模板打印') + '</title>'
-      + '<style>@page{size:A4;margin:12mm 10mm}'
-      + 'body{font-family:"宋体","SimSun",serif;font-size:12px;color:#000;background:#fff;margin:0}'
-      + 'table{border-collapse:collapse;width:100%}'
-      + 'td,th{padding:3px 5px;vertical-align:middle}'
+      + '<style>@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:10mm 8mm}'
+      + 'html,body{background:#fff}'
+      + 'body{font-family:"宋体","SimSun",serif;font-size:12px;color:#000;margin:0;'
+      + (zoom < 1 ? 'zoom:' + zoom.toFixed(2) + ';' : '') + '}'
+      + 'table{border-collapse:collapse;table-layout:fixed;width:100%}'
+      + 'td,th{padding:3px 4px;vertical-align:middle;word-break:break-word;overflow-wrap:anywhere;'
+      + 'white-space:normal !important;overflow:visible !important}'
+      + 'img{max-width:100%}'
       + '.tpl-print-title{font-size:16px;font-weight:700;text-align:center;margin:0 0 8px}'
       + '.tpl-print-bar{text-align:right;margin:0 0 8px}'
-      + '@media print{.tpl-print-bar{display:none}}'
+      + '@media print{.tpl-print-bar{display:none}body{margin:0}}'
       + '</style></head><body>'
       + '<div class="tpl-print-bar"><button onclick="window.print()">打印 / 另存为 PDF</button></div>'
       + (title ? '<div class="tpl-print-title">' + esc(title) + '</div>' : '')
       + html + '</body></html>';
     w.document.open(); w.document.write(doc); w.document.close();
-    setTimeout(function () { try { w.focus(); } catch (e) {} }, 300);
+    setTimeout(function () {
+      try {
+        // 打印页里补齐每列最小宽度（原模板用 table-layout:fixed + 百分比，窄屏会压扁）
+        var tbs = w.document.querySelectorAll('table');
+        Array.prototype.forEach.call(tbs, function (tb) {
+          tb.style.minWidth = (maxCols * 26) + 'px';
+          tb.style.width = '100%';
+        });
+        w.focus();
+      } catch (e) {}
+    }, 300);
   }
   /* 直接填写：把模板表格变可编辑并打印/导出 */
   function fillTemplate(tpl) {
