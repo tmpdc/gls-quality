@@ -34,6 +34,31 @@
   ];
   /* 不合格评审（MRB）结论（可视化修改口子） */
   var MRB_OPTIONS = ['退货', '挑选使用', '特采接收', '返工返修', '报废', '重新检验'];
+  /* 触发环节 → 物料类型（决定争议物料最终流向哪个仓库/环节） */
+  var MRB_KIND = { IQC: 'raw', FIRST: 'semi', PATROL: 'semi', OQC: 'finished', RNV_QC: 'finished' };
+  var MRB_KIND_NAME = { raw: '原材料', semi: '半成品', finished: '成品' };
+  /* 结论 → 流转去向（可视化修改口子：原材料进原材料仓库、半成品进生产、成品进成品仓库） */
+  var MRB_DEST = {
+    '退货':     { raw: '原材料仓库（退供应商）', semi: '生产（返工）',   finished: '成品仓库（待退货）' },
+    '挑选使用': { raw: '原材料仓库',             semi: '生产',           finished: '成品仓库' },
+    '特采接收': { raw: '原材料仓库',             semi: '生产',           finished: '成品仓库' },
+    '返工返修': { raw: '原材料仓库',             semi: '生产（返工）',   finished: '生产（返工）' },
+    '报废':     { raw: '报废区',                 semi: '报废区',         finished: '报废区' },
+    '重新检验': { raw: '原材料待检区',           semi: '生产待检区',     finished: '成品待检区' }
+  };
+  /* 默认会签部门（可视化口子，可按物料类型调） */
+  var MRB_DEFAULT_DEPTS = {
+    raw: ['品质部', '采购部', '仓储部', '生产部'],
+    semi: ['品质部', '生产部', '技术部'],
+    finished: ['品质部', '生产部', '销售部', '仓储部']
+  };
+  /* 去向 → 通知部门 */
+  function mrbDestDept(dest) {
+    var d = String(dest || '');
+    if (d.indexOf('生产') >= 0) return '生产部';
+    if (d.indexOf('报废') >= 0 || d.indexOf('仓库') >= 0 || d.indexOf('待检区') >= 0) return '仓储部';
+    return '品质部';
+  }
   /* 检验节点 → 对应检验工作台类型（INSP.TYPES） */
   var INSP_TYPE = { IQC: 'IQC', FIRST: 'FIRST', PATROL: 'PATROL', OQC: 'OQC', RNV_FIRST: 'FIRST', RNV_PATROL: 'PATROL', RNV_OQC: 'OQC' };
   /* 流程状态 */
@@ -238,6 +263,7 @@
       /* 检验节点：pass → 正常流转；fail → 进入不合格评审（独立一套） */
       if (opts.result === 'fail') {
         f.status = FLOW_STATUS.MRB;
+        if (!f.mrbId) { try { var _m = mrbCreate(f.id, {}); f.mrbId = _m.id; f.mrbNo = _m.no; } catch (e) {} }
         f.log.push(today() + ' ' + nowTime() + ' ' + by + ' 提交「' + nd.name + '」检验不合格 → 进入不合格评审');
         save();
         notify(nd.dept + '领导', '流程 ' + f.no + '「' + nd.name + '」检验不合格，进入不合格评审', f.id);
@@ -579,42 +605,219 @@
     return null;
   }
 
-  /* MRB 不合格评审结论（独立一套）：决定流转去向 */
+  /* 兼容旧入口：快速评审（跳过会签，直接出结论并留痕） */
   function mrbDecide(fid, conclusion) {
-    if (!canMrb()) { toast('仅品质部主管或超管可进行不合格评审', false); return; }
-
     var f = getFlow(fid);
     if (!f || f.status !== FLOW_STATUS.MRB) { toast('当前不在评审状态', false); return; }
+    var m = mrbOfFlow(fid);
+    if (!m) { m = mrbCreate(fid, {}); }
+    if (m.stage === 'concluded') { toast('该评审已定稿（' + m.conclusion + '），不可更改', false); return; }
+    if (!canMrb()) { toast('仅品质部主管或超管可快速评审', false); return; }
+    if (mrbConclude(m.id, conclusion, '（快速评审）', true)) {
+      toast('评审结论已定稿：' + conclusion, true);
+    }
+  }
+
+  /* ==================== 不合格品评审（MRB）：多部门会签 + 留痕 ==================== */
+  function mrbAll() { var d = db(); if (!d.mrb) d.mrb = []; return d.mrb; }
+  function mrbGet(id) { var a = mrbAll(); for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i]; return null; }
+  function mrbNo() {
+    var a = mrbAll(), dd = today().replace(/-/g, ''), n = 0;
+    a.forEach(function (x) { if (x.no && x.no.indexOf('MRB-' + dd) === 0) n++; });
+    return 'MRB-' + dd + '-' + ('00' + (n + 1)).slice(-3);
+  }
+  /* 可选评审人：全部启用账号（按部门分组） */
+  function mrbAccounts() {
+    var out = [];
+    try {
+      var a = window.DATAHUB ? DATAHUB.get('accounts', null) : null;
+      (a && a.users || []).forEach(function (u) { if (u.status !== 'disabled' && u.username) out.push(u); });
+    } catch (e) {}
+    return out;
+  }
+  function mrbKindOf(nodeId) { return MRB_KIND[nodeId] || 'raw'; }
+  function mrbDestOf(kind, conclusion) {
+    var m = MRB_DEST[conclusion]; if (!m) return '待指定';
+    return m[kind] || '待指定';
+  }
+  /* 建立评审单：自动带默认会签部门的主管；不占用主流程节点（旁挂） */
+  function mrbCreate(flowId, opt) {
+    opt = opt || {};
+    var f = flowId ? getFlow(flowId) : null;
+    var nd = f ? curNode(f) : null;
+    var nodeId = opt.nodeId || (nd ? nd.id : '');
+    var kind = opt.kind || mrbKindOf(nodeId);
+    var cu = curUser();
+    var m = {
+      id: uid('mrb'), no: mrbNo(),
+      flowId: flowId || '', flowNo: f ? f.no : '',
+      nodeId: nodeId, nodeName: opt.nodeName || (nd ? nd.name : ''),
+      inspId: opt.inspId || '', inspNo: opt.inspNo || '',
+      material: opt.material || '', materialName: opt.materialName || '',
+      batch: opt.batch || '', qty: opt.qty || '', supplier: opt.supplier || '',
+      kind: kind, kindName: MRB_KIND_NAME[kind] || '原材料',
+      desc: opt.desc || '',
+      by: cu.realname || cu.username || '', byUser: cu.username || '',
+      time: today() + ' ' + nowTime(),
+      reviewers: [], stage: 'collecting',
+      conclusion: '', conclusionRemark: '', conclusionBy: '', conclusionTime: '',
+      dest: '', destDept: '', locked: false
+    };
+    (opt.depts || MRB_DEFAULT_DEPTS[kind] || []).forEach(function (dp) {
+      deptManagers(dp).forEach(function (u) {
+        if (!u || !u.username) return;
+        var dup = false;
+        m.reviewers.forEach(function (x) { if (x.username === u.username) dup = true; });
+        if (dup) return;
+        m.reviewers.push({ id: uid('rv'), dept: dp, user: u.realname || u.username,
+          username: u.username, status: 'pending', advice: [], opinion: '', time: '' });
+      });
+    });
+    mrbAll().push(m); save();
+    return m;
+  }
+  function mrbAddReviewer(id, username) {
+    var m = mrbGet(id); if (!m) { toast('评审单不存在', false); return false; }
+    if (m.stage === 'concluded' || m.locked) { toast('已定稿，不可修改', false); return false; }
+    var u = null;
+    mrbAccounts().forEach(function (x) { if (x.username === username) u = x; });
+    if (!u) { toast('未找到该账号', false); return false; }
+    var dup = false;
+    m.reviewers.forEach(function (r) { if (r.username === username) dup = true; });
+    if (dup) { toast('该人员已在评审名单中', false); return false; }
+    m.reviewers.push({ id: uid('rv'), dept: u.department || '', user: u.realname || u.username,
+      username: u.username, status: 'pending', advice: [], opinion: '', time: '' });
+    save();
+    notify(u.realname || u.username, '不合格评审 ' + m.no + ' 邀请你参与（' + (m.materialName || m.material) + ' · ' + m.kindName + '）', m.flowId);
+    return true;
+  }
+  function mrbDelReviewer(id, rid) {
+    var m = mrbGet(id); if (!m) return false;
+    if (m.stage === 'concluded' || m.locked) { toast('已定稿，不可修改', false); return false; }
+    var r = null; m.reviewers.forEach(function (x) { if (x.id === rid) r = x; });
+    if (r && r.status === 'done') { toast('该人员已提交意见，不可移除（留痕）', false); return false; }
+    m.reviewers = m.reviewers.filter(function (x) { return x.id !== rid; });
+    save(); return true;
+  }
+  function mrbProgress(m) {
+    var t = m.reviewers.length, dn = 0;
+    m.reviewers.forEach(function (r) { if (r.status === 'done') dn++; });
+    return { total: t, done: dn, all: t > 0 && dn === t };
+  }
+  /* 待我评审（我是评审人且未提交） */
+  function mrbMine() {
+    var u = curUser(), un = u.username, rn = u.realname, out = [];
+    mrbAll().forEach(function (m) {
+      if (m.stage === 'concluded') return;
+      if (!mrbCanSee(m)) return;
+      m.reviewers.forEach(function (r) {
+        if (r.status === 'pending' && (r.username === un || (rn && r.user === rn))) out.push({ m: m, rv: r });
+      });
+    });
+    return out;
+  }
+  /* 待我定稿（我是发起人，或超管） */
+  function mrbToConclude() {
+    var u = curUser(), un = u.username, rn = u.realname, isAdm = u.role === 'admin';
+    return mrbAll().filter(function (m) {
+      if (m.stage === 'concluded') return false;
+      return isAdm || (m.byUser && m.byUser === un) || (rn && m.by === rn);
+    });
+  }
+  /* 可见性：超管 / 发起人 / 评审人 / 品质部主管 */
+  function mrbCanSee(m) {
+    var u = curUser(); if (!u || !u.username) return false;
+    if (u.role === 'admin' || u.role === 'manager') return true;
+    if (m.byUser === u.username || m.by === u.realname) return true;
+    var hit = false;
+    m.reviewers.forEach(function (r) { if (r.username === u.username || r.user === u.realname) hit = true; });
+    return hit;
+  }
+  /* 评审人提交意见：提交即锁定，不可更改 */
+  function mrbSubmitReview(id, rid, advice, opinion) {
+    var m = mrbGet(id); if (!m) { toast('评审单不存在', false); return false; }
+    if (m.stage === 'concluded' || m.locked) { toast('该评审已定稿，不可修改', false); return false; }
+    var r = null; m.reviewers.forEach(function (x) { if (x.id === rid) r = x; });
+    if (!r) { toast('未找到评审人', false); return false; }
+    if (r.status === 'done') { toast('你已提交过意见，提交后不可更改', false); return false; }
+    var adv = advice || [];
+    if (!adv.length) { toast('请至少勾选一项建议处置', false); return false; }
+    var op = String(opinion || '').trim();
+    if (!op) { toast('请填写评审意见', false); return false; }
+    r.status = 'done'; r.advice = adv; r.opinion = op;
+    r.time = today() + ' ' + nowTime();
+    var p = mrbProgress(m);
+    notify(m.by, '不合格评审 ' + m.no + ' 收到「' + (r.dept || '') + ' ' + r.user + '」的意见（' + p.done + '/' + p.total + '）', m.flowId);
+    if (p.all) notify(m.by, '不合格评审 ' + m.no + ' 意见已收齐（' + p.done + '/' + p.total + '），请确认最终结论', m.flowId);
+    save();
+    return true;
+  }
+  /* 定稿：写死结论、留痕、按物料类型与结论决定去向，并推动主流程 */
+  function mrbConclude(id, conclusion, remark, force) {
+    var m = mrbGet(id); if (!m) { toast('评审单不存在', false); return false; }
+    if (m.stage === 'concluded' || m.locked) { toast('已定稿，不可更改', false); return false; }
+    if (MRB_OPTIONS.indexOf(conclusion) < 0) { toast('结论无效', false); return false; }
+    var u = curUser(), isAdm = u.role === 'admin', me = u.realname || u.username;
+    if (!isAdm && m.byUser !== u.username && m.by !== me) { toast('仅发起人或管理员可定稿', false); return false; }
+    var p = mrbProgress(m);
+    if (!force && p.total > 0 && !p.all) {
+      toast('还有 ' + (p.total - p.done) + ' 位评审人未提交意见，不能定稿', false); return false;
+    }
+    m.conclusion = conclusion;
+    m.conclusionRemark = String(remark || '').trim();
+    m.conclusionBy = me; m.conclusionTime = today() + ' ' + nowTime();
+    m.dest = mrbDestOf(m.kind, conclusion);
+    m.destDept = mrbDestDept(m.dest);
+    m.stage = 'concluded'; m.locked = true;
+    save();
+    applyMrbToFlow(m);
+    notifyDept(m.destDept, '不合格评审 ' + m.no + ' 定稿：' + conclusion + '，' + m.kindName + '去向 → ' + m.dest + '，请接收处理', m.flowId);
+    notify(m.by, '不合格评审 ' + m.no + ' 已定稿：' + conclusion + '（' + m.dest + '）', m.flowId);
+    return true;
+  }
+  /* 把评审结论落到主流程（留痕不可改） */
+  function applyMrbToFlow(m) {
+    var f = m.flowId ? getFlow(m.flowId) : null;
+    if (!f) return;
     var nd = curNode(f);
-    var by = curUser().realname || curUser().username || '';
-    f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '不合格→' + conclusion });
-    f.log.push(today() + ' ' + nowTime() + ' 不合格评审结论：' + conclusion + '（' + by + '）');
-    if (conclusion === '退货' || conclusion === '报废') {
+    if (nd) {
+      f.done.push({ node: nd.id, name: nd.name, by: m.conclusionBy, time: m.conclusionTime,
+        result: '不合格→' + m.conclusion, remark: m.conclusionRemark });
+    }
+    f.mrbId = m.id; f.mrbNo = m.no;
+    f.log.push(m.conclusionTime + ' 不合格评审 ' + m.no + ' 定稿：' + m.conclusion + '；' + m.kindName + '流向 → ' + m.dest + '（' + m.conclusionBy + '）');
+    if (m.conclusionRemark) f.log.push('  结论备注：' + m.conclusionRemark);
+    m.reviewers.forEach(function (r) {
+      f.log.push('  会签留痕 · ' + (r.dept || '') + ' ' + r.user + '：建议[' + ((r.advice || []).join('／') || '—') + '] ' + (r.opinion || '') + '（' + r.time + '）');
+    });
+    var c = m.conclusion;
+    if (c === '退货' || c === '报废') {
       f.status = FLOW_STATUS.CLOSE;
-      f.log.push(today() + ' ' + nowTime() + ' 流程关闭（' + conclusion + '）');
-      notify(f.creator || '相关人', '流程 ' + f.no + ' 因' + conclusion + '已关闭', f.id);
-      save();
-      return;
+      f.log.push(today() + ' ' + nowTime() + ' 流程关闭（' + c + '）');
+      notify(f.creator || '相关人', '流程 ' + f.no + ' 因' + c + '已关闭', f.id);
+      save(); return;
     }
-    if (conclusion === '重新检验' || conclusion === '返工返修') {
-      /* 退回当前检验节点重新检验 */
+    if (c === '重新检验' || c === '返工返修') {
       f.status = FLOW_STATUS.RUN;
-      f.log.push(today() + ' ' + nowTime() + ' 退回「' + nd.name + '」重新检验/返工后复检');
-      notify(nd.dept, '流程 ' + f.no + '「' + nd.name + '」需返工/重新检验，请处理', f.id);
-      save();
-      return;
+      f.log.push(today() + ' ' + nowTime() + ' 退回「' + nd.name + '」返工／重新检验');
+      notifyDept(nd.dept, '流程 ' + f.no + '「' + nd.name + '」需返工／重新检验，请处理', f.id);
+      save(); return;
     }
-    /* 挑选使用 / 特采接收：视为放行，走合格分支 */
+    /* 挑选使用 / 特采接收 → 放行，走合格分支 */
     var nxt = (nd.branch && nd.branch.pass) ? nd.branch.pass : nd.next;
     f.status = FLOW_STATUS.RUN;
-    f.log.push(today() + ' ' + nowTime() + ' 评审放行（' + conclusion + '），流转至下一环节');
-    var t = f.cur;
     f.cur = nxt;
     var nnd = curNode(f);
-    if (!nnd) { f.status = FLOW_STATUS.DONE; }
-    else f.log.push(today() + ' ' + nowTime() + ' 自动流转至「' + nnd.name + '」');
+    if (!nnd) f.status = FLOW_STATUS.DONE;
+    else f.log.push(today() + ' ' + nowTime() + ' 评审放行，自动流转至「' + nnd.name + '」');
     save();
-    notify(nnd ? nnd.dept : '相关人', '流程 ' + f.no + ' 评审放行，流转至「' + (nnd ? nnd.name : '完成') + '」', f.id);
+    notifyDept(nnd ? nnd.dept : '相关人', '流程 ' + f.no + ' 评审放行，流转至「' + (nnd ? nnd.name : '完成') + '」', f.id);
+  }
+  /* 按流程找评审单 */
+  function mrbOfFlow(fid) {
+    var hit = null;
+    mrbAll().forEach(function (m) { if (m.flowId === fid) hit = m; });
+    return hit;
   }
 
   /* ==================== 对外暴露 ==================== */
@@ -624,6 +827,14 @@
     db: db, flows: flows, notices: notices, getFlow: getFlow,
     startFromSo: startFromSo, startFromRtn: startFromRtn,
     submit: submit, approve: approve, mrbDecide: mrbDecide,
+    MRB_KIND: MRB_KIND, MRB_KIND_NAME: MRB_KIND_NAME, MRB_DEST: MRB_DEST,
+    MRB_DEFAULT_DEPTS: MRB_DEFAULT_DEPTS, MRB_ADVICE: MRB_OPTIONS,
+    mrbAll: mrbAll, mrbGet: mrbGet, mrbCreate: mrbCreate, mrbOfFlow: mrbOfFlow,
+    mrbAddReviewer: mrbAddReviewer, mrbDelReviewer: mrbDelReviewer,
+    mrbAccounts: mrbAccounts, mrbProgress: mrbProgress, mrbDestOf: mrbDestOf,
+    mrbDestDept: mrbDestDept, mrbKindOf: mrbKindOf, mrbCanSee: mrbCanSee,
+    mrbMine: mrbMine, mrbToConclude: mrbToConclude,
+    mrbSubmitReview: mrbSubmitReview, mrbConclude: mrbConclude,
     curNode: curNode, bomNeed: bomNeed, stockBal: stockBal, canApprove: canApprove, canMrb: canMrb,
     deptManagers: deptManagers, accountOf: accountOf, notifyDept: notifyDept,
     erpList: erpList, erpEnt: erpEnt, erpData: erpData, findRec: findRec,
@@ -694,7 +905,18 @@
     });
     /* 我的待审批：管理员可审全部，普通用户审自己提交的？审批人=部门领导(role=admin 或 leader) */
     var myTodo = flows.filter(function (f) { return f.status === B.FLOW_STATUS.APPR && B.canApprove(f); });
-    var myMrb = flows.filter(function (f) { return f.status === B.FLOW_STATUS.MRB && B.canMrb(); });
+    /* 兜底：处于待评审但没有评审单的流程，自动补建一张（不让评审卡住） */
+    flows.forEach(function (f) {
+      if (f.status === B.FLOW_STATUS.MRB && !f.mrbId) {
+        try { var mm = B.mrbCreate(f.id, {}); f.mrbId = mm.id; f.mrbNo = mm.no; } catch (e) {}
+      }
+    });
+    var _mrbAll = B.mrbAll ? B.mrbAll().filter(function (m) { return B.mrbCanSee(m); }) : [];
+    var myMrb = {
+      mine: B.mrbMine ? B.mrbMine() : [],
+      toConcl: B.mrbToConclude ? B.mrbToConclude() : [],
+      done: _mrbAll.filter(function (m) { return m.stage === 'concluded'; }).slice(-6).reverse()
+    };
 
     var h = '<div class="biz-stats">'
       + stat(stats.run, '流转中', 'run') + stat(stats.appr, '待审批', 'appr')
@@ -856,13 +1078,55 @@
   }
 
   /* ---- 我的待办 ---- */
-  function renderTodo(apprList, mrbList) {
+  function mrbSummaryHtml(m) {
+    if (!m.reviewers || !m.reviewers.length) return '<div class="mrb-none">尚未指定会签人员</div>';
+    var h = '<div class="mrb-tbwrap"><table class="mrb-sum"><thead><tr>'
+      + '<th>部门</th><th>会签人</th><th>建议处置</th><th>评审意见</th><th>提交时间</th><th>状态</th>'
+      + '</tr></thead><tbody>';
+    m.reviewers.forEach(function (r) {
+      h += '<tr>'
+        + '<td>' + esc(r.dept || '—') + '</td>'
+        + '<td>' + esc(r.user) + '</td>'
+        + '<td>' + esc((r.advice || []).join('／') || '—') + '</td>'
+        + '<td class="mrb-op">' + esc(r.opinion || '—') + '</td>'
+        + '<td>' + esc(r.time || '—') + '</td>'
+        + '<td>' + (r.status === 'done' ? '<span class="mrb-ok">已提交</span>' : '<span class="mrb-wait">待提交</span>') + '</td>'
+        + '</tr>';
+    });
+    h += '</tbody></table></div>';
+    if (m.stage === 'concluded') {
+      h += '<div class="mrb-final">最终结论：<b>' + esc(m.conclusion) + '</b>　去向：<b>' + esc(m.dest) + '</b>'
+        + '<br>定稿人：' + esc(m.conclusionBy) + '　定稿时间：' + esc(m.conclusionTime)
+        + (m.conclusionRemark ? '<br>结论备注：' + esc(m.conclusionRemark) : '')
+        + '<br><span class="mrb-lock">已定稿锁定 · 不可更改</span></div>';
+    }
+    return h;
+  }
+  function mrbInfoHtml(m) {
+    var p = B.mrbProgress(m);
+    return '<div class="mrb-info">'
+      + '<div class="mrb-info-r"><span>评审单号</span><b>' + esc(m.no) + '</b></div>'
+      + '<div class="mrb-info-r"><span>触发环节</span><b>' + esc(m.nodeName || '—') + '</b></div>'
+      + '<div class="mrb-info-r"><span>物料类型</span><b>' + esc(m.kindName || '—') + '</b></div>'
+      + '<div class="mrb-info-r"><span>物料</span><b>' + esc(m.materialName || m.material || '—') + '</b></div>'
+      + '<div class="mrb-info-r"><span>批次 / 数量</span><b>' + esc(m.batch || '—') + ' / ' + esc(m.qty || '—') + '</b></div>'
+      + (m.supplier ? '<div class="mrb-info-r"><span>供应商</span><b>' + esc(m.supplier) + '</b></div>' : '')
+      + '<div class="mrb-info-r"><span>发起</span><b>' + esc(m.by) + ' · ' + esc(m.time) + '</b></div>'
+      + '<div class="mrb-info-r"><span>会签进度</span><b>' + p.done + ' / ' + p.total + '</b></div>'
+      + (m.desc ? '<div class="mrb-desc">问题描述：' + esc(m.desc) + '</div>' : '')
+      + '</div>';
+  }
+  function renderTodo(apprList, mrbObj) {
+    var mrbMine = (mrbObj && mrbObj.mine) || [];
+    var mrbConcl = (mrbObj && mrbObj.toConcl) || [];
+    var mrbDone = (mrbObj && mrbObj.done) || [];
     var h = '<div class="biz-section">';
     h += '<div class="biz-sec-title">📌 我的待办</div>';
-    if (!apprList.length && !mrbList.length) {
+    if (!apprList.length && !mrbMine.length && !mrbConcl.length && !mrbDone.length) {
       h += '<div class="biz-empty">暂无待办事项</div></div>';
       return h;
     }
+    /* ① 待审批 */
     apprList.forEach(function (f) {
       var nd = B.curNode(f);
       h += '<div class="biz-todo appr"><div class="biz-todo-t">【待审批】' + esc(f.no) + ' · ' + esc(f.title) + '</div>'
@@ -874,17 +1138,40 @@
         + '<span class="erp-btn" onclick="BIZFLOW_UI.detail(\'' + f.id + '\')">详情</span>'
         + '</div></div>';
     });
-    mrbList.forEach(function (f) {
-      var nd = B.curNode(f);
-      h += '<div class="biz-todo mrb"><div class="biz-todo-t">【不合格评审】' + esc(f.no) + ' · ' + esc(f.title) + '</div>'
-        + '<div class="biz-todo-s">不合格环节：' + esc(nd ? nd.name : '') + '</div>'
-        + docBlock(f)
-        + '<div class="biz-todo-a">';
-      B.MRB_OPTIONS.forEach(function (op) {
-        h += '<span class="erp-btn" onclick="BIZFLOW.mrbDecide(\'' + f.id + '\',\'' + op + '\')">' + op + '</span>';
-      });
-      h += '<span class="erp-btn" onclick="BIZFLOW_UI.detail(\'' + f.id + '\')">详情</span>'
+    /* ② 待我会签 */
+    mrbMine.forEach(function (it) {
+      var m = it.m, rv = it.rv, p = B.mrbProgress(m);
+      h += '<div class="biz-todo mrb"><div class="biz-todo-t">【待我会签】' + esc(m.no) + ' · ' + esc(m.nodeName || '不合格评审') + '</div>'
+        + '<div class="biz-todo-s">' + esc(m.kindName) + ' · ' + esc(m.materialName || m.material || '—')
+        + ' · 批次 ' + esc(m.batch || '—') + ' · 数量 ' + esc(m.qty || '—') + '</div>'
+        + '<div class="biz-todo-s">发起：' + esc(m.by) + ' · ' + esc(m.time) + ' · 会签进度 <b>' + p.done + '/' + p.total + '</b></div>'
+        + (m.desc ? '<div class="mrb-desc">问题描述：' + esc(m.desc) + '</div>' : '')
+        + '<div class="biz-todo-a">'
+        + '<span class="erp-btn primary" onclick="BIZFLOW_UI.mrbReview(\'' + m.id + '\',\'' + rv.id + '\')">✍ 填写评审意见</span>'
+        + '<span class="erp-btn" onclick="BIZFLOW_UI.mrbDetail(\'' + m.id + '\')">详情</span>'
         + '</div></div>';
+    });
+    /* ③ 待定稿 */
+    mrbConcl.forEach(function (m) {
+      var p = B.mrbProgress(m);
+      h += '<div class="biz-todo mrb concl"><div class="biz-todo-t">【待定稿】' + esc(m.no) + ' · ' + esc(m.nodeName || '不合格评审') + '</div>'
+        + '<div class="biz-todo-s">' + esc(m.kindName) + ' · ' + esc(m.materialName || m.material || '—')
+        + ' · 会签进度 <b>' + p.done + '/' + p.total + '</b>'
+        + (p.total === 0 ? '（尚未指定会签人）' : (p.all ? '（意见已收齐）' : '（还有 ' + (p.total - p.done) + ' 人未提交）')) + '</div>'
+        + mrbSummaryHtml(m)
+        + '<div class="biz-todo-a">'
+        + '<span class="erp-btn primary" onclick="BIZFLOW_UI.mrbConcludeDlg(\'' + m.id + '\')">✔ 确认结论并定稿</span>'
+        + '<span class="erp-btn" onclick="BIZFLOW_UI.mrbEditRvl(\'' + m.id + '\')">＋ 调整会签人</span>'
+        + '<span class="erp-btn" onclick="BIZFLOW_UI.mrbDetail(\'' + m.id + '\')">详情</span>'
+        + '</div></div>';
+    });
+    /* ④ 已定稿留痕 */
+    mrbDone.forEach(function (m) {
+      h += '<div class="biz-todo mrb done"><div class="biz-todo-t">【已定稿·留痕】' + esc(m.no) + ' · 结论 ' + esc(m.conclusion) + '</div>'
+        + '<div class="biz-todo-s">' + esc(m.kindName) + ' · ' + esc(m.materialName || m.material || '—')
+        + ' · 去向 <b>' + esc(m.dest) + '</b></div>'
+        + mrbSummaryHtml(m)
+        + '<div class="biz-todo-a"><span class="erp-btn" onclick="BIZFLOW_UI.mrbDetail(\'' + m.id + '\')">查看留痕</span></div></div>';
     });
     h += '</div>';
     return h;
@@ -1053,6 +1340,184 @@
   }
 
   /* ---- 消息中心 ---- */
+  /* ==================== 不合格评审（MRB）交互 ==================== */
+  function mrbModal(title, bodyHtml, footHtml) {
+    mrbClose();
+    var d = document.createElement('div');
+    d.id = 'mrbModal';
+    d.className = 'mrb-mask';
+    d.innerHTML = '<div class="mrb-dlg">'
+      + '<div class="mrb-dlg-h"><b>' + esc(title) + '</b><span class="mrb-x" onclick="BIZFLOW_UI.mrbClose()">✕</span></div>'
+      + '<div class="mrb-dlg-b">' + bodyHtml + '</div>'
+      + '<div class="mrb-dlg-f">' + footHtml + '</div>'
+      + '</div>';
+    document.body.appendChild(d);
+    var b = d.querySelector('.mrb-dlg-b'); if (b) b.scrollTop = 0;
+  }
+  function mrbClose() {
+    var m = document.getElementById('mrbModal');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+  }
+  function rvChecked() {
+    var out = [], cs = document.querySelectorAll('#mrbModal input.mrb-a'), i;
+    for (i = 0; i < cs.length; i++) if (cs[i].checked) out.push(cs[i].value);
+    return out;
+  }
+  function rvRadio() {
+    var out = '', cs = document.querySelectorAll('#mrbModal input.mrb-c'), i;
+    for (i = 0; i < cs.length; i++) if (cs[i].checked) out = cs[i].value;
+    return out;
+  }
+  /* 评审人填写意见 */
+  function mrbReview(mrbId, rvId) {
+    var m = B.mrbGet(mrbId); if (!m) { toast('评审单不存在', false); return; }
+    var rv = null;
+    m.reviewers.forEach(function (r) { if (r.id === rvId) rv = r; });
+    if (!rv) { toast('未找到你的会签记录', false); return; }
+    if (rv.status === 'done') {
+      mrbModal('不合格评审 · 我的意见（已提交）',
+        mrbInfoHtml(m) + mrbSummaryHtml(m),
+        '<span class="erp-btn" onclick="BIZFLOW_UI.mrbClose()">关闭</span>');
+      return;
+    }
+    var body = mrbInfoHtml(m)
+      + '<div class="mrb-lb">我的建议处置（可多选，必选至少一项）</div><div class="mrb-adv">';
+    B.MRB_OPTIONS.forEach(function (op) {
+      body += '<label class="mrb-ck"><input type="checkbox" class="mrb-a" value="' + esc(op) + '">' + esc(op) + '</label>';
+    });
+    body += '</div>'
+      + '<div class="mrb-lb">评审意见（提交后锁定，不可更改）</div>'
+      + '<textarea id="mrbOpinion" class="mrb-ta" placeholder="写清判断依据与处置建议，例如：外观不良 3pcs，建议挑选使用并加严抽检"></textarea>'
+      + '<div class="mrb-note">提交后本记录会永久留痕（含你的姓名、部门、意见、时间），任何人不含你自己都不能再修改。</div>';
+    var foot = '<span class="erp-btn" onclick="BIZFLOW_UI.mrbClose()">取消</span>'
+      + '<span class="erp-btn primary" onclick="BIZFLOW_UI.mrbReviewSave(\'' + m.id + '\',\'' + rv.id + '\')">提交意见（锁定）</span>';
+    mrbModal('不合格评审 · 填写我的意见', body, foot);
+  }
+  function mrbReviewSave(mrbId, rvId) {
+    var op = (document.getElementById('mrbOpinion') || {}).value || '';
+    if (B.mrbSubmitReview(mrbId, rvId, rvChecked(), op)) {
+      mrbClose();
+      toast('意见已提交并留痕，不可更改', true);
+      renderHome();
+    }
+  }
+  /* 发起人定稿 */
+  function mrbConcludeDlg(mrbId) {
+    var m = B.mrbGet(mrbId); if (!m) { toast('评审单不存在', false); return; }
+    if (m.stage === 'concluded') { mrbDetail(mrbId); return; }
+    var p = B.mrbProgress(m);
+    var body = mrbInfoHtml(m) + mrbSummaryHtml(m);
+    if (p.total === 0) body += '<div class="mrb-warn">尚未指定会签人，请先「调整会签人」再定稿；也可以直接定稿（快速评审）。</div>';
+    else if (!p.all) body += '<div class="mrb-warn">还有 ' + (p.total - p.done) + ' 位会签人未提交意见。意见收齐后才能定稿。</div>';
+    body += '<div class="mrb-lb">最终结论（单选，定稿后不可更改）</div><div class="mrb-adv">';
+    B.MRB_OPTIONS.forEach(function (op, i) {
+      body += '<label class="mrb-ck"><input type="radio" name="mrbC" class="mrb-c" value="' + esc(op) + '"'
+        + (i === 0 ? '' : '') + ' onchange="BIZFLOW_UI.mrbDestTip(\'' + m.id + '\')">' + esc(op) + '</label>';
+    });
+    body += '</div>'
+      + '<div class="mrb-lb">结论备注（可选）</div>'
+      + '<textarea id="mrbRemark" class="mrb-ta" placeholder="例如：经四部门会签，同意挑选使用，加严抽检一批"></textarea>'
+      + '<div class="mrb-lb">定稿后物料去向（按类型自动判定）</div>'
+      + '<div id="mrbDestTip" class="mrb-tip">选择结论后显示（当前物料类型：' + esc(m.kindName) + '）</div>';
+    var foot = '<span class="erp-btn" onclick="BIZFLOW_UI.mrbClose()">取消</span>'
+      + '<span class="erp-btn primary" onclick="BIZFLOW_UI.mrbConcludeSave(\'' + m.id + '\')">✔ 定稿并自动流转</span>';
+    mrbModal('不合格评审 · 确认最终结论', body, foot);
+  }
+  function mrbDestTip(mrbId) {
+    var m = B.mrbGet(mrbId); if (!m) return;
+    var c = rvRadio();
+    var el = document.getElementById('mrbDestTip');
+    if (!el) return;
+    if (!c) { el.textContent = '选择结论后显示（当前物料类型：' + m.kindName + '）'; return; }
+    var dest = B.mrbDestOf(m.kind, c);
+    el.innerHTML = '<b>' + esc(m.kindName) + '</b> → <b class="mrb-dest">' + esc(dest) + '</b>'
+      + '（定稿后自动通知 ' + esc(B.mrbDestDept(dest)) + ' 接收处理）';
+  }
+  function mrbConcludeSave(mrbId) {
+    var c = rvRadio();
+    var rm = (document.getElementById('mrbRemark') || {}).value || '';
+    if (!c) { toast('请选择最终结论', false); return; }
+    var m = B.mrbGet(mrbId);
+    var p = m ? B.mrbProgress(m) : null;
+    var force = !!(p && (p.total === 0 || p.all));
+    if (p && p.total > 0 && !p.all) { toast('还有 ' + (p.total - p.done) + ' 位会签人未提交意见', false); return; }
+    if (B.mrbConclude(mrbId, c, rm, force)) {
+      mrbClose();
+      toast('已定稿：' + c + '，已通知 ' + (B.mrbDestDept(B.mrbDestOf((m || {}).kind, c))) + ' 接收', true);
+      renderHome();
+    }
+  }
+  /* 调整会签人 */
+  function mrbEditRvl(mrbId) {
+    var m = B.mrbGet(mrbId); if (!m) { toast('评审单不存在', false); return; }
+    if (m.stage === 'concluded') { toast('已定稿，不可调整', false); return; }
+    var body = mrbInfoHtml(m) + '<div class="mrb-lb">当前会签人</div>' + mrbSumEditable(m)
+      + '<div class="mrb-lb">添加会签人（按部门选人）</div>'
+      + '<div class="mrb-addrow"><select id="mrbAddUser" class="mrb-sel">' + mrbUserOptions(m) + '</select>'
+      + '<span class="erp-btn" onclick="BIZFLOW_UI.mrbAddRv(\'' + m.id + '\')">＋ 加入</span></div>';
+    var p = B.mrbProgress(m);
+    body += p.all && p.total > 0 ? '<div class="mrb-note">✓ 会签意见已收齐，可回到列表确认结论定稿。</div>'
+      : '<div class="mrb-note">已提交意见的人不可移除（留痕要求）。</div>';
+    var foot = '<span class="erp-btn" onclick="BIZFLOW_UI.mrbClose()">关闭</span>'
+      + '<span class="erp-btn primary" onclick="BIZFLOW_UI.mrbConcludeDlg(\'' + m.id + '\')">下一步：确认结论</span>';
+    mrbModal('不合格评审 · 调整会签人', body, foot);
+  }
+  function mrbSumEditable(m) {
+    if (!m.reviewers.length) return '<div class="mrb-none">尚未指定会签人员</div>';
+    var h = '<div class="mrb-tbwrap"><table class="mrb-sum"><thead><tr>'
+      + '<th>部门</th><th>会签人</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    m.reviewers.forEach(function (r) {
+      h += '<tr><td>' + esc(r.dept || '—') + '</td><td>' + esc(r.user) + '</td>'
+        + '<td>' + (r.status === 'done' ? '<span class="mrb-ok">已提交</span>' : '<span class="mrb-wait">待提交</span>') + '</td>'
+        + '<td>' + (r.status === 'done'
+          ? '<span class="mrb-lk">已锁定</span>'
+          : '<span class="mrb-del" onclick="BIZFLOW_UI.mrbDelRv(\'' + m.id + '\',\'' + r.id + '\')">移除</span>')
+        + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    return h;
+  }
+  function mrbUserOptions(m) {
+    var accs = B.mrbAccounts(), inSet = {}, byDept = {}, order = [];
+    m.reviewers.forEach(function (r) { if (r.username) inSet[r.username] = true; });
+    accs.forEach(function (u) {
+      var dp = u.department || '未分配部门';
+      if (!byDept[dp]) { byDept[dp] = []; order.push(dp); }
+      byDept[dp].push(u);
+    });
+    var h = '<option value="">请选择人员</option>';
+    order.forEach(function (dp) {
+      h += '<optgroup label="' + esc(dp) + '">';
+      byDept[dp].forEach(function (u) {
+        if (inSet[u.username]) return;
+        var role = u.role === 'manager' ? '（主管）' : (u.role === 'admin' ? '（管理员）' : '');
+        h += '<option value="' + esc(u.username) + '">' + esc((u.realname || u.username) + role + ' · ' + (u.post || '')) + '</option>';
+      });
+      h += '</optgroup>';
+    });
+    return h;
+  }
+  function mrbAddRv(mrbId) {
+    var sel = document.getElementById('mrbAddUser');
+    var v = sel ? sel.value : '';
+    if (!v) { toast('请选择要加入的人员', false); return; }
+    if (B.mrbAddReviewer(mrbId, v)) { toast('已加入会签名单并通知本人', true); mrbEditRvl(mrbId); }
+  }
+  function mrbDelRv(mrbId, rid) {
+    if (B.mrbDelReviewer(mrbId, rid)) { toast('已移除', true); mrbEditRvl(mrbId); }
+  }
+  /* 留痕详情（只读） */
+  function mrbDetail(mrbId) {
+    var m = B.mrbGet(mrbId); if (!m) { toast('评审单不存在', false); return; }
+    var locked = m.stage === 'concluded';
+    var body = mrbInfoHtml(m) + mrbSummaryHtml(m)
+      + '<div class="mrb-note">' + (locked ? '本评审已定稿并锁定，以下记录永久留痕、不可更改。'
+        : '本评审进行中，已提交的意见立即锁定、不可更改。') + '</div>';
+    var foot = '<span class="erp-btn" onclick="BIZFLOW_UI.mrbClose()">关闭</span>';
+    if (m.flowId) foot += '<span class="erp-btn" onclick="BIZFLOW_UI.detail(\'' + m.flowId + '\')">查看流程</span>';
+    mrbModal('不合格评审 · ' + m.no, body, foot);
+  }
+
   function openNotices() {
     var ns = B.notices();
     var h = '<div class="biz-section"><div class="biz-sec-title">🔔 消息中心（' + ns.length + '）</div>';
@@ -1145,6 +1610,9 @@
   })();
 
   window.BIZFLOW_UI = {
+    mrbModal: mrbModal, mrbClose: mrbClose, mrbReview: mrbReview, mrbReviewSave: mrbReviewSave,
+    mrbConcludeDlg: mrbConcludeDlg, mrbConcludeSave: mrbConcludeSave, mrbDestTip: mrbDestTip,
+    mrbEditRvl: mrbEditRvl, mrbAddRv: mrbAddRv, mrbDelRv: mrbDelRv, mrbDetail: mrbDetail,
     openHome: openHome, openStart: openStart, openNotices: openNotices,
     detail: detail, submitDlg: submitDlg, help: help, goInsp: goInsp, goMrb: goMrb,
     updateBadge: updateBadge, injectBiz: injectBiz
@@ -1176,4 +1644,62 @@
     document.head.appendChild(st);
   })();
 
+})();
+
+/* ===== 不合格评审（MRB）会签界面：样式注入 ===== */
+(function () {
+  if (document.getElementById('mrbStyle')) return;
+  var st = document.createElement('style');
+  st.id = 'mrbStyle';
+  st.textContent = `/* ===== 不合格评审（MRB）会签界面 ===== */
+.mrb-mask{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+.mrb-dlg{background:#fff;border-radius:12px;width:100%;max-width:860px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.28)}
+.mrb-dlg-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e7eb;font-size:15px;color:#111827}
+.mrb-x{cursor:pointer;color:#9ca3af;font-size:16px;padding:0 4px}
+.mrb-x:hover{color:#374151}
+.mrb-dlg-b{padding:16px 18px;overflow-y:auto;flex:1}
+.mrb-dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #e5e7eb}
+.mrb-info{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.mrb-info-r{display:flex;gap:8px;font-size:13px;line-height:1.9;color:#374151}
+.mrb-info-r>span{flex:0 0 84px;color:#6b7280}
+.mrb-info-r>b{flex:1;color:#111827;font-weight:600;word-break:break-all}
+.mrb-desc{margin-top:6px;padding:8px 10px;background:#fff7ed;border-left:3px solid #f59e0b;border-radius:4px;font-size:13px;color:#7c2d12;line-height:1.7}
+.mrb-lb{font-size:13px;font-weight:600;color:#374151;margin:14px 0 8px}
+.mrb-adv{display:flex;flex-wrap:wrap;gap:8px}
+.mrb-ck{display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #d1d5db;border-radius:20px;font-size:13px;cursor:pointer;color:#374151;background:#fff}
+.mrb-ck:hover{border-color:#16a34a;background:#f0fdf4}
+.mrb-ck input{margin:0}
+.mrb-ta{width:100%;min-height:88px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:10px;font-size:13px;line-height:1.7;resize:vertical;font-family:inherit}
+.mrb-ta:focus{outline:none;border-color:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.12)}
+.mrb-note{margin-top:10px;font-size:12px;color:#6b7280;line-height:1.7;background:#f3f4f6;border-radius:6px;padding:8px 10px}
+.mrb-warn{margin:10px 0;font-size:13px;color:#92400e;background:#fef3c7;border-radius:6px;padding:9px 11px;line-height:1.7}
+.mrb-tip{margin-top:6px;font-size:13px;color:#374151;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:9px 11px;line-height:1.7}
+.mrb-dest{color:#15803d}
+.mrb-tbwrap{overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px}
+.mrb-sum{width:100%;border-collapse:collapse;font-size:12.5px;min-width:640px}
+.mrb-sum th{background:#f0fdf4;color:#166534;font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid #dcfce7;white-space:nowrap}
+.mrb-sum td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:top}
+.mrb-sum tr:last-child td{border-bottom:none}
+.mrb-op{min-width:180px;line-height:1.65;word-break:break-word}
+.mrb-ok{color:#15803d;font-weight:600;white-space:nowrap}
+.mrb-wait{color:#b45309;white-space:nowrap}
+.mrb-lk{color:#9ca3af;white-space:nowrap}
+.mrb-del{color:#dc2626;cursor:pointer;white-space:nowrap}
+.mrb-del:hover{text-decoration:underline}
+.mrb-none{font-size:13px;color:#9ca3af;padding:10px;background:#f9fafb;border-radius:6px}
+.mrb-final{margin-top:10px;padding:10px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;font-size:13px;color:#14532d;line-height:1.85}
+.mrb-lock{display:inline-block;margin-top:4px;font-size:12px;color:#15803d;background:#d1fae5;border-radius:4px;padding:2px 8px}
+.mrb-addrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mrb-sel{flex:1;min-width:220px;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;background:#fff}
+.biz-todo.concl{border-left:4px solid #f59e0b}
+.biz-todo.done{border-left:4px solid #15803d;background:#fafdfb}
+@media(max-width:560px){
+  .mrb-dlg{max-height:94vh}
+  .mrb-info-r>span{flex:0 0 68px}
+  .mrb-sum{min-width:520px;font-size:12px}
+  .mrb-sum th,.mrb-sum td{padding:6px 8px}
+  .mrb-ck{padding:6px 10px;font-size:12.5px}
+}
+`;
+  document.head.appendChild(st);
 })();
