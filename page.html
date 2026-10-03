@@ -3146,6 +3146,21 @@ init();
     if (cur && cur.role !== 'admin' && window.ERP && ERP.openHome) ERP.openHome();
   } catch (e) {}
 })();
+
+// 清理示例账号（历史遗留），保证工作台不出现示例人名
+(function () {
+  try {
+    var DEMO = ['zhangsan', 'lisi', 'wangwu', 'zhaoliu', 'admin'];
+    var arr = null;
+    try { if (window.DATAHUB && DATAHUB.get) arr = DATAHUB.get('accounts'); } catch (e) {}
+    if (!Array.isArray(arr)) { try { arr = JSON.parse(localStorage.getItem('gls_accounts') || '[]'); } catch (e) { arr = []; } }
+    if (!Array.isArray(arr) || !arr.length) return;
+    var kept = arr.filter(function (a) { return a && DEMO.indexOf(a.username) < 0; });
+    if (kept.length === arr.length) return;
+    try { if (window.DATAHUB && DATAHUB.set) DATAHUB.set('accounts', kept); } catch (e) {}
+    try { localStorage.setItem('gls_accounts', JSON.stringify(kept)); } catch (e) {}
+  } catch (e) {}
+})();
 </script>
 </body>
 </html>
