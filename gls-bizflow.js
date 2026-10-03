@@ -264,9 +264,17 @@
     var nd = curNode(f);
     if (!canApprove(f)) { toast('仅「' + nd.dept + '」部门主管或超管可审批此单', false); return; }
     var by = curUser().realname || curUser().username || '';
+    /* 审批意见：通过可留空，驳回必须写明原因 */
+    var remark = '';
+    try {
+      var _r = window.prompt(pass ? '审批意见（可留空）：' : '驳回原因（必填）：', '');
+      if (_r === null) return;
+      remark = String(_r || '').trim();
+    } catch (e) {}
+    if (!pass && !remark) { toast('驳回必须填写原因', false); return; }
     if (pass) {
-      f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '通过' });
-      f.log.push(today() + ' ' + nowTime() + ' ' + by + '（' + nd.dept + '领导）审批通过「' + nd.name + '」');
+      f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '通过', remark: remark });
+      f.log.push(today() + ' ' + nowTime() + ' ' + by + '（' + nd.dept + '领导）审批通过「' + nd.name + '」' + (remark ? '，意见：' + remark : ''));
       /* 执行节点动作（自动建单/库存/齐套检查） */
       var act = nd.action || (nd.branch ? null : null);
       if (act) { try { nodeAction(f, nd, act); } catch (e) { f.log.push('节点动作异常: ' + e.message); } }
@@ -274,7 +282,8 @@
       advance(f);
     } else {
       f.status = FLOW_STATUS.REJ;
-      f.log.push(today() + ' ' + nowTime() + ' ' + by + '（' + nd.dept + '领导）驳回「' + nd.name + '」');
+      f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '驳回', remark: remark });
+      f.log.push(today() + ' ' + nowTime() + ' ' + by + '（' + nd.dept + '领导）驳回「' + nd.name + '」' + (remark ? '：' + remark : ''));
       notify(f._submitBy || f.creator || '相关人', '流程 ' + f.no + ' 环节「' + nd.name + '」被驳回，请重新处理', f.id);
       save();
     }
@@ -617,6 +626,7 @@
     submit: submit, approve: approve, mrbDecide: mrbDecide,
     curNode: curNode, bomNeed: bomNeed, stockBal: stockBal, canApprove: canApprove, canMrb: canMrb,
     deptManagers: deptManagers, accountOf: accountOf, notifyDept: notifyDept,
+    erpList: erpList, erpEnt: erpEnt, erpData: erpData, findRec: findRec,
     notify: notify, markRead: function (id) {
       var ns = notices();
       for (var i = 0; i < ns.length; i++) if (ns[i].id === id) ns[i].read = true;
@@ -702,6 +712,149 @@
     return '<div class="biz-stat ' + c + '"><div class="n">' + n + '</div><div class="t">' + t + '</div></div>';
   }
 
+  /* ==================== 审批内容展示：让审批人看清在审什么 ==================== */
+  var DOC_SKIP = { id: 1, flowId: 1, flowStatus: 1 };
+  function entName(key) { var e = B.erpEnt(key); return e ? (e.name || key) : key; }
+  function itemsFieldOf(key) {
+    var e = B.erpEnt(key); if (!e) return null;
+    var out = null;
+    (e.fields || []).forEach(function (f) { if (f.type === 'items') out = f; });
+    return out;
+  }
+  /* 引用字段反查可读名称：客户 / 供应商 / 物料 */
+  function refName(kind, v) {
+    if (v === '' || v == null) return null;
+    var arr = B.erpList(kind);
+    for (var i = 0; i < arr.length; i++) {
+      if (String(arr[i].code) === String(v) || String(arr[i].id) === String(v)) {
+        return (arr[i].code ? arr[i].code + ' ' : '') + (arr[i].name || '');
+      }
+    }
+    return null;
+  }
+  function refKindOf(k) {
+    if (k === 'customer') return 'customer';
+    if (k === 'supplier') return 'supplier';
+    if (k === 'mat' || k === 'material' || k === 'product' || k === 'code') return 'material';
+    if (k === 'warehouse') return 'warehouse';
+    return null;
+  }
+  function nodeNameById(id) {
+    var t = B.FLOW_BIZ.concat(B.FLOW_AFTER);
+    for (var i = 0; i < t.length; i++) if (t[i].id === id) return t[i].name;
+    return id || '';
+  }
+  /* 一张单据渲染成「字段表 + 明细表」 */
+  function docTable(key, rec, title) {
+    if (!rec) return '';
+    var ent = B.erpEnt(key);
+    var h = '<div class="biz-doc">';
+    if (title) h += '<div class="biz-doc-h">' + esc(title) + '</div>';
+    var rows = '';
+    if (ent) {
+      (ent.fields || []).forEach(function (f) {
+        if (f.type === 'items' || f.type === 'calcSum') return;
+        if (DOC_SKIP[f.k]) return;
+        var v = rec[f.k];
+        if (v === '' || v == null) return;
+        if (typeof v === 'object') return;
+        var shown = String(v);
+        var rk = refKindOf(f.k);
+        if (rk) { var rn = refName(rk, v); if (rn) shown = rn; }
+        rows += '<tr><th>' + esc(f.label) + '</th><td>' + esc(shown) + '</td></tr>';
+      });
+    }
+    if (!rows) {
+      Object.keys(rec).forEach(function (k) {
+        if (DOC_SKIP[k]) return;
+        var v = rec[k];
+        if (v === '' || v == null || typeof v === 'object') return;
+        rows += '<tr><th>' + esc(k) + '</th><td>' + esc(String(v)) + '</td></tr>';
+      });
+    }
+    h += rows ? '<table class="biz-doc-t"><tbody>' + rows + '</tbody></table>'
+              : '<div class="biz-doc-none">该单据暂无字段内容</div>';
+    /* 明细 */
+    var itf = itemsFieldOf(key);
+    var ikey = itf ? itf.k : 'items';
+    var arr = rec[ikey] || [];
+    if (!arr.length) {
+      ['items', 'detail', 'lines'].forEach(function (k) { if (!arr.length && rec[k] && rec[k].length) arr = rec[k]; });
+    }
+    if (arr && arr.length) {
+      var cols = (itf && itf.cols) || null;
+      h += '<div class="biz-doc-sub">' + esc(itf ? itf.label : '明细') + '（' + arr.length + ' 行）</div>';
+      h += '<div class="biz-tablewrap"><table class="biz-table biz-doc-items"><thead><tr>';
+      var ks = cols ? cols.map(function (c) { return c.k; }) : Object.keys(arr[0] || {});
+      var lb = cols ? cols.map(function (c) { return c.label; }) : ks;
+      lb.forEach(function (t) { h += '<th>' + esc(t) + '</th>'; });
+      h += '</tr></thead><tbody>';
+      arr.forEach(function (r) {
+        h += '<tr>';
+        ks.forEach(function (k) {
+          var v = r[k];
+          var t = (v === '' || v == null) ? '' : String(v);
+          if (k === 'code' || k === 'mat' || k === 'material') { var rn2 = refName('material', t); if (rn2) t = rn2; }
+          h += '<td>' + esc(t) + '</td>';
+        });
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    h += '</div>';
+    return h;
+  }
+  /* 审批前能看到的东西：原始单据 + 本环节单据 + 已完成环节记录 */
+  function docBlock(f) {
+    var h = '';
+    var nd = B.curNode(f);
+    var sk = (f.kind === 'after') ? 'soReturn' : 'so';
+    var src = B.findRec(sk, 'id', f.srcId) || B.findRec(sk, 'code', f.srcCode);
+    if (src) h += docTable(sk, src, '原始单据 · ' + entName(sk) + (src.code ? ' ' + src.code : ''));
+    var sameAsSrc = false;
+    if (nd && nd.ent) {
+      var hit = null;
+      B.erpList(nd.ent).forEach(function (x) { if (x.flowId === f.id) hit = x; });
+      if (hit) {
+        sameAsSrc = !!(src && sk === nd.ent && hit.id === src.id);
+        if (!sameAsSrc) h += docTable(nd.ent, hit, '本环节单据 · ' + nd.name + (hit.code ? ' ' + hit.code : ''));
+      }
+    }
+    /* 检验类环节：带出检验单 */
+    if (nd && !nd.ent && window.INSP && INSP.list) {
+      try {
+        var recs = INSP.list() || [];
+        var mine = recs.filter(function (r) { return r.flowId === f.id || (r.flowNo && r.flowNo === f.no); });
+        if (mine.length) {
+          var r0 = mine[mine.length - 1];
+          h += '<div class="biz-doc"><div class="biz-doc-h">本环节检验单 · ' + esc(r0.type || '') + ' ' + esc(r0.matCode || '') + '</div>';
+          h += '<table class="biz-doc-t"><tbody>';
+          [['物料名称', r0.matName], ['供应商', r0.supplier], ['批次号', r0.batch], ['数量', r0.qty],
+           ['实测记录', r0.measured], ['检验人', r0.inspector], ['检验日期', r0.date],
+           ['判定结果', r0.result], ['状态', r0.status]].forEach(function (kv) {
+            if (kv[1] === '' || kv[1] == null) return;
+            h += '<tr><th>' + esc(kv[0]) + '</th><td>' + esc(String(kv[1])) + '</td></tr>';
+          });
+          h += '</tbody></table></div>';
+        }
+      } catch (e) {}
+    }
+    /* 已完成环节（谁、什么时候、什么结论、什么意见） */
+    if ((f.done || []).length) {
+      h += '<div class="biz-doc"><div class="biz-doc-h">已完成环节·审批记录</div>';
+      h += '<table class="biz-doc-t"><tbody>';
+      (f.done || []).forEach(function (d) {
+        var line = esc(d.result || '通过') + ' · ' + esc(d.by || '') + ' · ' + esc(d.time || '');
+        if (d.remark) line += ' · 意见：' + esc(d.remark);
+        h += '<tr><th>' + esc(d.name || nodeNameById(d.node)) + '</th><td>' + line + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    if (sameAsSrc) h += '<div class="biz-doc-none-note">（本环节单据即上方原始单据，不再重复列出）</div>';
+    if (!h) h = '<div class="biz-doc-none">本环节暂无可展示的单据内容</div>';
+    return '<div class="biz-docbox">' + h + '</div>';
+  }
+
   /* ---- 我的待办 ---- */
   function renderTodo(apprList, mrbList) {
     var h = '<div class="biz-section">';
@@ -714,6 +867,7 @@
       var nd = B.curNode(f);
       h += '<div class="biz-todo appr"><div class="biz-todo-t">【待审批】' + esc(f.no) + ' · ' + esc(f.title) + '</div>'
         + '<div class="biz-todo-s">当前环节：' + esc(nd ? nd.name : '') + ' · 提交人：' + esc(f._submitBy || '') + ' · 审批人：' + esc(f.approver || '') + '</div>'
+        + docBlock(f)
         + '<div class="biz-todo-a">'
         + '<span class="erp-btn primary" onclick="BIZFLOW.approve(\'' + f.id + '\', true)">✓ 通过并流转</span>'
         + '<span class="erp-btn danger" onclick="BIZFLOW.approve(\'' + f.id + '\', false)">✕ 驳回</span>'
@@ -724,6 +878,7 @@
       var nd = B.curNode(f);
       h += '<div class="biz-todo mrb"><div class="biz-todo-t">【不合格评审】' + esc(f.no) + ' · ' + esc(f.title) + '</div>'
         + '<div class="biz-todo-s">不合格环节：' + esc(nd ? nd.name : '') + '</div>'
+        + docBlock(f)
         + '<div class="biz-todo-a">';
       B.MRB_OPTIONS.forEach(function (op) {
         h += '<span class="erp-btn" onclick="BIZFLOW.mrbDecide(\'' + f.id + '\',\'' + op + '\')">' + op + '</span>';
@@ -869,7 +1024,11 @@
       else h += '<span class="erp-btn primary" onclick="BIZFLOW.submit(\'' + f.id + '\')">提交审批</span>';
       h += '</div>';
     }
+    /* 要审批/要看的内容：原始单据 + 本环节单据 + 审批记录 */
+    h += '<div class="biz-sec-title" style="margin-top:14px">📄 单据内容（审的就是这些）</div>';
+    h += docBlock(f);
     /* 环节时间线 */
+    h += '<div class="biz-sec-title" style="margin-top:14px">🕒 环节进度</div>';
     h += '<div class="biz-timeline">';
     var tmpl = (f.kind === 'after') ? B.FLOW_AFTER : B.FLOW_BIZ;
     tmpl.forEach(function (nd2) {
@@ -990,4 +1149,31 @@
     detail: detail, submitDlg: submitDlg, help: help, goInsp: goInsp, goMrb: goMrb,
     updateBadge: updateBadge, injectBiz: injectBiz
   };
+
+  /* 审批内容展示样式 */
+  (function () {
+    if (document.getElementById('bizDocStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'bizDocStyle';
+    st.textContent = [
+      '.biz-docbox{margin:10px 0 2px}',
+      '.biz-doc{border:1px solid #e3ece6;border-radius:8px;padding:10px 12px;background:#fbfdfb;margin-top:8px}',
+      '.biz-doc-h{font-weight:600;color:#1f5a38;margin-bottom:8px;font-size:13px}',
+      '.biz-doc-t{width:100%;border-collapse:collapse;font-size:13px}',
+      '.biz-doc-t th{text-align:left;width:112px;color:#6b7280;font-weight:500;padding:3px 8px 3px 0;vertical-align:top;white-space:nowrap}',
+      '.biz-doc-t td{padding:3px 0;color:#111827;word-break:break-word}',
+      '.biz-doc-sub{margin:10px 0 6px;font-size:13px;color:#374151;font-weight:600}',
+      '.biz-doc-items th,.biz-doc-items td{white-space:nowrap}',
+      '.biz-doc-none,.biz-doc-none-note{font-size:12px;color:#9ca3af}',
+      '.biz-todo-t{word-break:break-word}',
+      '@media(max-width:560px){',
+      '.biz-doc{padding:9px 10px}',
+      '.biz-doc-t th{width:84px;font-size:12px}',
+      '.biz-doc-t td{font-size:12px}',
+      '.biz-docbox .biz-tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}',
+      '}'
+    ].join('');
+    document.head.appendChild(st);
+  })();
+
 })();
