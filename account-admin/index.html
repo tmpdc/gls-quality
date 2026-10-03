@@ -1309,8 +1309,7 @@ if (session) {
 }
 updateTime();
 setInterval(updateTime, 1000);
-</script>
-<script src="../gls-datahub.js?v=2">
+
 // 首次加载时定位页面（hash / sessionStorage 双保险，多次重试覆盖首页初始化）
 (function () {
   var target = '';
@@ -1328,6 +1327,8 @@ setInterval(updateTime, 1000);
   })();
 })();
 window.addEventListener('hashchange', function () { try { navToByHash(); } catch (e) {} });
+</script>
+<script src="../gls-datahub.js?v=2">
 </script>
 </body>
 </html>
