@@ -927,6 +927,154 @@
     return hit;
   }
 
+  /* ==================== 检验工作台闭环联动 ====================
+     检验工作台（IQC/首件/巡检/成品检验）提交与审批后，由这里真正驱动业务流程，
+     使「检验记录」与「流程实例」成为同一件事：
+       合格 → 提交本环节审批 → 审批通过自动推进下一环节并通知下一部门
+       不合格 → 进入不合格评审（MRB）→ 定稿结论决定去向
+     检验类型 → 流程环节（可视化修改口子：改这里即可调整对应关系） */
+  var INSP_FLOW_NODE = { IQC: 'IQC', FIRST: 'FIRST', PATROL: 'PATROL', IPQC: 'PATROL', OQC: 'OQC', FQC: 'OQC' };
+
+  function nodeDef(id) {
+    var all = FLOW_BIZ.concat(FLOW_AFTER);
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+  /* 按检验类型 + 物料编码找应关联的流程单：物料编码命中优先，否则取该环节最早一条 */
+  function findInspFlow(type, matCode) {
+    var nid = INSP_FLOW_NODE[type] || '';
+    if (!nid) return null;
+    var cand = flows().filter(function (f) {
+      if (f.status === FLOW_STATUS.DONE || f.status === FLOW_STATUS.CLOSE) return false;
+      var nd = curNode(f);
+      return nd && nd.id === nid;
+    });
+    if (!cand.length) return null;
+    var code = String(matCode == null ? '' : matCode).trim();
+    if (code) {
+      var hit = cand.filter(function (f) {
+        try { return JSON.stringify(f.items || f.mats || f.moItems || f.recs || []).indexOf(code) >= 0; }
+        catch (e) { return false; }
+      });
+      if (hit.length) return hit[0];
+    }
+    return cand[0];
+  }
+  /* 真实去向，一句人话：第 N/M 站 · 环节【部门】 → 下一站：xxx【部门】 */
+  function destText(f) {
+    if (!f) return '';
+    var st = station(f);
+    if (!st.cur) return '流程已结束';
+    var t = '第 ' + st.at + '/' + st.total + ' 站 · ' + st.name + (st.dept ? '【' + st.dept + '】' : '');
+    if (f.status === FLOW_STATUS.CLOSE) return t + ' · 已关闭';
+    if (f.status === FLOW_STATUS.DONE || !st.next) return t + ' · 已全部完成';
+    return t + ' → 下一站：' + st.next.name + (st.next.dept ? '【' + st.next.dept + '】' : '');
+  }
+  function noFlowMsg(type) {
+    var nd = nodeDef(INSP_FLOW_NODE[type] || '');
+    return '未找到当前处于「' + (nd ? nd.name : '检验') + '」环节的业务流程单，本次只记录检验结果，未驱动流程。可从 ERP 工作台对应环节发起流程后再检验。';
+  }
+
+  /* ① 检验提交：合格 → 提交本环节审批；不合格 → 进入不合格评审（MRB） */
+  function linkInspSubmit(rec) {
+    if (!rec) return { ok: false, reason: '数据缺失' };
+    var f = (rec.flowId && getFlow(rec.flowId)) || findInspFlow(rec.type, rec.matCode);
+    if (!f) return { ok: false, reason: noFlowMsg(rec.type), flowId: '', flowNo: '' };
+    var pass = (rec.result === 'pass');
+    try {
+      if (pass) { if (f.status !== FLOW_STATUS.APPR) submit(f.id, { result: 'pass' }); }
+      else { if (f.status !== FLOW_STATUS.MRB) submit(f.id, { result: 'fail' }); }
+    } catch (e) {
+      return { ok: false, reason: '驱动流程失败：' + e.message, flowId: f.id, flowNo: f.no };
+    }
+    var f2 = getFlow(f.id) || f;
+    var st = station(f2);
+    return { ok: true, flowId: f2.id, flowNo: f2.no, dest: destText(f2),
+             nextName: (st.next ? st.next.name : ''), nextDept: (st.next ? st.next.dept : ''),
+             status: f2.status };
+  }
+
+  /* ② 流转审批（合格单放行）：通过 → 执行节点动作并推进下一环节、通知下一部门；驳回 → 退回 */
+  function linkInspApprove(rec, pass, remark) {
+    if (!rec) return { ok: false, reason: '数据缺失' };
+    var f = (rec.flowId && getFlow(rec.flowId)) || findInspFlow(rec.type, rec.matCode);
+    if (!f) return { ok: false, reason: noFlowMsg(rec.type), flowId: '', flowNo: '' };
+    if (f.status === FLOW_STATUS.MRB) {
+      return { ok: false, reason: '该流程单正处于不合格评审中，请先到【异常处理】模块完成会签评审。', flowId: f.id, flowNo: f.no };
+    }
+    if (f.status !== FLOW_STATUS.APPR) {
+      try { submit(f.id, { result: 'pass' }); } catch (e) {}
+      f = getFlow(f.id) || f;
+      if (f.status !== FLOW_STATUS.APPR) {
+        return { ok: false, reason: '未能提交审批（当前状态：' + f.status + '）', flowId: f.id, flowNo: f.no };
+      }
+    }
+    remark = String(remark || '').trim();
+    if (!pass && !remark) return { ok: false, reason: '驳回必须填写原因', flowId: f.id, flowNo: f.no };
+    var by = curUser().realname || curUser().username || '';
+    var nd = curNode(f);
+    f.done = f.done || [];
+    if (pass) {
+      f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '合格放行', remark: remark });
+      f.log.push(today() + ' ' + nowTime() + ' ' + by + ' 审批通过「' + nd.name + '」（检验单 ' + (rec.no || '') + '）' + (remark ? '，意见：' + remark : ''));
+      var act = nd.action || null;
+      if (act) { try { nodeAction(f, nd, act); } catch (e) { f.log.push('节点动作异常: ' + e.message); } }
+      try { applyStatus(f, nd); } catch (e) {}
+      advance(f);
+    } else {
+      f.status = FLOW_STATUS.REJ;
+      f.done.push({ node: nd.id, name: nd.name, by: by, time: today() + ' ' + nowTime(), result: '驳回', remark: remark });
+      f.log.push(today() + ' ' + nowTime() + ' ' + by + ' 驳回「' + nd.name + '」（检验单 ' + (rec.no || '') + '）：' + remark);
+      notify(f.creator || '相关人', '流程 ' + f.no + '「' + nd.name + '」被驳回，请重新处理', f.id);
+      save();
+    }
+    var f3 = getFlow(f.id) || f;
+    return { ok: true, flowId: f3.id, flowNo: f3.no, dest: destText(f3), status: f3.status };
+  }
+
+  /* ③ 不合格评审定稿：按结论决定去向，并推动主流程（与 MRB 模块同一套规则） */
+  function linkMrbConclude(rec, conclusion, remark) {
+    if (!rec) return { ok: false, reason: '数据缺失' };
+    var f = (rec.flowId && getFlow(rec.flowId)) || findInspFlow(rec.type, rec.matCode);
+    if (!f) return { ok: false, reason: noFlowMsg(rec.type), flowId: '', flowNo: '' };
+    if (MRB_OPTIONS.indexOf(conclusion) < 0) return { ok: false, reason: '结论无效', flowId: f.id, flowNo: f.no };
+    var nd = curNode(f);
+    var kind = MRB_KIND[nd ? nd.id : ''] || 'raw';
+    var dest = mrbDestOf(kind, conclusion);
+    var dept = mrbDestDept(dest);
+    var by = curUser().realname || curUser().username || '';
+    remark = String(remark || '').trim();
+    f.mrbNo = f.mrbNo || ('MRB-' + (rec.no || ''));
+    f.log.push(today() + ' ' + nowTime() + ' ' + by + ' 不合格评审定稿「' + conclusion + '」（检验单 ' + (rec.no || '') + '）：'
+      + MRB_KIND_NAME[kind] + '去向 → ' + dest + (remark ? '，备注：' + remark : ''));
+    if (conclusion === '退货' || conclusion === '报废') {
+      f.status = FLOW_STATUS.CLOSE;
+      f.log.push(today() + ' ' + nowTime() + ' 流程关闭（' + conclusion + '）');
+      notify(f.creator || '相关人', '流程 ' + f.no + ' 因' + conclusion + '已关闭', f.id);
+    } else if (conclusion === '重新检验' || conclusion === '返工返修') {
+      f.status = FLOW_STATUS.RUN;
+      var word = (conclusion === '返工返修') ? '返工／返修' : '重新检验';
+      f.log.push(today() + ' ' + nowTime() + ' 退回「' + nd.name + '」' + word);
+      notifyDept(nd.dept, '流程 ' + f.no + '「' + nd.name + '」需' + word + '，请处理', f.id);
+    } else {
+      /* 挑选使用 / 特采接收 → 放行，走合格分支 */
+      var nxt = (nd && nd.branch && nd.branch.pass) ? nd.branch.pass : (nd ? nd.next : null);
+      f.status = FLOW_STATUS.RUN;
+      if (!nxt) { f.status = FLOW_STATUS.DONE; }
+      else {
+        f.cur = nxt;
+        var nnd = curNode(f);
+        if (!nnd) f.status = FLOW_STATUS.DONE;
+        else f.log.push(today() + ' ' + nowTime() + ' 评审放行，自动流转至「' + nnd.name + '」');
+      }
+    }
+    save();
+    notifyDept(dept, '不合格评审定稿：' + conclusion + '，' + MRB_KIND_NAME[kind] + '去向 → ' + dest + '，请接收处理', f.id);
+    var f3 = getFlow(f.id) || f;
+    return { ok: true, flowId: f3.id, flowNo: f3.no, dest: dest, destDept: dept,
+             text: conclusion + ' → ' + dest + '【' + dept + '】', stationText: destText(f3) };
+  }
+
   /* ==================== 对外暴露 ==================== */
   window.BIZFLOW = {
     FLOW_BIZ: FLOW_BIZ, FLOW_AFTER: FLOW_AFTER, MRB_OPTIONS: MRB_OPTIONS,
@@ -944,6 +1092,9 @@
     mrbMine: mrbMine, mrbToConclude: mrbToConclude,
     mrbSubmitReview: mrbSubmitReview, mrbConclude: mrbConclude,
     curNode: curNode, station: station, stationText: stationText,
+    /* 检验工作台闭环联动 */
+    INSP_FLOW_NODE: INSP_FLOW_NODE, findInspFlow: findInspFlow, destText: destText,
+    linkInspSubmit: linkInspSubmit, linkInspApprove: linkInspApprove, linkMrbConclude: linkMrbConclude,
     bomNeed: bomNeed, stockBal: stockBal, canApprove: canApprove, canMrb: canMrb,
     deptManagers: deptManagers, accountOf: accountOf, notifyDept: notifyDept,
     erpList: erpList, erpEnt: erpEnt, erpData: erpData, findRec: findRec,
