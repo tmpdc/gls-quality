@@ -665,11 +665,16 @@ const SESSION_KEY = 'gls_current_user';
 
 // 角色定义
 const ROLES = {
-  admin:   { name: '超级管理员', desc: '拥有全部能力，可改动流程、框架类型、角色权限等系统配置' },
-  manager: { name: '管理员',     desc: '管理所有已定好的功能（业务、账号、模板、数据）' },
-  deptmgr: { name: '经理',       desc: '可管理本部门全部功能，可查看其他部门的信息' },
-  staff:   { name: '员工',       desc: '只能操作与自己相关的数据，可查看本部门信息' },
-  guest:   { name: '游客',       desc: '可查看所有部门的信息，不能操作任何部门的任何功能' }
+  admin:   { name: '超级管理员', desc: '拥有全部能力，可改动流程、框架类型、角色权限等系统配置',
+             perms: ['全部权限', '流程/框架配置', '角色权限', '账号管理', '数据管理'] },
+  manager: { name: '管理员',     desc: '管理所有已定好的功能（业务、账号、模板、数据）',
+             perms: ['业务管理', '账号管理', '模板管理', '数据管理'] },
+  deptmgr: { name: '经理',       desc: '可管理本部门全部功能，可查看其他部门的信息',
+             perms: ['本部门管理', '跨部门查看'] },
+  staff:   { name: '员工',       desc: '只能操作与自己相关的数据，可查看本部门信息',
+             perms: ['本人数据操作', '本部门查看'] },
+  guest:   { name: '游客',       desc: '可查看所有部门的信息，不能操作任何部门的任何功能',
+             perms: ['全部门查看（只读）'] }
 };
 
 // 初始化默认账号
@@ -1131,7 +1136,7 @@ function renderRoles() {
       <td><strong>${r.name}</strong></td>
       <td style="color:#666;">${r.desc}</td>
       <td>${count} 人</td>
-      <td>${r.perms.map(p => `<span class="tag tag-info" style="margin:2px;">${p}</span>`).join('')}</td>
+      <td>${(r.perms || []).map(p => `<span class="tag tag-info" style="margin:2px;">${p}</span>`).join('')}</td>
     </tr>`;
   }).join('');
 }
