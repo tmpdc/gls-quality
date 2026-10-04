@@ -2546,17 +2546,81 @@ function sfOpenSysDoc(name, d, lv) {
     '<div style="flex:1;min-width:0;">' +
     '<div style="font-size:17px;font-weight:800;color:#2d7a4f;line-height:1.5;">' + sfEsc(name) + '</div>' +
     '<div style="font-size:11.5px;color:#8a9a90;margin-top:3px;">' + sfEsc(SF_LV_NAME[lv] || '') +
-    ' ｜ 体系文件全文（原文 1:1 提取）</div></div>' +
+    ' ｜ 体系文件全文（原文 1:1 提取）' +
+    (lv === 4 ? ' ｜ 记录表单：点「✏️ 填写」可直接在表内填写并打印' : '') + '</div></div>' +
     '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="border:none;background:#f2f2f2;color:#666;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>' +
     '</div>' +
     '<div class="doc-fulltext" style="max-height:70vh;overflow:auto;border-top:1px solid #eef2f0;padding-top:12px;">' + body + '</div>' +
     '<div style="display:flex;gap:8px;margin-top:14px;">' +
+    '<button onclick="sfFillDoc()" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">✏️ 填写</button>' +
     (noText
       ? '<button onclick="sfCopyName(\'' + sfEsc(name).replace(/'/g, "\\'") + '\')" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">复制文件名</button>'
       : '<button onclick="sfPrintDoc()" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">打印</button>') +
     '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="flex:1;padding:10px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>' +
     '</div></div>';
   document.body.appendChild(el);
+}
+
+/* 可填写窗口：把当前全文放进新窗口，所有单元格可编辑，可打印 / 存为文件 */
+function sfFillDoc() {
+  var box = document.querySelector('#sfDocDlg .doc-fulltext');
+  if (!box) return;
+  var inner = box.innerHTML;
+  var ttl = document.querySelector('#sfDocDlg div[style*="font-weight:800"]');
+  var title = ttl ? ttl.textContent : '体系文件填写';
+  var w = window.open('', '_blank');
+  if (!w) { sfToast('浏览器拦截了新窗口，请允许弹出窗口后重试'); return; }
+  var css = '@page{size:A4;margin:12mm 10mm}'
+    + 'body{font-family:"宋体","SimSun",serif;font-size:12px;color:#000;background:#fff;margin:0;padding:0}'
+    + 'table{border-collapse:collapse;width:100%}td,th{padding:3px 5px;vertical-align:middle}'
+    + '[contenteditable="true"]{cursor:text}'
+    + '[contenteditable="true"]:focus{outline:2px solid #2e7d52;background:#f4fff9}'
+    + 'td:empty:after{content:"";display:inline-block;min-width:28px}'
+    + '.bar{background:#f2f6f3;border-bottom:1px solid #d6e2da;padding:8px 10px;position:sticky;top:0;z-index:9;'
+    + 'display:flex;gap:8px;align-items:center;font-family:system-ui,-apple-system,sans-serif;flex-wrap:wrap}'
+    + '.bar b{color:#1f5c3d;font-size:13px}'
+    + '.bar .tip{color:#5b6b62;font-size:12px}'
+    + '.bar button{padding:6px 12px;border:1px solid #2e7d52;background:#2e7d52;color:#fff;border-radius:6px;'
+    + 'cursor:pointer;font-size:12.5px}'
+    + '.bar button.ghost{background:#fff;color:#2e7d52}'
+    + '.bar button.warn{background:#fff;color:#b4423a;border-color:#d9a5a1}'
+    + '.bar .sp{flex:1}'
+    + '@media print{.bar{display:none!important}body{padding:0}}';
+  var bar = '<div class="bar">'
+    + '<b>' + sfEsc(title) + '</b>'
+    + '<span class="tip">点任意单元格即可填写</span>'
+    + '<span class="sp"></span>'
+    + '<button onclick="glsFillOn()">开启填写</button>'
+    + '<button onclick="glsFillOff()" class="ghost">关闭填写</button>'
+    + '<button onclick="window.print()">🖨 打印 / 另存为 PDF</button>'
+    + '<button onclick="glsFillClear()" class="ghost warn">清空填写</button>'
+    + '<button onclick="glsFillSave()" class="ghost">保存到本机</button>'
+    + '</div>';
+  var js = '<script>'
+    + 'function glsFillCells(v){try{document.querySelectorAll("td,th").forEach(function(x){'
+    + 'if(v){x.setAttribute("contenteditable","true")}else{x.removeAttribute("contenteditable")}})}catch(e){}}'
+    + 'function glsFillOn(){glsFillCells(true)}'
+    + 'function glsFillOff(){glsFillCells(false)}'
+    + 'function glsFillClear(){if(!confirm("确定清空所有已填写的内容？"))return;'
+    + 'document.querySelectorAll("td,th").forEach(function(x){'
+    + 'if(x.querySelector("table"))return;'
+    + 'if(x.children.length===0){x.textContent=""}else{x.childNodes.forEach(function(n){'
+    + 'if(n.nodeType===3)n.textContent=""})}})}'
+    + 'function glsFillSave(){'
+    + 'var t=document.title||"填写结果";'
+    + 'var h="<!DOCTYPE html><html><head><meta charset=\'utf-8\'><title>"+t+"</title>'
+    + '<style>@page{size:A4;margin:12mm 10mm}body{font-family:\\"宋体\\",serif;font-size:12px;margin:0}'
+    + 'table{border-collapse:collapse;width:100%}td,th{padding:3px 5px}</style></head><body>"'
+    + '+document.body.innerHTML.replace(/<div class="bar"[\\s\\S]*?<\\/div>/,"")+"</body></html>";'
+    + 'var b=new Blob([h],{type:"text/html;charset=utf-8"});var a=document.createElement("a");'
+    + 'a.href=URL.createObjectURL(b);a.download=t.replace(/[\\\\/:*?\"<>|]/g,"_")+"_填写结果.html";'
+    + 'a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1500)}'
+    + '<\/script>';
+  w.document.open();
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + sfEsc(title) + '</title>'
+    + '<style>' + css + '</style></head><body>' + bar + inner + js + '</body></html>');
+  w.document.close();
+  setTimeout(function () { try { w.glsFillOn(); } catch (e) {} }, 350);
 }
 
 function sfCopyName(n) {
