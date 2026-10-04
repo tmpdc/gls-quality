@@ -820,6 +820,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   .sf-bd-edit,.sf-bd-src{min-height:300px;max-height:46vh;font-size:13px;padding:10px;}
   .sf-bd-b{font-size:12px;padding:5px 8px;}
 }
+
+/* ==================== 原文件：1:1 预览 ==================== */
+.fv-xlsx{border-collapse:collapse;background:#fff;font-family:微软雅黑,Arial,sans-serif;}
+.fv-xlsx td{padding:2px 5px;overflow-wrap:break-word;vertical-align:middle;word-break:break-word;line-height:1.35;}
+.fv-docx{border-collapse:collapse;width:100%;margin:8px 0;}
+.fv-docx td{border:1px solid #999;padding:5px 7px;vertical-align:top;font-size:10.5pt;}
+.fv-docx p{margin:2px 0;}
+.fv-wrap{background:#f6f8fa;padding:14px;border-radius:8px;overflow:auto;max-height:60vh;}
+.fv-paper{background:#fff;padding:22px 26px;box-shadow:0 1px 5px rgba(0,0,0,.12);display:inline-block;vertical-align:top;max-width:100%;}
+.fv-sheetname{font-weight:700;color:#2d7a4f;margin:6px 0 8px;font-size:13px;}
+.fv-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.fv-tab{padding:5px 12px;border:1px solid #d0d7de;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;}
+.fv-tab.on{background:#2d7a4f;color:#fff;border-color:#2d7a4f;}
+.fv-note{background:#fff8e8;border:1px solid #e6c87a;border-radius:8px;padding:14px 16px;color:#7a5b16;line-height:1.8;font-size:13px;}
+.fv-pre{white-space:pre-wrap;font-family:Consolas,monospace;font-size:12px;background:#fff;padding:14px;border-radius:6px;}
+.fv-pdf{width:100%;height:62vh;border:1px solid #d0d7de;border-radius:8px;background:#fff;}
+.fv-img{max-width:100%;display:block;margin:0 auto;background:#fff;}
+.fv-loading{padding:22px;text-align:center;color:#8a9a90;font-size:13px;}
+.fv-bar{display:flex;gap:8px;justify-content:flex-end;margin:8px 0 2px;flex-wrap:wrap;}
+.fv-btn{padding:5px 12px;border:1px solid #d0d7de;background:#fff;border-radius:7px;font-size:12px;cursor:pointer;color:#2d7a4f;font-weight:600;}
+.sf-fvtag{font-size:10px;color:#fff;background:#2f6fb0;padding:1px 6px;border-radius:7px;flex-shrink:0;}
+#sfDlgFile{display:block;width:100%;margin-top:5px;font-size:12px;padding:7px;background:#f7faf8;border:1px dashed #b8cfc2;border-radius:8px;}
 </style>
 <script src="system_docs.js?v=2"></script>
 <script src="knowledge_index.js?v=1"></script>
@@ -2590,6 +2612,9 @@ function sfItemDialog(mode, lv, key) {
         '<label>文件大小（KB）<input id="sfDlgSize" type="number" min="0" step="1" value="' + Math.round((Number(it.s) || 0) / 1024) + '"></label>' +
         '<label class="sf-dlg-ck"><input id="sfDlgOn" type="checkbox"' + (it.on ? ' checked' : '') + '> 标记为「可在线看」</label>' +
         '<label>正文内容（可留空，支持粘贴 Word 表格 / HTML）<textarea id="sfDlgBody" rows="8" placeholder="直接输入正文，或从 WPS / Word 粘贴表格；也支持整段 HTML"></textarea></label>' +
+        '<label>原文件（选填，1:1 原样保存：表格 .xlsx/.xls、文档 .docx/.doc、.pdf、图片、2D/3D 图纸）' +
+          '<input type="file" id="sfDlgFile" onchange="sfDlgFilePick(this)">' +
+          '<div id="sfDlgFileInfo" class="sf-dlg-sub" style="margin-top:5px;"></div></label>' +
         (mode === 'edit'
           ? '<label>本机路径（可留空）<input id="sfDlgPath" value="' + sfEsc(it.p || '') + '"></label>'
           : '<label>本机路径（可留空）<input id="sfDlgPath" placeholder="选填，本机 D:\\... 路径"></label>') +
@@ -2915,6 +2940,94 @@ function sfSaveNewBody(name) {
 }
 
 /* 查看页底部按钮（供刷新） */
+
+/* ==================== 原文件：存取 / 预览 / 下载 / 打印 ==================== */
+function sfFileMap() { var ov = sfLoadOv(); ov.fileIds = ov.fileIds || {}; return ov.fileIds; }
+function sfFileIdOf(name) { var m = sfFileMap(); var r = m[String(name)]; return r ? (r.fid || '') : ''; }
+function sfFileCount() { var m = sfFileMap(); var c = 0; for (var k in m) { if (m[k] && m[k].fid) c++; } return c; }
+function sfSetFileId(name, fid, fn) {
+  var ov = sfLoadOv(); ov.fileIds = ov.fileIds || {};
+  if (fid) { ov.fileIds[String(name)] = { fid: fid, fn: fn || '' }; }
+  else { delete ov.fileIds[String(name)]; }
+  sfSaveOv(ov);
+}
+
+window.GLS_SF_PICK = null;
+function sfDlgFilePick(inp) {
+  var f = inp && inp.files && inp.files[0];
+  window.GLS_SF_PICK = f || null;
+  var box = document.getElementById('sfDlgFileInfo');
+  if (box) {
+    box.innerHTML = f
+      ? ('已选：<b>' + sfEsc(f.name) + '</b>（' + FV.fileSize(f.size) + '）—— 将<b>按原样字节保存</b>，预览与打印都不改内容')
+      : '';
+  }
+  var nm = document.getElementById('sfDlgName');
+  if (f && nm && !String(nm.value || '').trim()) { nm.value = f.name.replace(/\.[^.]+$/, ''); }
+}
+
+function sfFvRender(fid) {
+  var box = document.getElementById('sfFvBox');
+  if (!box) return;
+  box.innerHTML = '<div class="fv-loading">正在读取原文件…</div>';
+  FV.get(fid).then(function (rec) {
+    if (!rec) {
+      box.innerHTML = '<div class="fv-note">原文件已不在本机浏览器里（换过浏览器或被清理过）。<br>可点「✏️ 编辑内容」手动录入，或重新上传一次。</div>';
+      return null;
+    }
+    return FV.render(rec).then(function (r) {
+      var b = document.getElementById('sfFvBox');
+      if (!b) return;
+      var bar = '<div class="fv-bar">'
+        + '<button class="fv-btn" onclick="sfDlFile(\'' + fid + '\')">⬇ 下载原文件</button>'
+        + '<button class="fv-btn" onclick="sfPrintFile(\'' + fid + '\')">🖨 打印原文件</button>'
+        + '<span style="font-size:11.5px;color:#8a9a90;align-self:center;">' + FV.esc(rec.name) + ' ｜ ' + FV.fileSize(rec.size) + '</span>'
+        + '</div>';
+      if (r.kind === 'html') b.innerHTML = bar + '<div class="fv-wrap"><div class="fv-paper">' + r.html + '</div></div>';
+      else if (r.kind === 'pdf') b.innerHTML = bar + '<iframe class="fv-pdf" src="' + r.url + '"></iframe>';
+      else if (r.kind === 'img') b.innerHTML = bar + '<div class="fv-wrap"><img class="fv-img" src="' + r.url + '"></div>';
+      else b.innerHTML = bar + (r.html || '');
+    });
+  }).catch(function (e) {
+    var b = document.getElementById('sfFvBox');
+    if (b) b.innerHTML = '<div class="fv-note">读取失败：' + FV.esc(String((e && e.message) || e)) + '</div>';
+  });
+}
+
+function sfDlFile(fid) {
+  FV.get(fid).then(function (rec) {
+    if (!rec) { sfToast('原文件不在本机浏览器里', false); return; }
+    FV.download(rec);
+  }).catch(function () { sfToast('下载失败', false); });
+}
+function sfPrintFile(fid) {
+  FV.get(fid).then(function (rec) {
+    if (!rec) { sfToast('原文件不在本机浏览器里', false); return; }
+    FV.print(rec);
+  }).catch(function () { sfToast('打印失败', false); });
+}
+function sfDelFile(fid) { try { FV.del(fid); } catch (e) { } }
+/* 按文件名把已登记的原文件一并清掉（删条目 / 替换原文件时用） */
+function sfPurgeFileOf(name) {
+  try {
+    var fid = (typeof sfFileIdOf === 'function') ? sfFileIdOf(name) : '';
+    var ov = sfLoadOv();
+    if (ov.fileIds && ov.fileIds[name]) { delete ov.fileIds[name]; sfSaveOv(ov); }
+    if (fid && typeof FV !== 'undefined' && FV.del) { FV.del(fid); }
+  } catch (e) { }
+}
+function sfResetFiles() {
+  FV.all().then(function (a) {
+    var ok = window.confirm('确定清空本机保存的 ' + ((a || []).length) + ' 个原文件吗？（表格 / 文档 / 图纸都会删掉）');
+    if (!ok) return;
+    Promise.all((a || []).map(function (r) { return FV.del(r.id); })).then(function () {
+      var ov = sfLoadOv(); ov.fileIds = {}; sfSaveOv(ov);
+      sfToast('原文件已全部清空');
+      sfRefresh();
+    });
+  });
+}
+
 function sfDocBarHtml(cur) {
   var name = cur.name || '';
   var has = sfBodyHas(name);
@@ -2923,6 +3036,12 @@ function sfDocBarHtml(cur) {
   h += '<button onclick="sfPrintDoc()" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">打印</button>';
   if (has) {
     h += '<button onclick="sfResetBodyFromDoc()" style="flex:1;padding:10px;border:1px solid #d9a441;background:#fff8e8;color:#a8761a;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">↺ 恢复原文</button>';
+  }
+  var _fidb = cur.fid || sfFileIdOf(name);
+  if (_fidb) {
+    var _q = JSON.stringify(_fidb).replace(/"/g, '&quot;');
+    h += '<button onclick="sfDlFile(' + _q + ')" style="flex:1;padding:10px;border:1px solid #2f6fb0;background:#eaf2fb;color:#2f6fb0;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">⬇ 下载原文件</button>';
+    h += '<button onclick="sfPrintFile(' + _q + ')" style="flex:1;padding:10px;border:1px solid #2f6fb0;background:#eaf2fb;color:#2f6fb0;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🖨 打印原文件</button>';
   }
   h += '<button onclick="sfDelFromDoc()" style="flex:1;padding:10px;border:1px solid #d9534f;background:#fdecec;color:#c9302c;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🗑 删除这份</button>';
   h += '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="flex:1;padding:10px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>';
@@ -3000,6 +3119,16 @@ function sfSaveItem(mode, key) {
     sfToast('已新增：' + name);
   }
   try { sfSaveNewBody(String((document.getElementById('sfDlgName') || {}).value || '').trim() || it.n); } catch (e) {}
+  var _pf = window.GLS_SF_PICK; window.GLS_SF_PICK = null;
+  if (_pf) {
+    var _fid = FV.uid();
+    ov.fileIds = ov.fileIds || {};
+    ov.fileIds[name] = { fid: _fid, fn: _pf.name };
+    FV.put({ id: _fid, name: _pf.name, type: _pf.type || '', size: _pf.size, mtime: Date.now(),
+             ext: (_pf.name.split('.').pop() || '').toLowerCase(), blob: _pf })
+      .then(function () { sfToast('原文件已原样存入本机：' + _pf.name); })
+      .catch(function (e) { sfToast('原文件保存失败：' + ((e && e.message) || e), false); });
+  }
   sfSaveOv(ov); sfCloseDlg();
   try { window.GLS_SF_LV = lv; } catch (e) {}
   sfRefresh();
@@ -3056,6 +3185,7 @@ function sfDoDelete(key, lv) {
   }
   sfSaveOv(ov);
   if (_nm && typeof sfBodyDel === 'function') { sfBodyDel(_nm); }
+  if (_nm) { sfPurgeFileOf(_nm); }
   sfCloseDlg();
   sfToast('已删除，可在层级底部恢复');
   sfRefresh();
@@ -3088,7 +3218,14 @@ function sfDoReset() {
   try { localStorage.removeItem(window.GLS_SF_OV_KEY); } catch (e) {}
   try { localStorage.removeItem(window.GLS_SFB_KEY || 'gls_sysfiles_body_ov'); } catch (e) {}
   if (window.GLS_SYSFILES && window.GLS_SYSFILES._base) window.GLS_SYSFILES.levels = window.GLS_SYSFILES._base;
-  sfCloseDlg(); sfToast('已恢复原始清单'); sfRefresh();
+  try {
+    if (typeof FV !== 'undefined' && FV.all) {
+      FV.all().then(function (a) {
+        Promise.all((a || []).map(function (r) { return FV.del(r.id); }));
+      });
+    }
+  } catch (e) {}
+  sfCloseDlg(); sfToast('已恢复原始清单（本机原文件也已清空）'); sfRefresh();
 }
 /* 触发当前层级重绘 */
 function sfRefresh() {
@@ -3341,6 +3478,7 @@ function renderSysFileModule(container, searchText) {
         '<span class="sf-ic">' + (x.tpl ? '📋' : sfIcon(x.n)) + '</span>' +
         '<span class="sf-nm2">' + sfEsc(x.n) + '</span>' +
         (x.uid ? '<span class="sf-new">新增</span>' : '') +
+        (sfFileIdOf(x.n) ? '<span class="sf-fvtag">原文件</span>' : '') +
         (x.tpl ? '<span class="sf-on">可填写</span>' : (hasOn ? '<span class="sf-on">可在线看</span>' : '')) +
         '<span class="sf-sz">' + sfSize(x.s) + '</span>' +
         '<span class="sf-ops">' +
@@ -3443,9 +3581,13 @@ function sfOpenSysDoc(name, d, lv) {
     }
   }
   window.GLS_SFB_CUR = { name: name, lv: lv, orig: raw, k: (d && d.k) || '', uid: _uid };
+  var _fid = sfFileIdOf(name);
+  window.GLS_SFB_CUR.fid = _fid;
   var body;
   if (has) {
     body = sfBodyGet(name) || '';
+  } else if (_fid) {
+    body = '<div id="sfFvBox"><div class="fv-loading">正在读取原文件…</div></div>';
   } else if (noText) {
     body = '<div style="padding:18px 14px;background:#fffbf0;border:1px solid #f0e0b8;border-radius:10px;color:#8a6d20;font-size:13.5px;line-height:1.9;">'
       + '\uD83D\uDCF7 该文件是<b>扫描件 / 现场照片</b>，原件本身没有可提取的文字正文（内容就是图像）。<br>'
@@ -3464,13 +3606,16 @@ function sfOpenSysDoc(name, d, lv) {
     '<div style="flex:1;min-width:0;">' +
     '<div style="font-size:17px;font-weight:800;color:#2d7a4f;line-height:1.5;">' + sfEsc(name) + (has ? '<span class="sf-ov">已改</span>' : '') + '</div>' +
     '<div style="font-size:11.5px;color:#8a9a90;margin-top:3px;">' + sfEsc(SF_LV_NAME[lv] || '') +
-    ' ｜ ' + (has ? '<b style="color:#a8761a;">这是你改过的版本</b>' : '体系文件全文（原文 1:1 提取）') + '</div></div>' +
+    ' ｜ ' + (has ? '<b style="color:#a8761a;">这是你改过的版本</b>'
+              : (_fid ? '<b style="color:#2f6fb0;">原文件 1:1 预览（内容与原件完全一致）</b>'
+                      : '体系文件全文（原文 1:1 提取）')) + '</div></div>' +
     '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="border:none;background:#f2f2f2;color:#666;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;flex-shrink:0;">\u2715</button>' +
     '</div>' +
     '<div class="doc-fulltext" style="max-height:66vh;overflow:auto;border-top:1px solid #eef2f0;padding-top:12px;">' + body + '</div>' +
     '<div id="sfDocBar" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">' + sfDocBarHtml(window.GLS_SFB_CUR) + '</div>' +
     '</div>';
   document.body.appendChild(el);
+  if (_fid && !has) { setTimeout(function () { sfFvRender(_fid); }, 30); }
 }
 
 /* 可填写窗口：把当前全文放进新窗口，所有单元格可编辑，可打印 / 存为文件 */
@@ -4857,6 +5002,7 @@ window.onerror = function(msg, url, line, col, error) {
 <script src="gls-live-notify.js?v=1"></script>
   <script src="gls-smartimport.js?v=4"></script>
   <script src="gls-backup.js?v=2"></script>
+<script src="gls-fileview.js?v=2"></script>
 <script>setTimeout(function(){var l=document.getElementById('glsLoader');if(l&&l.style.display!=='none')l.style.display='none';},15000);</script>
 <script>
 /* 所有依赖脚本（INSP/ERP/PQS 等）已同步加载完毕，直接初始化 */
