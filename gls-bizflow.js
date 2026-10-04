@@ -1917,7 +1917,7 @@
     var sec = nav.querySelector('[data-erp2]');
     var n = 0;
     try { n = updateBadge(); } catch (e) {}
-    var html = '<div class="nav-item" data-bizflow="1" onclick="BIZFLOW_UI.openHome(); toggleSidebar()">'
+    var html = '<div class="nav-item" data-bizflow="1" onclick="BIZFLOW_UI.openHome()">'
       + '<span class="nav-icon">🔄</span><span class="nav-text">业务流转</span>'
       + (n > 0 ? '<span class="nav-badge" id="bizNavBadge" style="background:#dc2626">' + n + '</span>' : '<span class="nav-badge" id="bizNavBadge" style="display:none"></span>')
       + '</div>';
