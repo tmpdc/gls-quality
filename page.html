@@ -829,6 +829,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .fv-docx p{margin:2px 0;}
 .fv-wrap{background:#f6f8fa;padding:14px;border-radius:8px;overflow:auto;max-height:60vh;}
 .fv-paper{background:#fff;padding:22px 26px;box-shadow:0 1px 5px rgba(0,0,0,.12);display:inline-block;vertical-align:top;max-width:100%;}
+.fv-zoom{width:100%;overflow:hidden;}
+.fv-zbar{display:inline-flex;gap:4px;align-items:center;margin-left:2px;flex-wrap:wrap;}
+.fv-zbtn{padding:4px 10px !important;font-size:11.5px !important;}
+.fv-zval{font-size:11px;color:#8a9a90;min-width:40px;text-align:center;}
+@media (max-width:640px){
+  .fv-wrap{padding:8px !important;max-height:none !important;}
+  .fv-paper{padding:10px 10px !important;}
+  .fv-docx-paper{padding:16px 14px !important;}
+  .fv-zbtn{padding:3px 8px !important;}
+  #sfDocDlg .doc-fulltext{max-height:none !important;}
+  .fv-bar{justify-content:flex-start !important;gap:6px !important;}
+  .fv-btn{white-space:nowrap !important;}
+  #sfDocBar{gap:6px !important;}
+  #sfDocBar .sf-bd-edit,#sfDocBar button{line-height:1.25 !important;}
+}
+
 .fv-sheetname{font-weight:700;color:#2d7a4f;margin:6px 0 8px;font-size:13px;}
 .fv-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
 .fv-tab{padding:5px 12px;border:1px solid #d0d7de;background:#fff;border-radius:6px;cursor:pointer;font-size:12px;}
@@ -2966,6 +2982,70 @@ function sfDlgFilePick(inp) {
   if (f && nm && !String(nm.value || '').trim()) { nm.value = f.name.replace(/\.[^.]+$/, ''); }
 }
 
+/* ===== 原文件预览：按比例缩放（只缩放画面，原文件字节不动）===== */
+function sfFvPaperEl() {
+  var b = document.getElementById('sfFvBox');
+  return b ? b.querySelector('.fv-paper') : null;
+}
+function sfFvApply(s) {
+  var paper = sfFvPaperEl();
+  if (!paper) return;
+  var nah = paper.scrollHeight || 1;
+  paper.setAttribute('data-fs', s);
+  paper.style.transformOrigin = 'top left';
+  paper.style.transform = (s === 1) ? 'none' : 'scale(' + s + ')';
+  var zoom = paper.parentNode;
+  if (zoom && zoom.classList && zoom.classList.contains('fv-zoom')) {
+    zoom.style.height = Math.ceil(nah * s) + 'px';
+    zoom.style.overflow = 'hidden';
+  }
+  var v = document.getElementById('fvZVal');
+  if (v) v.textContent = Math.round(s * 100) + '%';
+}
+function sfFvZoom(mode) {
+  var paper = sfFvPaperEl();
+  if (!paper) return;
+  var cur = Number(paper.getAttribute('data-fs')) || 1;
+  if (mode === 'fit') {
+    var zoom = paper.parentNode;
+    var avail = (zoom ? zoom.clientWidth : 320) - 2;
+    var nat = paper.scrollWidth || 1;
+    cur = Math.min(1, Math.max(0.2, avail / nat));
+    paper.setAttribute('data-fit', '1');
+  } else {
+    if (mode === '+') cur = Math.min(3, cur + 0.15);
+    else if (mode === '-') cur = Math.max(0.2, cur - 0.15);
+    else cur = Math.min(3, Math.max(0.2, Number(mode) || 1));
+    paper.removeAttribute('data-fit');
+  }
+  sfFvApply(cur);
+}
+function sfFvFit() {
+  var paper = sfFvPaperEl();
+  if (!paper) return;
+  paper.style.transform = 'none';
+  paper.setAttribute('data-fs', '1');
+  sfFvZoom('fit');
+}
+function sfFvImgFit() {
+  var b = document.getElementById('sfFvBox');
+  if (!b) return;
+  var img = b.querySelector('.fv-img');
+  if (!img) return;
+  img.style.maxWidth = '100%';
+  img.style.height = 'auto';
+  img.style.display = 'block';
+  img.style.margin = '0 auto';
+}
+window.addEventListener('resize', function () {
+  var paper = sfFvPaperEl();
+  if (paper && paper.getAttribute('data-fit') === '1') { setTimeout(sfFvFit, 80); }
+});
+window.addEventListener('orientationchange', function () {
+  var paper = sfFvPaperEl();
+  if (paper && paper.getAttribute('data-fit') === '1') { setTimeout(sfFvFit, 260); }
+});
+
 function sfFvRender(fid) {
   var box = document.getElementById('sfFvBox');
   if (!box) return;
@@ -2981,12 +3061,24 @@ function sfFvRender(fid) {
       var bar = '<div class="fv-bar">'
         + '<button class="fv-btn" onclick="sfDlFile(\'' + fid + '\')">⬇ 下载原文件</button>'
         + '<button class="fv-btn" onclick="sfPrintFile(\'' + fid + '\')">🖨 打印原文件</button>'
+        + '<span class="fv-zbar">'
+        + '<button class="fv-btn fv-zbtn" onclick="sfFvZoom(\'fit\')">适宽</button>'
+        + '<button class="fv-btn fv-zbtn" onclick="sfFvZoom(1)">100%</button>'
+        + '<button class="fv-btn fv-zbtn" onclick="sfFvZoom(\'-\')">－</button>'
+        + '<button class="fv-btn fv-zbtn" onclick="sfFvZoom(\'+\')">＋</button>'
+        + '<span class="fv-zval" id="fvZVal">100%</span>'
+        + '</span>'
         + '<span style="font-size:11.5px;color:#8a9a90;align-self:center;">' + FV.esc(rec.name) + ' ｜ ' + FV.fileSize(rec.size) + '</span>'
         + '</div>';
-      if (r.kind === 'html') b.innerHTML = bar + '<div class="fv-wrap"><div class="fv-paper">' + r.html + '</div></div>';
-      else if (r.kind === 'pdf') b.innerHTML = bar + '<iframe class="fv-pdf" src="' + r.url + '"></iframe>';
-      else if (r.kind === 'img') b.innerHTML = bar + '<div class="fv-wrap"><img class="fv-img" src="' + r.url + '"></div>';
-      else b.innerHTML = bar + (r.html || '');
+      if (r.kind === 'html') {
+        b.innerHTML = bar + '<div class="fv-wrap"><div class="fv-zoom"><div class="fv-paper">' + r.html + '</div></div></div>';
+        setTimeout(function () { sfFvFit(); }, 60);
+      } else if (r.kind === 'pdf') {
+        b.innerHTML = bar + '<iframe class="fv-pdf" src="' + r.url + '"></iframe>';
+      } else if (r.kind === 'img') {
+        b.innerHTML = bar + '<div class="fv-wrap"><img class="fv-img" src="' + r.url + '"></div>';
+        setTimeout(function () { sfFvImgFit(); }, 80);
+      } else b.innerHTML = bar + (r.html || '');
     });
   }).catch(function (e) {
     var b = document.getElementById('sfFvBox');
@@ -3032,19 +3124,19 @@ function sfDocBarHtml(cur) {
   var name = cur.name || '';
   var has = sfBodyHas(name);
   var h = '';
-  h += '<button onclick="sfEditBodyDlg()" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">✏️ 编辑内容</button>';
-  h += '<button onclick="sfPrintDoc()" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">打印</button>';
+  h += '<button onclick="sfEditBodyDlg()" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:1px solid #2d7a4f;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">✏️ 编辑内容</button>';
+  h += '<button onclick="sfPrintDoc()" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">打印</button>';
   if (has) {
-    h += '<button onclick="sfResetBodyFromDoc()" style="flex:1;padding:10px;border:1px solid #d9a441;background:#fff8e8;color:#a8761a;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">↺ 恢复原文</button>';
+    h += '<button onclick="sfResetBodyFromDoc()" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:1px solid #d9a441;background:#fff8e8;color:#a8761a;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">↺ 恢复原文</button>';
   }
   var _fidb = cur.fid || sfFileIdOf(name);
   if (_fidb) {
     var _q = JSON.stringify(_fidb).replace(/"/g, '&quot;');
-    h += '<button onclick="sfDlFile(' + _q + ')" style="flex:1;padding:10px;border:1px solid #2f6fb0;background:#eaf2fb;color:#2f6fb0;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">⬇ 下载原文件</button>';
-    h += '<button onclick="sfPrintFile(' + _q + ')" style="flex:1;padding:10px;border:1px solid #2f6fb0;background:#eaf2fb;color:#2f6fb0;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🖨 打印原文件</button>';
+    h += '<button onclick="sfDlFile(' + _q + ')" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:1px solid #2f6fb0;background:#eaf2fb;color:#2f6fb0;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">⬇ 下载原文件</button>';
+    h += '<button onclick="sfPrintFile(' + _q + ')" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:1px solid #2f6fb0;background:#eaf2fb;color:#2f6fb0;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🖨 打印原文件</button>';
   }
-  h += '<button onclick="sfDelFromDoc()" style="flex:1;padding:10px;border:1px solid #d9534f;background:#fdecec;color:#c9302c;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🗑 删除这份</button>';
-  h += '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="flex:1;padding:10px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>';
+  h += '<button onclick="sfDelFromDoc()" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:1px solid #d9534f;background:#fdecec;color:#c9302c;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🗑 删除这份</button>';
+  h += '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="flex:1 1 auto;min-width:84px;white-space:nowrap;padding:10px 8px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>';
   return h;
 }
 
@@ -5002,7 +5094,7 @@ window.onerror = function(msg, url, line, col, error) {
 <script src="gls-live-notify.js?v=1"></script>
   <script src="gls-smartimport.js?v=4"></script>
   <script src="gls-backup.js?v=2"></script>
-<script src="gls-fileview.js?v=2"></script>
+<script src="gls-fileview.js?v=3"></script>
 <script>setTimeout(function(){var l=document.getElementById('glsLoader');if(l&&l.style.display!=='none')l.style.display='none';},15000);</script>
 <script>
 /* 所有依赖脚本（INSP/ERP/PQS 等）已同步加载完毕，直接初始化 */
