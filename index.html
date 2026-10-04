@@ -149,6 +149,21 @@ table tr:last-child td { border-bottom: none; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .login-box { padding: 32px 24px; }
 }
+
+/* ===== 账号申请 ===== */
+.apply-link { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 13px; }
+.apply-link a { color: #2d7a4f; text-decoration: none; cursor: pointer; }
+.apply-link a:hover { text-decoration: underline; }
+.nav-badge { background: #ff4d4f; color: #fff; font-size: 10px; line-height: 16px; padding: 0 6px; border-radius: 9px; margin-left: 6px; display: inline-block; vertical-align: middle; }
+.apply-status { padding: 2px 8px; border-radius: 10px; font-size: 11px; white-space: nowrap; }
+.st-pending { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
+.st-approved { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+.st-rejected { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+.apply-detail { display: grid; grid-template-columns: 92px 1fr; gap: 9px 12px; font-size: 13px; line-height: 1.5; }
+.apply-detail .k { color: #999; }
+.apply-detail .v { color: #222; word-break: break-all; }
+.apply-tip { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6; margin-bottom: 16px; }
+.apply-tip.warn { background: #fff7e6; border-color: #ffd591; color: #d46b08; }
 </style>
 </head>
 <body>
@@ -181,6 +196,10 @@ table tr:last-child td { border-bottom: none; }
       <a href="javascript:void(0)" onclick="showToast('请联系管理员重置密码','error')">忘记密码？</a>
     </div>
     <button class="btn-login" onclick="doLogin()">登 录</button>
+    <div class="apply-link">
+      <a href="javascript:void(0)" onclick="showApplyModal()">📝 申请账号</a>
+      <a href="javascript:void(0)" onclick="showApplyQuery()">🔍 查询申请进度</a>
+    </div>
   </div>
 </div>
 
@@ -206,6 +225,9 @@ table tr:last-child td { border-bottom: none; }
       </div>
       <div class="nav-item admin-only" onclick="navTo('logs', this)">
         <span class="n-icon">📋</span><span class="n-text">登录日志</span>
+      </div>
+      <div class="nav-item admin-only" onclick="navTo('applies', this)">
+        <span class="n-icon">📨</span><span class="n-text">账号申请</span><span class="nav-badge" id="applyBadge" style="display:none;">0</span>
       </div>
       <div class="nav-item" onclick="showChangePasswordModal()">
         <span class="n-icon">🔑</span><span class="n-text">修改密码</span>
@@ -259,10 +281,19 @@ table tr:last-child td { border-bottom: none; }
             <div class="s-trend">近7天</div>
           </div>
         </div>
+        <div class="card" id="applyTodoCard" style="display:none;border-left:4px solid #faad14;">
+          <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:15px;font-weight:600;color:#d46b08;">📨 有 <span id="applyTodoNum">0</span> 条账号申请待审批</div>
+              <div style="font-size:12px;color:#999;margin-top:4px;">同事在登录页提交的申请，审批通过后即可开通账号</div>
+            </div>
+            <button class="btn btn-primary" onclick="navToByName('applies','账号申请')">去审批</button>
+          </div>
+        </div>
         <div class="card">
           <div class="card-header">
             <div class="c-title">最近登录记录</div>
-            <button class="btn btn-default btn-sm" onclick="navTo('logs', document.querySelectorAll('.sidebar .nav-item')[4])">查看全部</button>
+            <button class="btn btn-default btn-sm" onclick="navToByName('logs','登录日志')">查看全部</button>
           </div>
           <div class="card-body" style="padding:0;">
             <table>
@@ -275,9 +306,9 @@ table tr:last-child td { border-bottom: none; }
           <div class="card-header"><div class="c-title">快捷操作</div></div>
           <div class="card-body">
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <button class="btn btn-primary" onclick="navTo('accounts', document.querySelectorAll('.sidebar .nav-item')[2]);showAddAccountModal()">＋ 新增账号</button>
+              <button class="btn btn-primary" onclick="navToByName('accounts','账号管理');showAddAccountModal()">＋ 新增账号</button>
               <button class="btn btn-default" onclick="enterWorkbench()">🚀 进入质量管理工作台</button>
-              <button class="btn btn-default" onclick="navTo('logs', document.querySelectorAll('.sidebar .nav-item')[4])">📋 查看登录日志</button>
+              <button class="btn btn-default" onclick="navToByName('logs','登录日志')">📋 查看登录日志</button>
             </div>
           </div>
         </div>
@@ -349,6 +380,164 @@ table tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
+      <!-- ===== 账号申请 ===== -->
+      <div class="page-view" id="view-applies">
+        <div class="apply-tip" id="applyTip">同事在登录页提交的账号申请会出现在这里，点「通过并赋权」即可开通账号并设定角色权限。</div>
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="applySearch" placeholder="搜索姓名/账号/部门" oninput="renderApplies()">
+            <select id="applyStatusFilter" onchange="renderApplies()">
+              <option value="pending">待审批</option>
+              <option value="">全部</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已驳回</option>
+            </select>
+          </div>
+          <button class="btn btn-default" onclick="renderApplies()">刷新</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <table>
+              <thead><tr><th>申请编号</th><th>姓名</th><th>期望账号</th><th>部门</th><th>岗位</th><th>申请角色</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="appliesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== 申请账号弹窗 ===== -->
+<div class="modal-overlay" id="applyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title">申请账号</div>
+      <button class="m-close" onclick="closeApplyModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-item">
+        <label><span class="req">*</span>姓名</label>
+        <input type="text" id="ap_realname" placeholder="请输入真实姓名">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>期望登录账号</label>
+        <input type="text" id="ap_username" placeholder="英文或数字，如 zhangsan">
+        <div class="form-hint">最终账号名由管理员审批时确认</div>
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>手机号</label>
+        <input type="text" id="ap_phone" placeholder="11 位手机号，用于查询进度">
+      </div>
+      <div class="form-item">
+        <label>邮箱</label>
+        <input type="text" id="ap_email" placeholder="选填">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>部门</label>
+        <select id="ap_dept"></select>
+      </div>
+      <div class="form-item">
+        <label>岗位</label>
+        <input type="text" id="ap_post" placeholder="如 来料检验员 IQC">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>申请角色</label>
+        <select id="ap_role"></select>
+        <div class="form-hint">管理员审批时可调整</div>
+      </div>
+      <div class="form-item">
+        <label>申请理由</label>
+        <textarea id="ap_reason" placeholder="简要说明需要开通账号的原因"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeApplyModal()">取消</button>
+      <button class="btn btn-primary" onclick="submitApply()">提交申请</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 审批赋权弹窗 ===== -->
+<div class="modal-overlay" id="grantModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title">审批并赋权</div>
+      <button class="m-close" onclick="closeGrantModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="grantApplyInfo" style="margin-bottom:18px;"></div>
+      <div class="form-item">
+        <label><span class="req">*</span>登录账号</label>
+        <input type="text" id="g_username">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>姓名</label>
+        <input type="text" id="g_realname">
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>初始密码</label>
+        <input type="text" id="g_password">
+        <div class="form-hint">发给申请人，登录后可自行修改</div>
+      </div>
+      <div class="form-item">
+        <label><span class="req">*</span>角色</label>
+        <select id="g_role"></select>
+      </div>
+      <div class="form-item">
+        <label>部门</label>
+        <select id="g_dept"></select>
+      </div>
+      <div class="form-item">
+        <label>岗位</label>
+        <input type="text" id="g_post">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeGrantModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmGrant()">通过并开通</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 驳回弹窗 ===== -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title">驳回申请</div>
+      <button class="m-close" onclick="closeRejectModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-item">
+        <label><span class="req">*</span>驳回原因</label>
+        <textarea id="r_reason" placeholder="请说明驳回原因，申请人查询进度时可看到"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeRejectModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 查询申请进度弹窗 ===== -->
+<div class="modal-overlay" id="queryModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title">查询申请进度</div>
+      <button class="m-close" onclick="closeQueryModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-item">
+        <label>手机号 或 姓名</label>
+        <input type="text" id="q_kw" placeholder="输入申请时填的手机号或姓名">
+      </div>
+      <div id="q_result" style="margin-top:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeQueryModal()">关闭</button>
+      <button class="btn btn-primary" onclick="doQueryApply()">查询</button>
     </div>
   </div>
 </div>
@@ -686,6 +875,7 @@ function enterAdmin() {
   });
   navTo('dashboard', document.querySelector('.sidebar .nav-item:not([style*="display: none"])'));
   updateStats();
+  if (typeof updateApplyBadge === 'function') updateApplyBadge();
 }
 
 function enterWorkbench() {
@@ -696,8 +886,8 @@ function enterWorkbench() {
 }
 
 // ===== 导航 =====
-const PAGE_TITLES = { dashboard: '仪表盘', accounts: '账号管理', roles: '角色权限', logs: '登录日志' };
-const ADMIN_PAGES = ['accounts', 'roles', 'logs'];
+const PAGE_TITLES = { dashboard: '仪表盘', accounts: '账号管理', roles: '角色权限', logs: '登录日志', applies: '账号申请' };
+const ADMIN_PAGES = ['accounts', 'roles', 'logs', 'applies'];
 function navTo(page, el) {
   // 权限校验：非管理员不能访问系统管理页面
   const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
@@ -711,10 +901,11 @@ function navTo(page, el) {
   const view = document.getElementById('view-' + page);
   if (view) view.classList.add('active');
   document.getElementById('pageTitle').textContent = PAGE_TITLES[page] || page;
-  if (page === 'dashboard') updateStats();
+  if (page === 'dashboard') { updateStats(); if (typeof updateApplyBadge === 'function') updateApplyBadge(); }
   if (page === 'accounts') renderAccounts();
   if (page === 'roles') renderRoles();
   if (page === 'logs') renderLogs();
+  if (page === 'applies') renderApplies();
 }
 
 // ===== 仪表盘 =====
@@ -1013,6 +1204,309 @@ document.getElementById('loginUsername').addEventListener('keypress', e => {
   if (e.key === 'Enter') document.getElementById('loginPassword').focus();
 });
 
+
+// ==================== 账号申请闭环 ====================
+// 部门 / 角色下拉：要增删改，直接改下面两个数组即可
+var AP_DEPTS = ['管理层', '品质部', '生产部', '仓储部', '技术部', '采购部', '业务部', '财务部', '人事行政部'];
+var AP_ROLES = ['manager', 'deptmgr', 'staff', 'guest'];
+var AP_APPLY_KEY = 'gls_account_applies';
+
+function apFillSelects(deptSel, roleSel) {
+  var d = document.getElementById(deptSel);
+  if (d) d.innerHTML = AP_DEPTS.map(function (x) { return '<option value="' + x + '">' + x + '</option>'; }).join('');
+  var r = document.getElementById(roleSel);
+  if (r) r.innerHTML = AP_ROLES.map(function (k) {
+    return '<option value="' + k + '">' + ((ROLES[k] && ROLES[k].name) || k) + '</option>';
+  }).join('');
+}
+
+function getApplies() {
+  var c = readCentral();
+  if (Array.isArray(c.accountApplies)) return c.accountApplies;
+  try { return JSON.parse(localStorage.getItem(AP_APPLY_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveApplies(list) {
+  var c = readCentral();
+  c.accountApplies = list;
+  writeCentral(c);
+  try { localStorage.setItem(AP_APPLY_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function newApplyId() {
+  var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+  var day = '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+  var same = getApplies().filter(function (a) { return (a.id || '').indexOf('SQ' + day) === 0; }).length;
+  return 'SQ' + day + String(same + 1).padStart(3, '0');
+}
+function applyStatusText(s) {
+  return s === 'approved' ? '已通过' : (s === 'rejected' ? '已驳回' : '待审批');
+}
+function applyStatusHtml(s) {
+  var cls = s === 'approved' ? 'st-approved' : (s === 'rejected' ? 'st-rejected' : 'st-pending');
+  return '<span class="apply-status ' + cls + '">' + applyStatusText(s) + '</span>';
+}
+function pendingApplyCount() {
+  return getApplies().filter(function (a) { return a.status === 'pending'; }).length;
+}
+function updateApplyBadge() {
+  var n = pendingApplyCount();
+  var el = document.getElementById('applyBadge');
+  if (el) { el.textContent = n; el.style.display = n > 0 ? 'inline-block' : 'none'; }
+  var card = document.getElementById('applyTodoCard');
+  var num = document.getElementById('applyTodoNum');
+  if (num) num.textContent = n;
+  if (card) card.style.display = n > 0 ? '' : 'none';
+}
+
+// -------- 申请人：提交申请 --------
+function showApplyModal() {
+  apFillSelects('ap_dept', 'ap_role');
+  var ids = ['ap_realname', 'ap_username', 'ap_phone', 'ap_email', 'ap_post', 'ap_reason'];
+  ids.forEach(function (k) { var el = document.getElementById(k); if (el) el.value = ''; });
+  var m = document.getElementById('applyModal');
+  if (m) m.classList.add('show');
+}
+function closeApplyModal() {
+  var m = document.getElementById('applyModal');
+  if (m) m.classList.remove('show');
+}
+function submitApply() {
+  var val = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  var realname = val('ap_realname'), username = val('ap_username'),
+      phone = val('ap_phone'), email = val('ap_email'),
+      post = val('ap_post'), reason = val('ap_reason');
+  var deptEl = document.getElementById('ap_dept'), roleEl = document.getElementById('ap_role');
+  var dept = deptEl ? deptEl.value : '', role = roleEl ? roleEl.value : '';
+
+  if (!realname) { showToast('请填写姓名', 'error'); return; }
+  if (!username) { showToast('请填写期望登录账号', 'error'); return; }
+  if (!/^[A-Za-z0-9_.-]{3,20}$/.test(username)) { showToast('账号需 3-20 位英文/数字/._-', 'error'); return; }
+  if (!/^1\d{10}$/.test(phone)) { showToast('请填写正确的 11 位手机号', 'error'); return; }
+
+  var accs = getAccounts();
+  if (accs.some(function (a) { return a && a.username === username; })) {
+    showToast('该账号名已被使用，请换一个', 'error'); return;
+  }
+  var list = getApplies();
+  if (list.some(function (a) { return a.status === 'pending' && a.username === username; })) {
+    showToast('该账号名已有待审批申请，请勿重复提交', 'error'); return;
+  }
+  if (list.some(function (a) { return a.status === 'pending' && a.phone === phone; })) {
+    showToast('该手机号已有待审批申请，请等待管理员处理', 'error'); return;
+  }
+
+  list.unshift({
+    id: newApplyId(), username: username, realname: realname, phone: phone, email: email,
+    dept: dept, post: post, applyRole: role, reason: reason,
+    status: 'pending', applyTime: formatDateTime(new Date()),
+    handleTime: '', handler: '', rejectReason: '', grantedRole: ''
+  });
+  saveApplies(list);
+  closeApplyModal();
+  updateApplyBadge();
+  showToast('申请已提交，请等待管理员审批（可用「查询申请进度」跟进）', 'success');
+}
+
+// -------- 申请人：查询进度 --------
+function showApplyQuery() {
+  var el = document.getElementById('q_kw'); if (el) el.value = '';
+  var r = document.getElementById('q_result'); if (r) r.innerHTML = '';
+  var m = document.getElementById('queryModal'); if (m) m.classList.add('show');
+}
+function closeQueryModal() {
+  var m = document.getElementById('queryModal'); if (m) m.classList.remove('show');
+}
+function doQueryApply() {
+  var el = document.getElementById('q_kw');
+  var kw = el ? el.value.trim() : '';
+  var box = document.getElementById('q_result');
+  if (!box) return;
+  if (!kw) { showToast('请输入手机号或姓名', 'error'); return; }
+  var hits = getApplies().filter(function (a) { return a.phone === kw || a.realname === kw; });
+  if (!hits.length) {
+    box.innerHTML = '<div class="apply-detail"><div class="k">结果</div><div class="v" style="color:#999;">没有找到申请记录</div></div>';
+    return;
+  }
+  box.innerHTML = hits.map(function (a) {
+    var extra = '';
+    if (a.status === 'approved') extra = '<div class="k">开通账号</div><div class="v">' + esc(a.username) + '（' + ((ROLES[a.grantedRole] && ROLES[a.grantedRole].name) || a.grantedRole || '') + '）</div>';
+    if (a.status === 'rejected') extra = '<div class="k">驳回原因</div><div class="v" style="color:#cf1322;">' + esc(a.rejectReason || '-') + '</div>';
+    return '<div class="apply-detail" style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed #eee;">' +
+      '<div class="k">申请编号</div><div class="v">' + esc(a.id) + '</div>' +
+      '<div class="k">姓名 / 账号</div><div class="v">' + esc(a.realname) + ' / ' + esc(a.username) + '</div>' +
+      '<div class="k">部门 / 岗位</div><div class="v">' + esc(a.dept || '-') + ' / ' + esc(a.post || '-') + '</div>' +
+      '<div class="k">申请时间</div><div class="v">' + esc(a.applyTime) + '</div>' +
+      '<div class="k">状态</div><div class="v">' + applyStatusHtml(a.status) +
+        (a.status !== 'pending' ? '　' + esc(a.handleTime || '') : '') + '</div>' + extra + '</div>';
+  }).join('');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// -------- 超管：申请列表 --------
+function renderApplies() {
+  var body = document.getElementById('appliesBody');
+  if (!body) return;
+  var kwEl = document.getElementById('applySearch');
+  var stEl = document.getElementById('applyStatusFilter');
+  var kw = kwEl ? kwEl.value.trim().toLowerCase() : '';
+  var st = stEl ? stEl.value : 'pending';
+
+  var list = getApplies().filter(function (a) {
+    if (st && a.status !== st) return false;
+    if (!kw) return true;
+    return ((a.realname || '') + (a.username || '') + (a.dept || '') + (a.id || '')).toLowerCase().indexOf(kw) >= 0;
+  });
+
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:40px 0;">' +
+      (st === 'pending' ? '暂无待审批申请' : '没有符合条件的申请') + '</td></tr>';
+  } else {
+    body.innerHTML = list.map(function (a) {
+      var ops = a.status === 'pending'
+        ? '<button class="btn btn-primary btn-sm" onclick="openGrantModal(\'' + a.id + '\')">通过并赋权</button> ' +
+          '<button class="btn btn-default btn-sm" onclick="openRejectModal(\'' + a.id + '\')">驳回</button>'
+        : '<span style="color:#aaa;">' + esc(a.handler || '') + '</span>';
+      return '<tr>' +
+        '<td>' + esc(a.id) + '</td>' +
+        '<td>' + esc(a.realname) + '</td>' +
+        '<td>' + esc(a.username) + '</td>' +
+        '<td>' + esc(a.dept || '-') + '</td>' +
+        '<td>' + esc(a.post || '-') + '</td>' +
+        '<td>' + ((ROLES[a.applyRole] && ROLES[a.applyRole].name) || a.applyRole || '-') + '</td>' +
+        '<td>' + esc(a.applyTime || '') + '</td>' +
+        '<td>' + applyStatusHtml(a.status) + '</td>' +
+        '<td>' + ops + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+  updateApplyBadge();
+}
+
+// -------- 超管：通过并赋权 --------
+function openGrantModal(id) {
+  var a = getApplies().filter(function (x) { return x.id === id; })[0];
+  if (!a) { showToast('申请不存在', 'error'); return; }
+  apFillSelects('g_dept', 'g_role');
+  var info = document.getElementById('grantApplyInfo');
+  if (info) {
+    info.innerHTML = '<div class="apply-detail">' +
+      '<div class="k">申请编号</div><div class="v">' + esc(a.id) + '</div>' +
+      '<div class="k">姓名</div><div class="v">' + esc(a.realname) + '</div>' +
+      '<div class="k">手机号</div><div class="v">' + esc(a.phone || '-') + '</div>' +
+      '<div class="k">申请部门</div><div class="v">' + esc(a.dept || '-') + '　' + esc(a.post || '') + '</div>' +
+      '<div class="k">申请角色</div><div class="v">' + ((ROLES[a.applyRole] && ROLES[a.applyRole].name) || a.applyRole || '-') + '</div>' +
+      '<div class="k">申请理由</div><div class="v">' + esc(a.reason || '-') + '</div>' +
+      '<div class="k">申请时间</div><div class="v">' + esc(a.applyTime) + '</div></div>';
+  }
+  var set = function (fid, v) { var el = document.getElementById(fid); if (el) el.value = v; };
+  set('g_username', a.username);
+  set('g_realname', a.realname);
+  set('g_post', a.post || '');
+  set('g_password', (a.phone || '').slice(-6) || '123456');
+  var d = document.getElementById('g_dept'); if (d && a.dept) d.value = a.dept;
+  var r = document.getElementById('g_role'); if (r && a.applyRole) r.value = a.applyRole;
+  window.GLS_GRANT_ID = id;
+  var m = document.getElementById('grantModal'); if (m) m.classList.add('show');
+  showToast('默认初始密码为手机号后 6 位，可自行修改', 'success');
+}
+function closeGrantModal() {
+  var m = document.getElementById('grantModal'); if (m) m.classList.remove('show');
+  window.GLS_GRANT_ID = null;
+}
+function confirmGrant() {
+  var id = window.GLS_GRANT_ID;
+  var a = getApplies().filter(function (x) { return x.id === id; })[0];
+  if (!a) { showToast('申请不存在', 'error'); return; }
+  var val = function (fid) { var el = document.getElementById(fid); return el ? el.value.trim() : ''; };
+  var username = val('g_username'), realname = val('g_realname'), password = val('g_password');
+  var post = val('g_post');
+  var dEl = document.getElementById('g_dept'), rEl = document.getElementById('g_role');
+  var dept = dEl ? dEl.value : '', role = rEl ? rEl.value : 'staff';
+
+  if (!username) { showToast('请填写登录账号', 'error'); return; }
+  if (!/^[A-Za-z0-9_.-]{3,20}$/.test(username)) { showToast('账号需 3-20 位英文/数字/._-', 'error'); return; }
+  if (!realname) { showToast('请填写姓名', 'error'); return; }
+  if (!password || password.length < 6) { showToast('初始密码至少 6 位', 'error'); return; }
+
+  var accs = getAccounts();
+  if (accs.some(function (x) { return x && x.username === username; })) {
+    showToast('账号名已被占用，请换一个', 'error'); return;
+  }
+
+  var maxId = accs.reduce(function (m, x) { return Math.max(m, Number(x.id) || 0); }, 0);
+  accs.push({
+    id: maxId + 1, username: username, password: password, realname: realname,
+    role: role, dept: dept, post: post, phone: a.phone || '', email: a.email || '',
+    status: 'active', createdAt: formatDateTime(new Date()), lastLogin: '',
+    fromApply: a.id
+  });
+  saveAccounts(accs);
+
+  var list = getApplies();
+  var cur = list.filter(function (x) { return x.id === id; })[0];
+  if (cur) {
+    cur.status = 'approved';
+    cur.username = username;
+    cur.realname = realname;
+    cur.grantedRole = role;
+    cur.dept = dept;
+    cur.post = post;
+    cur.handleTime = formatDateTime(new Date());
+    var me = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    cur.handler = me ? (me.realname || me.username) : '管理员';
+  }
+  saveApplies(list);
+  addLog(username, realname, true, '账号申请获批开通');
+  closeGrantModal();
+  renderApplies();
+  updateApplyBadge();
+  if (typeof renderAccounts === 'function') renderAccounts();
+  if (typeof updateStats === 'function') updateStats();
+  showToast('已开通账号 ' + username + '，请把初始密码告知申请人', 'success');
+}
+
+// -------- 超管：驳回 --------
+function openRejectModal(id) {
+  window.GLS_REJECT_ID = id;
+  var el = document.getElementById('r_reason'); if (el) el.value = '';
+  var m = document.getElementById('rejectModal'); if (m) m.classList.add('show');
+}
+function closeRejectModal() {
+  var m = document.getElementById('rejectModal'); if (m) m.classList.remove('show');
+  window.GLS_REJECT_ID = null;
+}
+function confirmReject() {
+  var id = window.GLS_REJECT_ID;
+  var el = document.getElementById('r_reason');
+  var reason = el ? el.value.trim() : '';
+  if (!reason) { showToast('请填写驳回原因', 'error'); return; }
+  var list = getApplies();
+  var cur = list.filter(function (x) { return x.id === id; })[0];
+  if (!cur) { showToast('申请不存在', 'error'); return; }
+  cur.status = 'rejected';
+  cur.rejectReason = reason;
+  cur.handleTime = formatDateTime(new Date());
+  var me = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  cur.handler = me ? (me.realname || me.username) : '管理员';
+  saveApplies(list);
+  closeRejectModal();
+  renderApplies();
+  updateApplyBadge();
+  showToast('已驳回该申请', 'success');
+}
+
+// 按菜单文字定位跳转（避免依赖菜单顺序）
+function navToByName(page, text) {
+  var items = document.querySelectorAll('.sidebar .nav-item');
+  for (var i = 0; i < items.length; i++) {
+    if ((items[i].innerText || '').indexOf(text) >= 0) { navTo(page, items[i]); return; }
+  }
+  navTo(page, null);
+}
+
 // ===== 初始化 =====
 initDefaultAccounts();
   ensureSuperAdmin();
@@ -1030,6 +1524,7 @@ if (session) {
     localStorage.removeItem(SESSION_KEY);
   }
 }
+updateApplyBadge();
 updateTime();
 setInterval(updateTime, 1000);
 </script>
