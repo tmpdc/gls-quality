@@ -273,6 +273,36 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .tpl-preview-wrap table { border-collapse: collapse; font-size: 12px; }
 .tpl-preview-wrap td { padding: 3px 5px; }
 
+/* ===== 体系文件四级分层 ===== */
+.sf-wrap { padding-bottom: 14px; }
+.sf-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
+.sf-head .sf-title { font-size: 15px; font-weight: 700; color: #2d7a4f; }
+.sf-head .sf-sub { font-size: 11.5px; color: #8a9a90; }
+.sf-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.sf-tab { background: #fff; border: 1.5px solid #e2ece6; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all .15s; }
+.sf-tab:active { background: #f2f8f5; }
+.sf-tab.on { border-color: #2d7a4f; background: #eef7f1; }
+.sf-tab .sf-lv { font-size: 12px; font-weight: 700; color: #333; }
+.sf-tab.on .sf-lv { color: #2d7a4f; }
+.sf-tab .sf-nm { font-size: 17px; font-weight: 800; color: #2d7a4f; line-height: 1.3; }
+.sf-tab .sf-ds { font-size: 10px; color: #9aa8a0; }
+.sf-grp { background: #fff; border: 1px solid #e8efeb; border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+.sf-grp-h { padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 700; color: #2d7a4f; background: #f7fbf8; }
+.sf-grp-h .sf-cnt { font-size: 11px; color: #8a9a90; font-weight: 500; margin-left: auto; }
+.sf-grp-h .sf-arw { font-size: 12px; color: #2d7a4f; transition: transform .15s; }
+.sf-grp.open .sf-grp-h .sf-arw { transform: rotate(90deg); }
+.sf-grp-b { display: none; padding: 4px 10px 10px; }
+.sf-grp.open .sf-grp-b { display: block; }
+.sf-file { display: flex; align-items: center; gap: 8px; padding: 8px 8px; border-radius: 7px; cursor: pointer; }
+.sf-file:active { background: #f2f8f5; }
+.sf-file .sf-ic { font-size: 14px; flex-shrink: 0; }
+.sf-file .sf-nm2 { font-size: 12.5px; color: #333; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-file .sf-sz { font-size: 10.5px; color: #a8b4ae; flex-shrink: 0; }
+.sf-file .sf-on { font-size: 10px; color: #fff; background: #2d7a4f; padding: 1px 6px; border-radius: 7px; flex-shrink: 0; }
+.sf-empty { font-size: 12px; color: #bbb; padding: 12px; text-align: center; }
+.sf-note { font-size: 11.5px; color: #8a9a90; line-height: 1.8; background: #f7fbf8; border: 1px solid #e6f0ea; border-radius: 9px; padding: 9px 11px; margin-bottom: 12px; }
+@media (max-width: 420px) { .sf-tab .sf-nm { font-size: 15px; } .sf-tab .sf-ds { display: none; } }
+
 /* ===== 体系文件全文 ===== */
 .doc-fulltext { white-space: normal !important; font-size: 13px; line-height: 1.9; }
 .doc-fulltext p { margin: 0 0 5px; }
@@ -2271,10 +2301,342 @@ function esc4(x) {
   return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/* ==================== 体系文件四级分层视图 ==================== */
+window.GLS_SF_LV = window.GLS_SF_LV || 2;   // 当前层级：1/2/3/4
+window.GLS_SF_OPEN = window.GLS_SF_OPEN || {}; // 分组的展开状态
+
+var SF_LV_NAME = { 1: '一级文件', 2: '二级文件', 3: '三级文件', 4: '四级文件' };
+var SF_LV_DESC = { 1: '管理手册', 2: '程序文件', 3: '作业指导书/规范/制度', 4: '记录表单' };
+var SF_LV_NOTE = {
+  1: '一级文件：管理手册（质量、环境、职业健康安全、社会责任）。',
+  2: '二级文件：程序文件，规定各项管理活动的职责、流程与接口。',
+  3: '三级文件：作业指导书、检验标准、操作规程、管理制度与规范。',
+  4: '四级文件：记录表单，可直接填写、打印、归档。'
+};
+
+function sfEsc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+function sfIcon(name) {
+  var e = String(name).split('.').pop().toLowerCase();
+  if (e === 'xls' || e === 'xlsx') return '📊';
+  if (e === 'doc' || e === 'docx' || e === 'dot') return '📄';
+  if (e === 'pdf') return '📕';
+  if (e === 'ppt' || e === 'pptx') return '📽';
+  return '📃';
+}
+
+function sfSize(b) {
+  if (!b) return '';
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+  return (b / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+/** 本地路径 -> 能否在线看全文 */
+function sfOnlineKey(name) {
+  if (typeof SYSTEM_DOCS === 'undefined') return '';
+  var norm = function (x) { return String(x).replace(/\s+/g, '').replace(/[（）()【】\[\]]/g, '').toLowerCase(); };
+  var base = String(name).replace(/\.[^.]+$/, '');
+  var keys = Object.keys(SYSTEM_DOCS);
+  for (var i = 0; i < keys.length; i++) { if (norm(keys[i]) === norm(base)) return keys[i]; }
+  // 去掉 P-0xx 前缀再比一次
+  var b2 = base.replace(/^[A-Za-z]{1,5}[-\s]?\d{1,4}/, '');
+  for (var j = 0; j < keys.length; j++) { if (norm(keys[j]) === norm(b2)) return keys[j]; }
+  return '';
+}
+
+function sfSwitchLv(lv) {
+  window.GLS_SF_LV = lv;
+  renderModuleList();
+}
+
+function sfToggleGrp(el) {
+  var g = el.parentNode;
+  g.classList.toggle('open');
+  var k = g.getAttribute('data-sfkey');
+  if (k) window.GLS_SF_OPEN[k] = g.classList.contains('open');
+}
+
+function renderSysFileModule(container, searchText) {
+  var SF = window.GLS_SYSFILES;
+  if (!SF || !SF.levels) {
+    container.innerHTML = '<div class="sf-empty">体系文件清单未加载</div>';
+    return;
+  }
+  var lv = window.GLS_SF_LV || 2;
+  var q = String(searchText || '').trim().toLowerCase();
+
+  // 统计
+  var cnt = {};
+  [1, 2, 3, 4].forEach(function (l) { cnt[l] = (SF.levels[String(l)] || []).length; });
+
+  // 搜索态：跨层级搜索
+  var rows, searchMode = !!q;
+  if (searchMode) {
+    rows = [];
+    [1, 2, 3, 4].forEach(function (l) {
+      (SF.levels[String(l)] || []).forEach(function (x) {
+        if (String(x.n).toLowerCase().indexOf(q) >= 0 || String(x.d).toLowerCase().indexOf(q) >= 0) {
+          rows.push({ n: x.n, d: x.d, p: x.p, s: x.s, lv: l });
+        }
+      });
+    });
+  } else {
+    rows = (SF.levels[String(lv)] || []).map(function (x) { return { n: x.n, d: x.d, p: x.p, s: x.s, lv: lv }; });
+  }
+
+  // 四级：并入「模板中心」内置记录模板（其它板块的相关内容集中过来）
+  if (lv === 4 && !searchMode && !q) {
+    try {
+      if (typeof TEMPLATE_CARDS !== 'undefined') {
+        var add = [];
+        Object.keys(TEMPLATE_CARDS).forEach(function (mk) {
+          (TEMPLATE_CARDS[mk] || []).forEach(function (t) {
+            if (!t || !t.name) return;
+            var dup = rows.some(function (r) { return String(r.n).replace(/\.[^.]+$/, '') === String(t.name); });
+            if (!dup) add.push({ n: t.name + '（模板中心）', d: '系统内置记录模板（模板中心）', p: '', s: 0, lv: 4, tpl: t.id });
+          });
+        });
+        rows = rows.concat(add);
+      }
+    } catch (e) {}
+  }
+
+  var h = '<div class="sf-wrap">';
+
+  // 层级标签
+  h += '<div class="sf-tabs">';
+  [1, 2, 3, 4].forEach(function (l) {
+    h += '<div class="sf-tab' + ((l === lv && !searchMode) ? ' on' : '') + '" onclick="sfSwitchLv(' + l + ')">' +
+      '<div class="sf-lv">' + SF_LV_NAME[l] + '</div>' +
+      '<div class="sf-nm">' + cnt[l] + '</div>' +
+      '<div class="sf-ds">' + SF_LV_DESC[l] + '</div>' +
+      '</div>';
+  });
+  h += '</div>';
+
+  // 说明
+  h += '<div class="sf-note">' +
+    (searchMode
+      ? '搜索「' + sfEsc(q) + '」共 <b>' + rows.length + '</b> 个文件（跨四个层级）。点文件即可打开。'
+      : SF_LV_NOTE[lv] + ' 共 <b>' + rows.length + '</b> 个文件，按部门/类别分组。') +
+    '<br>来源目录：' + sfEsc(SF.root) + '</div>';
+
+  if (!rows.length) {
+    h += '<div class="sf-empty">该层级暂无文件</div></div>';
+    container.innerHTML = h;
+    return;
+  }
+
+  // 按 来源目录 分组
+  var groups = [], map = {};
+  rows.forEach(function (x) {
+    var key = x.d || '其他';
+    if (!map[key]) { map[key] = []; groups.push(key); }
+    map[key].push(x);
+  });
+  groups.sort();
+
+  groups.forEach(function (g) {
+    var list = map[g].slice().sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'zh'); });
+    var gk = lv + '|' + g;
+    var open = searchMode || window.GLS_SF_OPEN[gk] !== false;   // 默认展开
+    h += '<div class="sf-grp' + (open ? ' open' : '') + '" data-sfkey="' + sfEsc(gk) + '">' +
+      '<div class="sf-grp-h" onclick="sfToggleGrp(this)">' +
+      '<span>📁 ' + sfEsc(g) + '</span><span class="sf-arw">▸</span>' +
+      '<span class="sf-cnt">' + list.length + ' 个</span></div>' +
+      '<div class="sf-grp-b">';
+    list.forEach(function (x) {
+      var hasOn = sfOnlineKey(x.n);
+      var sn = String(x.n).replace('（模板中心）', '');
+      var clk = x.tpl
+        ? 'sfOpenTpl(' + JSON.stringify(x.tpl).replace(/"/g, '&quot;') + ',\'' + (x.d || '').replace(/'/g, '') + '\')'
+        : 'sfOpenFile(' + JSON.stringify(x.n).replace(/"/g, '&quot;') + ',' +
+          JSON.stringify(x.p).replace(/"/g, '&quot;') + ',' + x.lv + ')';
+      h += '<div class="sf-file" onclick="' + clk + '">' +
+        '<span class="sf-ic">' + (x.tpl ? '📋' : sfIcon(x.n)) + '</span>' +
+        '<span class="sf-ic">' + sfIcon(x.n) + '</span>' +
+        '<span class="sf-nm2">' + sfEsc(x.n) + '</span>' +
+        (x.tpl ? '<span class="sf-on">可填写</span>' : (hasOn ? '<span class="sf-on">可在线看</span>' : '')) +
+        '<span class="sf-sz">' + sfSize(x.s) + '</span>' +
+        '</div>';
+    });
+    h += '</div></div>';
+  });
+
+  h += '</div>';
+  container.innerHTML = h;
+}
+
+/** 点文件：能在线看全文的直接打开，否则给出本地路径 */
+function sfOpenFile(name, path, lv) {
+  var key = sfOnlineKey(name);
+  if (key && typeof SYSTEM_DOCS !== 'undefined') {
+    window.GLS_SF_PENDING = key;
+    openDocFullText(key);
+    return;
+  }
+  sfShowLocal(name, path, lv);
+}
+
+function sfShowLocal(name, path, lv) {
+  var old = document.getElementById('sfLocalDlg');
+  if (old) old.remove();
+  var d = document.createElement('div');
+  d.id = 'sfLocalDlg';
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  d.onclick = function (e) { if (e.target === d) d.remove(); };
+  d.innerHTML =
+    '<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px;">' +
+    '<div style="font-size:16px;font-weight:800;color:#2d7a4f;margin-bottom:4px;">' + sfEsc(name) + '</div>' +
+    '<div style="font-size:11.5px;color:#8a9a90;margin-bottom:12px;">' + (SF_LV_NAME[lv] || '') + ' · 本地文件</div>' +
+    '<div style="font-size:12px;color:#666;line-height:1.9;background:#f7fbf8;border:1px solid #e6f0ea;border-radius:9px;padding:10px;margin-bottom:12px;">' +
+    '文件路径：<br><span style="font-size:11.5px;color:#2d7a4f;word-break:break-all;">' + sfEsc(path) + '</span></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+    '<button onclick="sfCopyPath(' + JSON.stringify(path).replace(/"/g, '&quot;') + ')" style="flex:1;min-width:110px;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">复制路径</button>' +
+    '<button onclick="sfTryOpen(' + JSON.stringify(path).replace(/"/g, '&quot;') + ')" style="flex:1;min-width:110px;padding:10px;border:1px solid #d1d5db;background:#fff;color:#555;border-radius:9px;font-size:13px;cursor:pointer;">试着打开</button>' +
+    '<button onclick="document.getElementById(\'sfLocalDlg\').remove()" style="flex:1;min-width:110px;padding:10px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>' +
+    '</div></div>';
+  document.body.appendChild(d);
+}
+
+function sfCopyPath(p) {
+  var t = String(p).replace(/\//g, '\\');
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { toast('路径已复制'); }, function () { sfFallbackCopy(t); });
+    } else { sfFallbackCopy(t); }
+  } catch (e) { sfFallbackCopy(t); }
+}
+function sfFallbackCopy(t) {
+  var ta = document.createElement('textarea');
+  ta.value = t; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('路径已复制'); } catch (e) { toast('复制失败，请手动选择', false); }
+  ta.remove();
+}
+function sfTryOpen(p) {
+  try {
+    var u = 'file:///' + encodeURI(String(p).replace(/\\/g, '/'));
+    var w = window.open(u, '_blank');
+    if (!w) toast('浏览器拦住了本地文件，请用「复制路径」后在资源管理器打开');
+  } catch (e) { toast('无法直接打开，请用「复制路径」'); }
+}
+
+/** 打开在线全文（复用 SYSTEM_DOCS） */
+function openDocFullText(key) {
+  var raw = SYSTEM_DOCS[key];
+  if (!raw) { toast('该文件暂无在线全文', false); return; }
+  var code = '', ver = 'A0', title = key, body = '';
+  if (typeof raw === 'string') { body = raw; }
+  else { code = raw.code || ''; ver = raw.version || 'A0'; title = raw.title || key; body = raw.content || ''; }
+  var nm = String(key).match(/^([A-Za-z]{1,5}[-\s]?\d{1,4})/);
+  if (nm) code = nm[1];
+  var vm = String(body).match(/版\s*本\s*[:：]?\s*([A-Za-z0-9.]+)/);
+  if (vm) ver = vm[1];
+  if (!body) body = '<span style="color:#999">暂无内容</span>';
+
+  var old = document.getElementById('sfDocDlg');
+  if (old) old.remove();
+  var d = document.createElement('div');
+  d.id = 'sfDocDlg';
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
+  d.onclick = function (e) { if (e.target === d) d.remove(); };
+  d.innerHTML =
+    '<div style="background:#fff;border-radius:14px;max-width:900px;width:100%;padding:18px;">' +
+    '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">' +
+    '<div style="flex:1;min-width:0;">' +
+    '<div style="font-size:17px;font-weight:800;color:#2d7a4f;line-height:1.5;">' + sfEsc(title) + '</div>' +
+    '<div style="font-size:11.5px;color:#8a9a90;margin-top:3px;">文件编号：' + sfEsc(code || '未编号') + ' ｜ 版本：' + sfEsc(ver) + '</div>' +
+    '</div>' +
+    '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="border:none;background:#f2f2f2;color:#666;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>' +
+    '</div>' +
+    '<div class="doc-fulltext" style="max-height:70vh;overflow:auto;border-top:1px solid #eef2f0;padding-top:12px;">' + body + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:14px;">' +
+    '<button onclick="sfPrintDoc()" style="flex:1;padding:11px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🖨 打印</button>' +
+    '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="flex:1;padding:11px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>' +
+    '</div></div>';
+  document.body.appendChild(d);
+}
+
+function sfOpenTpl(tplId, mod) {
+  try {
+    if (typeof openTemplatePreview === 'function') { openTemplatePreview(tplId, mod || 'rd'); return; }
+    if (typeof TEMPLATE_CARDS !== 'undefined') {
+      var hit = null;
+      Object.keys(TEMPLATE_CARDS).forEach(function (mk) {
+        (TEMPLATE_CARDS[mk] || []).forEach(function (t) { if (t && t.id === tplId) hit = t; });
+      });
+      if (hit) { sfShowTpl(hit); return; }
+    }
+    toast('该模板暂时打不开', false);
+  } catch (e) { toast('打开失败：' + e.message, false); }
+}
+
+function sfShowTpl(t) {
+  var old = document.getElementById('sfTplDlg');
+  if (old) old.remove();
+  var d = document.createElement('div');
+  d.id = 'sfTplDlg';
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
+  d.onclick = function (e) { if (e.target === d) d.remove(); };
+  d.innerHTML =
+    '<div style="background:#fff;border-radius:14px;max-width:980px;width:100%;padding:16px;">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+    '<div style="flex:1;font-size:16px;font-weight:800;color:#2d7a4f;">📋 ' + sfEsc(t.name) + '</div>' +
+    '<button onclick="document.getElementById(\'sfTplDlg\').remove()" style="border:none;background:#f2f2f2;color:#666;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>' +
+    '</div>' +
+    '<div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;background:#fff;padding:8px;max-height:68vh;" id="sfTplBody">' +
+    (t.recordTemplate || '<span style="color:#999">该模板暂无内容</span>') + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+    '<button onclick="sfPrintTpl()" style="flex:1;padding:11px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">🖨 打印</button>' +
+    '<button onclick="document.getElementById(\'sfTplDlg\').remove()" style="flex:1;padding:11px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>' +
+    '</div></div>';
+  document.body.appendChild(d);
+}
+
+function sfPrintTpl() {
+  var box = document.getElementById('sfTplBody');
+  if (!box) return;
+  var w = window.open('', '_blank');
+  if (!w) { toast('打印窗口被拦截', false); return; }
+  w.document.write('<html><head><meta charset="utf-8"><title>记录模板</title>' +
+    '<style>body{font-family:"宋体",serif;padding:12px;}table{border-collapse:collapse;width:100%;}' +
+    'td,th{border:1px solid #666;padding:3px;font-size:12px;}</style></head><body>' + box.innerHTML + '</body></html>');
+  w.document.close();
+  setTimeout(function () { w.print(); }, 400);
+}
+
+function sfPrintDoc() {
+  var box = document.querySelector('#sfDocDlg .doc-fulltext');
+  if (!box) return;
+  var w = window.open('', '_blank');
+  if (!w) { toast('打印窗口被拦截', false); return; }
+  w.document.write('<html><head><meta charset="utf-8"><title>体系文件</title>' +
+    '<style>body{font-family:"宋体",serif;padding:18px;line-height:1.9;font-size:14px;}' +
+    'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #666;padding:4px;font-size:12px;}</style></head><body>' +
+    box.innerHTML + '</body></html>');
+  w.document.close();
+  setTimeout(function () { w.print(); }, 400);
+}
+
 function renderModuleList() {
   const container = document.getElementById('moduleListContainer');
   const searchText = document.getElementById('moduleSearchInput').value.toLowerCase();
-  
+
+  // ★ 体系文件模块：四级分层视图（一级/二级/三级/四级）
+  if (currentModule.id === 'documents' && window.GLS_SYSFILES) {
+    try {
+      document.getElementById('moduleFilters').innerHTML =
+        '<div class="filter-tab active">体系文件 · 四级分层（共 ' +
+        ((window.GLS_SYSFILES.levels['1'] || []).length + (window.GLS_SYSFILES.levels['2'] || []).length +
+         (window.GLS_SYSFILES.levels['3'] || []).length + (window.GLS_SYSFILES.levels['4'] || []).length) +
+        ' 份）</div>';
+    } catch (e) {}
+    renderSysFileModule(container, searchText);
+    return;
+  }
+
   // 知识查询模块：从KNOWLEDGE_INDEX读取（索引仅87KB，秒开）
   if (currentModule.id === 'knowledge') {
     // 筛选标签
@@ -3423,6 +3785,7 @@ window.onerror = function(msg, url, line, col, error) {
 <script src="gls-inspect.js?v=5"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
+<script src="gls-sysfiles.js?v=1"></script>
   <script src="gls-bizflow.js?v=9"></script>
 <script src="gls-live-notify.js?v=1"></script>
   <script src="gls-smartimport.js?v=4"></script>
