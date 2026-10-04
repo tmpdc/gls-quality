@@ -2119,7 +2119,32 @@ var MOD_PERM = {
   rd: 'biz.erp', production: 'biz.erp', shipping: 'biz.erp',
   documents: 'biz.doc', knowledge: 'biz.knowledge', training: 'biz.training'
 };
-function canModule(id) { var p = MOD_PERM[id]; return p ? GLSP.can(p) : true; }
+// 读取当前账号被超管勾选的板块清单；未设置返回 null（退回角色权限）
+function accountMods() {
+  try {
+    var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    if (!s) return null;
+    var arr = null;
+    try {
+      var c = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (c && Array.isArray(c.accounts)) arr = c.accounts;
+    } catch (e) {}
+    if (!Array.isArray(arr)) { try { arr = JSON.parse(localStorage.getItem('gls_accounts') || 'null'); } catch (e) {} }
+    var a = null;
+    if (Array.isArray(arr)) {
+      for (var i = 0; i < arr.length; i++) { if (arr[i].username === s.username) { a = arr[i]; break; } }
+    }
+    if (a && Array.isArray(a.mods)) return a.mods;
+    if (Array.isArray(s.mods)) return s.mods;
+  } catch (e) {}
+  return null;
+}
+// 板块可见性：账号勾了板块就严格按勾选；没勾过则按角色权限
+function canModule(id) {
+  var ms = accountMods();
+  if (ms) return ms.indexOf(id) >= 0;
+  var p = MOD_PERM[id]; return p ? GLSP.can(p) : true;
+}
 function canPerm(p) { return GLSP.can(p); }
 
 // ==================== 侧边栏 ====================
