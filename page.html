@@ -752,6 +752,54 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   .sb-collapse { top: 10px; right: 8px; width: 30px; height: 30px; font-size: 15px; border-radius: 8px; }
   .sb-collapse .lbl { font-size: 10px; margin-left: 2px; }
 }
+
+/* ===== 体系文件 增/改/删 UI ===== */
+.sf-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 14px;background:#fff;border-radius:11px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:11px;}
+.sf-btn{border:1px solid #d5dcd8;background:#fff;color:#33463d;font-size:13px;padding:7px 14px;border-radius:9px;cursor:pointer;transition:.16s;font-family:inherit;}
+.sf-btn:hover{border-color:#2d7a4f;color:#2d7a4f;background:#f4fbf7;}
+.sf-btn.add{background:#2d7a4f;border-color:#2d7a4f;color:#fff;font-weight:600;}
+.sf-btn.add:hover{background:#256a43;color:#fff;}
+.sf-btn.primary{background:#2d7a4f;border-color:#2d7a4f;color:#fff;font-weight:600;}
+.sf-btn.primary:hover{background:#256a43;color:#fff;}
+.sf-btn.danger{background:#c0392b;border-color:#c0392b;color:#fff;font-weight:600;}
+.sf-btn.danger:hover{background:#a93226;color:#fff;}
+.sf-bar-tip{font-size:11.5px;color:#9aa8a1;margin-left:auto;}
+.sf-file{position:relative;}
+.sf-ops{display:flex;gap:5px;flex:0 0 auto;margin-left:8px;opacity:0;transition:.16s;}
+.sf-file:hover .sf-ops{opacity:1;}
+@media (max-width:768px){.sf-ops{opacity:1;}}
+.sf-op{border:1px solid #dde5e1;background:#fff;color:#4a5f55;font-size:11.5px;padding:3px 9px;border-radius:7px;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;}
+.sf-op:hover{border-color:#2d7a4f;color:#2d7a4f;background:#f2fbf6;}
+.sf-op.del:hover{border-color:#c0392b;color:#c0392b;background:#fdf3f2;}
+.sf-new{font-size:10.5px;color:#fff;background:#e08b30;padding:2px 7px;border-radius:8px;flex:0 0 auto;margin-left:6px;}
+.sf-del-box{margin-top:14px;background:#fff;border-radius:11px;padding:11px 14px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+.sf-del-h{font-size:13px;color:#8a7a70;font-weight:600;margin-bottom:7px;}
+.sf-del-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed #eef1ef;font-size:13px;color:#7a8a82;}
+.sf-dlg-mask{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(18,32,26,.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.sf-dlg{background:#fff;border-radius:15px;width:100%;max-width:520px;max-height:90vh;overflow:auto;box-shadow:0 18px 50px rgba(0,0,0,.24);}
+.sf-dlg-lg{max-width:620px;}
+.sf-dlg-sm{max-width:410px;}
+.sf-dlg-h{display:flex;align-items:center;justify-content:space-between;padding:15px 19px;font-size:16px;font-weight:700;color:#233a30;border-bottom:1px solid #f0f3f1;}
+.sf-dlg-h span{cursor:pointer;color:#a8b3ad;font-size:17px;line-height:1;padding:3px 7px;border-radius:7px;}
+.sf-dlg-h span:hover{background:#f4f6f5;color:#5b6b63;}
+.sf-dlg-b{padding:17px 19px;display:flex;flex-direction:column;gap:13px;}
+.sf-dlg-b label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4a5f55;font-weight:600;}
+.sf-dlg-b label i{color:#c0392b;font-style:normal;}
+.sf-dlg-b input,.sf-dlg-b select,.sf-dlg-b textarea{border:1px solid #dbe3df;border-radius:9px;padding:9px 12px;font-size:14px;font-family:inherit;color:#26332c;background:#fbfdfc;width:100%;box-sizing:border-box;}
+.sf-dlg-b input:focus,.sf-dlg-b select:focus,.sf-dlg-b textarea:focus{outline:none;border-color:#2d7a4f;background:#fff;}
+.sf-dlg-b textarea{resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;}
+.sf-dlg-ck{flex-direction:row!important;align-items:center;gap:8px!important;}
+.sf-dlg-ck input{width:auto!important;}
+.sf-dlg-tip{font-size:13px;color:#4a5f55;line-height:1.7;}
+.sf-dlg-sub{font-size:11.5px;color:#9aa8a1;margin-top:5px;}
+.sf-dlg-f{display:flex;justify-content:flex-end;gap:9px;padding:13px 19px;border-top:1px solid #f0f3f1;background:#fafcfb;border-radius:0 0 15px 15px;}
+.sf-imp-prev{font-size:12.5px;color:#5b6b63;background:#f7faf8;border-radius:9px;padding:10px 12px;max-height:160px;overflow:auto;}
+.sf-imp-prev:empty{display:none;}
+.sf-imp-list div{padding:3px 0;border-top:1px dashed #eef1ef;color:#33463d;}
+.sf-imp-list div span{color:#9aa8a1;margin-left:7px;font-size:11.5px;}
+.sf-imp-ok{color:#2d7a4f;font-weight:600;margin-bottom:5px;}
+.sf-imp-bad{color:#c0392b;}
+
 </style>
 <script src="system_docs.js?v=2"></script>
 <script src="knowledge_index.js?v=1"></script>
@@ -2447,8 +2495,356 @@ function sfToggleGrp(el) {
   if (k) window.GLS_SF_OPEN[k] = g.classList.contains('open');
 }
 
+/* ==================== 体系文件：增 / 改 / 删 覆盖层 ==================== */
+window.GLS_SF_OV_KEY = 'gls_sysfiles_ov';
+
+function sfLoadOv() {
+  try { return JSON.parse(localStorage.getItem(window.GLS_SF_OV_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function sfSaveOv(o) {
+  try { localStorage.setItem(window.GLS_SF_OV_KEY, JSON.stringify(o)); } catch (e) {}
+}
+function sfOvKey(x) {
+  if (!x) return '';
+  if (x.k) return String(x.k);
+  if (x.uid) return String(x.uid);
+  return 'n_' + String(x.n || '') + '|' + String(x.lv == null ? '' : x.lv);
+}
+/* 把覆盖层应用到 GLS_SYSFILES.levels（保留 _base 原始快照） */
+function sfApplyOv() {
+  var SF = window.GLS_SYSFILES;
+  if (!SF || !SF.levels) return;
+  if (!SF._base) { try { SF._base = JSON.parse(JSON.stringify(SF.levels)); } catch (e) { SF._base = SF.levels; } }
+  var ov = sfLoadOv();
+  var del = {};
+  (ov.deleted || []).forEach(function (k) { del[String(k)] = 1; });
+  var out = {};
+  [1, 2, 3, 4].forEach(function (l) {
+    var base = SF._base[String(l)] || [];
+    out[String(l)] = base.filter(function (x) { return !del[sfOvKey(x)]; }).map(function (x) {
+      var e = (ov.edited || {})[sfOvKey(x)];
+      if (!e) return x;
+      var y = {}; for (var kk in x) { if (Object.prototype.hasOwnProperty.call(x, kk)) y[kk] = x[kk]; }
+      if (e.n != null && e.n !== '') y.n = e.n;
+      if (e.d != null && e.d !== '') y.d = e.d;
+      if (e.s != null && e.s !== '') y.s = Number(e.s) || 0;
+      if (e.on != null) y.on = e.on;
+      return y;
+    });
+  });
+  (ov.added || []).forEach(function (x) {
+    var l = String(x.lv || 4);
+    if (!out[l]) out[l] = [];
+    out[l].push(x);
+  });
+  SF.levels = out;
+}
+
+/* 打开「新增 / 修改」弹窗 */
+function sfItemDialog(mode, lv, key) {
+  var SF = window.GLS_SYSFILES || {};
+  var it = { n: '', d: '', s: 0, lv: lv || 2, on: 1 };
+  if (mode === 'edit') {
+    var found = null;
+    [1, 2, 3, 4].forEach(function (l) {
+      ((SF.levels || {})[String(l)] || []).forEach(function (x) { if (sfOvKey(x) === String(key)) found = x; });
+    });
+    if (!found) { sfToast('找不到该文件', false); return; }
+    it = { n: found.n || '', d: found.d || '', s: found.s || 0, lv: found.lv || lv || 2, on: found.on ? 1 : 0, k: found.k || '' };
+  }
+  var old = document.getElementById('sfDlg'); if (old) old.parentNode.removeChild(old);
+  var lvOpts = '';
+  [1, 2, 3, 4].forEach(function (l) {
+    lvOpts += '<option value="' + l + '"' + (Number(it.lv) === l ? ' selected' : '') + '>' +
+      (typeof SF_LV_NAME !== 'undefined' ? SF_LV_NAME[l] : ('第' + l + '级')) + '</option>';
+  });
+  var d = document.createElement('div');
+  d.id = 'sfDlg'; d.className = 'sf-dlg-mask';
+  d.innerHTML =
+    '<div class="sf-dlg" onclick="event.stopPropagation()">' +
+      '<div class="sf-dlg-h">' + (mode === 'edit' ? '修改资料' : '新增资料') + '<span onclick="sfCloseDlg()">✕</span></div>' +
+      '<div class="sf-dlg-b">' +
+        '<label>文件名称 <i>*</i><input id="sfDlgName" value="' + sfEsc(it.n) + '" placeholder="如：IQC来料检验记录表.xlsx"></label>' +
+        '<label>所属层级<select id="sfDlgLv">' + lvOpts + '</select></label>' +
+        '<label>分组目录<input id="sfDlgDir" value="' + sfEsc(it.d) + '" placeholder="如：品质部 / 三级文件"></label>' +
+        '<label>文件大小（KB）<input id="sfDlgSize" type="number" min="0" step="1" value="' + Math.round((Number(it.s) || 0) / 1024) + '"></label>' +
+        '<label class="sf-dlg-ck"><input id="sfDlgOn" type="checkbox"' + (it.on ? ' checked' : '') + '> 标记为「可在线看」</label>' +
+        (mode === 'edit'
+          ? '<label>本机路径（可留空）<input id="sfDlgPath" value="' + sfEsc(it.p || '') + '"></label>'
+          : '<label>本机路径（可留空）<input id="sfDlgPath" placeholder="选填，本机 D:\\... 路径"></label>') +
+      '</div>' +
+      '<div class="sf-dlg-f">' +
+        '<button class="sf-btn" onclick="sfCloseDlg()">取消</button>' +
+        '<button class="sf-btn primary" onclick="sfSaveItem(\'' + mode + '\',' + JSON.stringify(key ? String(key) : '').replace(/"/g, '&quot;') + ')">保存</button>' +
+      '</div>' +
+    '</div>';
+  d.onclick = sfCloseDlg;
+  document.body.appendChild(d);
+  setTimeout(function () { var el = document.getElementById('sfDlgName'); if (el) el.focus(); }, 60);
+}
+function sfCloseDlg() { var d = document.getElementById('sfDlg'); if (d) d.parentNode.removeChild(d); }
+
+function sfSaveItem(mode, key) {
+  var g = function (id) { var e = document.getElementById(id); return e ? e.value : ''; };
+  var name = String(g('sfDlgName') || '').trim();
+  if (!name) { sfToast('请填写文件名称', false); return; }
+  var lv = Number(g('sfDlgLv')) || 4;
+  var dir = String(g('sfDlgDir') || '').trim() || '未分组';
+  var size = Math.round((Number(g('sfDlgSize')) || 0) * 1024);
+  var on = document.getElementById('sfDlgOn') && document.getElementById('sfDlgOn').checked ? 1 : 0;
+  var path = String(g('sfDlgPath') || '').trim();
+  var ov = sfLoadOv();
+  ov.edited = ov.edited || {}; ov.added = ov.added || []; ov.deleted = ov.deleted || [];
+
+  // 重名检查：同层级同名
+  var SF = window.GLS_SYSFILES || {};
+  var dup = ((SF.levels || {})[String(lv)] || []).some(function (x) {
+    return String(x.n) === name && sfOvKey(x) !== String(key || '');
+  });
+  if (dup) { sfToast('第 ' + lv + ' 级里已有同名文件「' + name + '」', false); return; }
+
+  if (mode === 'edit') {
+    var k = String(key || '');
+    var isAdded = ov.added.some(function (x) { return sfOvKey(x) === k; });
+    if (isAdded) {
+      ov.added = ov.added.map(function (x) {
+        if (sfOvKey(x) !== k) return x;
+        x.n = name; x.d = dir; x.s = size; x.on = on; x.lv = lv; if (path) x.p = path;
+        return x;
+      });
+    } else {
+      ov.edited[k] = { n: name, d: dir, s: size, on: on, p: path };
+      // 层级改了：从原层级删除 + 新层级新增
+      var curLv = 0;
+      [1, 2, 3, 4].forEach(function (l) {
+        ((SF.levels || {})[String(l)] || []).forEach(function (x) { if (sfOvKey(x) === k) curLv = Number(x.lv || l); });
+      });
+      if (curLv && curLv !== lv) {
+        // 原记录整体保留在新层级：先按删除处理，再补一条 added
+        if (ov.deleted.indexOf(k) < 0) ov.deleted.push(k);
+        delete ov.edited[k];
+        ov.added.push({ uid: 'u_' + Date.now(), n: name, d: dir, s: size, lv: lv, on: on, p: path });
+      }
+    }
+    sfToast('已修改：' + name);
+  } else {
+    ov.added.push({ uid: 'u_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                    n: name, d: dir, s: size, lv: lv, on: on, p: path });
+    sfToast('已新增：' + name);
+  }
+  sfSaveOv(ov); sfCloseDlg();
+  try { window.GLS_SF_LV = lv; } catch (e) {}
+  sfRefresh();
+}
+
+/* 删除（二次确认，可撤销） */
+function sfDelItem(key, lv) {
+  var SF = window.GLS_SYSFILES || {};
+  var it = null;
+  ((SF.levels || {})[String(lv)] || []).forEach(function (x) { if (sfOvKey(x) === String(key)) it = x; });
+  if (!it) { sfToast('找不到该文件', false); return; }
+  var old = document.getElementById('sfDlg'); if (old) old.parentNode.removeChild(old);
+  var d = document.createElement('div');
+  d.id = 'sfDlg'; d.className = 'sf-dlg-mask';
+  d.innerHTML =
+    '<div class="sf-dlg sf-dlg-sm" onclick="event.stopPropagation()">' +
+      '<div class="sf-dlg-h">删除确认<span onclick="sfCloseDlg()">✕</span></div>' +
+      '<div class="sf-dlg-b"><div class="sf-dlg-tip">确定删除下面这份资料吗？<br><b>' + sfEsc(it.n) + '</b>' +
+      '<div class="sf-dlg-sub">删除后可在本层级底部「已删除」里一键恢复。</div></div></div>' +
+      '<div class="sf-dlg-f">' +
+        '<button class="sf-btn" onclick="sfCloseDlg()">取消</button>' +
+        '<button class="sf-btn danger" onclick="sfDoDelete(' + JSON.stringify(String(key)).replace(/"/g, '&quot;') + ',' + lv + ')">确认删除</button>' +
+      '</div>' +
+    '</div>';
+  d.onclick = sfCloseDlg;
+  document.body.appendChild(d);
+}
+function sfDoDelete(key, lv) {
+  var ov = sfLoadOv();
+  ov.deleted = ov.deleted || []; ov.added = ov.added || [];
+  var k = String(key);
+  var inAdded = ov.added.some(function (x) { return sfOvKey(x) === k; });
+  if (inAdded) {
+    ov.added = ov.added.filter(function (x) { return sfOvKey(x) !== k; });   // 自己加的，直接抹掉
+  } else {
+    if (ov.deleted.indexOf(k) < 0) ov.deleted.push(k);
+  }
+  sfSaveOv(ov); sfCloseDlg();
+  sfToast('已删除，可在层级底部恢复');
+  sfRefresh();
+}
+/* 撤销删除 */
+function sfUndoDel(key) {
+  var ov = sfLoadOv();
+  ov.deleted = (ov.deleted || []).filter(function (x) { return String(x) !== String(key); });
+  sfSaveOv(ov); sfToast('已恢复'); sfRefresh();
+}
+/* 恢复原始清单 */
+function sfResetOv() {
+  var old = document.getElementById('sfDlg'); if (old) old.parentNode.removeChild(old);
+  var d = document.createElement('div');
+  d.id = 'sfDlg'; d.className = 'sf-dlg-mask';
+  d.innerHTML =
+    '<div class="sf-dlg sf-dlg-sm" onclick="event.stopPropagation()">' +
+      '<div class="sf-dlg-h">恢复原始清单<span onclick="sfCloseDlg()">✕</span></div>' +
+      '<div class="sf-dlg-b"><div class="sf-dlg-tip">将清除你所有的「新增 / 修改 / 删除」，回到 786 份原始清单。' +
+      '<div class="sf-dlg-sub">此操作不可撤销。</div></div></div>' +
+      '<div class="sf-dlg-f">' +
+        '<button class="sf-btn" onclick="sfCloseDlg()">取消</button>' +
+        '<button class="sf-btn danger" onclick="sfDoReset()">确认恢复</button>' +
+      '</div>' +
+    '</div>';
+  d.onclick = sfCloseDlg;
+  document.body.appendChild(d);
+}
+function sfDoReset() {
+  try { localStorage.removeItem(window.GLS_SF_OV_KEY); } catch (e) {}
+  if (window.GLS_SYSFILES && window.GLS_SYSFILES._base) window.GLS_SYSFILES.levels = window.GLS_SYSFILES._base;
+  sfCloseDlg(); sfToast('已恢复原始清单'); sfRefresh();
+}
+/* 触发当前层级重绘 */
+function sfRefresh() {
+  try {
+    if (typeof renderModuleList === 'function' && currentModule && currentModule.id === 'documents') {
+      renderModuleList();
+      return;
+    }
+  } catch (e) {}
+  try {
+    var c = document.getElementById('moduleListContainer');
+    var s = (document.getElementById('moduleSearchInput') || {}).value || '';
+    if (c) renderSysFileModule(c, s);
+  } catch (e) {}
+}
+
+/* ---------- 从表格导入（按表头识别，不要求死模板） ---------- */
+function sfImportDialog() {
+  var old = document.getElementById('sfDlg'); if (old) old.parentNode.removeChild(old);
+  var d = document.createElement('div');
+  d.id = 'sfDlg'; d.className = 'sf-dlg-mask';
+  d.innerHTML =
+    '<div class="sf-dlg sf-dlg-lg" onclick="event.stopPropagation()">' +
+      '<div class="sf-dlg-h">从表格导入<span onclick="sfCloseDlg()">✕</span></div>' +
+      '<div class="sf-dlg-b">' +
+        '<div class="sf-dlg-tip">支持 <b>CSV / TXT</b>（Excel、WPS 里「另存为 CSV」），也可直接从表格复制整块粘贴到下面的框。' +
+        '<div class="sf-dlg-sub">自动识别「名称 / 层级 / 分组 / 大小」列，认不出的列忽略，缺的列留空，不要求固定模板。</div></div>' +
+        '<label>选择文件<input type="file" id="sfImpFile" accept=".csv,.txt" onchange="sfImpRead(this)"></label>' +
+        '<label>或粘贴表格内容（含表头，逗号或制表符分隔）<textarea id="sfImpText" rows="7" placeholder="文件名称,所属层级,分组目录,大小KB&#10;IQC来料检验记录表.xlsx,四级,品质部,45"></textarea></label>' +
+        '<label>默认层级<select id="sfImpLv"><option value="4">四级</option><option value="2">二级</option><option value="3">三级</option><option value="1">一级</option></select></label>' +
+        '<label class="sf-dlg-ck"><input id="sfImpOn" type="checkbox" checked> 标记为「可在线看」</label>' +
+        '<div id="sfImpPrev" class="sf-imp-prev"></div>' +
+      '</div>' +
+      '<div class="sf-dlg-f">' +
+        '<button class="sf-btn" onclick="sfCloseDlg()">取消</button>' +
+        '<button class="sf-btn" onclick="sfImpPreview()">预览</button>' +
+        '<button class="sf-btn primary" onclick="sfImpCommit()">确认导入</button>' +
+      '</div>' +
+    '</div>';
+  d.onclick = sfCloseDlg;
+  document.body.appendChild(d);
+}
+function sfImpRead(inp) {
+  var f = inp.files && inp.files[0]; if (!f) return;
+  var r = new FileReader();
+  r.onload = function (e) {
+    var t = document.getElementById('sfImpText'); if (t) t.value = String(e.target.result || '');
+    sfImpPreview();
+  };
+  r.readAsText(f, 'UTF-8');
+}
+/* 按表头识别列 */
+function sfImpParse() {
+  var raw = String((document.getElementById('sfImpText') || {}).value || '');
+  if (!raw.trim()) return [];
+  var lines = raw.replace(/\r/g, '').split('\n').filter(function (l) { return l.trim() !== ''; });
+  if (!lines.length) return [];
+  var TAB = String.fromCharCode(9);
+  var sep = lines[0].indexOf(TAB) >= 0 ? TAB : ',';
+  var split = function (l) {
+    if (sep === TAB) return l.split(TAB);
+    var out = [], cur = '', q = false;
+    for (var i = 0; i < l.length; i++) {
+      var ch = l.charAt(i);
+      if (ch === '"') { if (q && l.charAt(i + 1) === '"') { cur += '"'; i++; } else q = !q; }
+      else if (ch === ',' && !q) { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  };
+  var BOM = String.fromCharCode(65279);
+  var hdr = split(lines[0]).map(function (s) { return String(s).split(BOM).join('').trim(); });
+  var idx = function () {
+    var names = Array.prototype.slice.call(arguments);
+    for (var i = 0; i < hdr.length; i++) {
+      var H = hdr[i];
+      for (var j = 0; j < names.length; j++) if (H.indexOf(names[j]) >= 0) return i;
+    }
+    return -1;
+  };
+  var iN = idx('名称', '文件名', '资料名', '文件'),
+      iL = idx('层级', '级别', '等级'),
+      iD = idx('分组', '目录', '部门', '类别'),
+      iS = idx('大小', '字节', 'KB', '尺寸');
+  var hasHdr = (iN >= 0 || iL >= 0 || iD >= 0);
+  var body = hasHdr ? lines.slice(1) : lines;
+  if (!hasHdr) iN = 0;
+  var lvMap = { '一': 1, '二': 2, '三': 3, '四': 4, '1': 1, '2': 2, '3': 3, '4': 4 };
+  var out = [];
+  body.forEach(function (l) {
+    var c = split(l);
+    var nm = String(c[iN >= 0 ? iN : 0] || '').trim();
+    if (!nm) return;
+    var lv = 0;
+    if (iL >= 0) { var s = String(c[iL] || '').trim(); lv = lvMap[s.charAt(0)] || Number(s) || 0; }
+    var sz = 0;
+    if (iS >= 0) { sz = (Number(String(c[iS] || '').replace(/[^0-9.]/g, '')) || 0) * 1024; }
+    out.push({ n: nm, lv: lv, d: iD >= 0 ? String(c[iD] || '').trim() : '', s: sz });
+  });
+  return out;
+}
+function sfImpPreview() {
+  var rows = sfImpParse();
+  var box = document.getElementById('sfImpPrev'); if (!box) return rows;
+  if (!rows.length) { box.innerHTML = '<span class="sf-imp-bad">没解析到数据，检查是否有表头、分隔符是否为逗号</span>'; return rows; }
+  var t = '<div class="sf-imp-ok">解析到 ' + rows.length + ' 行：</div><div class="sf-imp-list">';
+  rows.slice(0, 8).forEach(function (r) {
+    t += '<div>' + sfEsc(r.n) + ' <span>' + (r.lv ? (r.lv + '级') : '默认级') + (r.d ? ' · ' + sfEsc(r.d) : '') + '</span></div>';
+  });
+  if (rows.length > 8) t += '<div>… 其余 ' + (rows.length - 8) + ' 行</div>';
+  t += '</div>';
+  box.innerHTML = t;
+  return rows;
+}
+function sfImpCommit() {
+  var rows = sfImpParse();
+  if (!rows.length) { sfToast('没解析到数据', false); return; }
+  var defLv = Number((document.getElementById('sfImpLv') || {}).value) || 4;
+  var on = document.getElementById('sfImpOn') && document.getElementById('sfImpOn').checked ? 1 : 0;
+  var ov = sfLoadOv();
+  ov.added = ov.added || [];
+  var seen = {};
+  ov.added.forEach(function (x) { seen[String(x.n) + '|' + (x.lv || 4)] = 1; });
+  var SF = window.GLS_SYSFILES || {};
+  var nNew = 0, nSkip = 0;
+  rows.forEach(function (r, i) {
+    var lv = r.lv || defLv;
+    var kk = r.n + '|' + lv;
+    var dup = seen[kk] || ((SF.levels || {})[String(lv)] || []).some(function (x) { return String(x.n) === r.n; });
+    if (dup) { nSkip++; return; }
+    seen[kk] = 1;
+    ov.added.push({ uid: 'u_' + Date.now() + '_' + i, n: r.n, d: r.d || '导入', s: r.s || 0, lv: lv, on: on, p: '' });
+    nNew++;
+  });
+  sfSaveOv(ov); sfCloseDlg();
+  sfToast('导入完成：新增 ' + nNew + ' 条' + (nSkip ? '，跳过同名 ' + nSkip + ' 条' : ''));
+  try { window.GLS_SF_LV = defLv; } catch (e) {}
+  sfRefresh();
+}
+
 function renderSysFileModule(container, searchText) {
   var SF = window.GLS_SYSFILES;
+  if (SF && SF.levels) { try { sfApplyOv(); } catch (e) {} }
   if (!SF || !SF.levels) {
     container.innerHTML = '<div class="sf-empty">体系文件清单未加载</div>';
     return;
@@ -2467,12 +2863,12 @@ function renderSysFileModule(container, searchText) {
     [1, 2, 3, 4].forEach(function (l) {
       (SF.levels[String(l)] || []).forEach(function (x) {
         if (String(x.n).toLowerCase().indexOf(q) >= 0 || String(x.d).toLowerCase().indexOf(q) >= 0) {
-          rows.push({ n: x.n, d: x.d, p: x.p, s: x.s, lv: l, k: x.k, on: x.on });
+          rows.push({ n: x.n, d: x.d, p: x.p, s: x.s, lv: l, k: x.k, on: x.on, uid: x.uid });
         }
       });
     });
   } else {
-    rows = (SF.levels[String(lv)] || []).map(function (x) { return { n: x.n, d: x.d, p: x.p, s: x.s, lv: lv, k: x.k, on: x.on }; });
+    rows = (SF.levels[String(lv)] || []).map(function (x) { return { n: x.n, d: x.d, p: x.p, s: x.s, lv: lv, k: x.k, on: x.on, uid: x.uid }; });
   }
 
   // 四级：并入「模板中心」内置记录模板（其它板块的相关内容集中过来）
@@ -2504,6 +2900,14 @@ function renderSysFileModule(container, searchText) {
       '</div>';
   });
   h += '</div>';
+
+  // 工具栏：新增 / 导入 / 恢复
+  h += '<div class="sf-bar">' +
+    '<button class="sf-btn add" onclick="sfItemDialog(\'add\',' + (searchMode ? 4 : lv) + ')">＋ 新增资料</button>' +
+    '<button class="sf-btn" onclick="sfImportDialog()">⬆ 从表格导入</button>' +
+    '<button class="sf-btn" onclick="sfResetOv()">↺ 恢复原始清单</button>' +
+    '<span class="sf-bar-tip">新增/修改/删除只影响你自己的清单，原始 786 份不受影响</span>' +
+    '</div>';
 
   // 说明
   h += '<div class="sf-note">' +
@@ -2544,16 +2948,45 @@ function renderSysFileModule(container, searchText) {
         : 'sfOpenFile(' + JSON.stringify(x.n).replace(/"/g, '&quot;') + ',' +
           JSON.stringify(x.p).replace(/"/g, '&quot;') + ',' + x.lv + ',' +
           JSON.stringify(x.k || '').replace(/"/g, '&quot;') + ')';
+      var okey = sfOvKey(x).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       h += '<div class="sf-file" onclick="' + clk + '">' +
         '<span class="sf-ic">' + (x.tpl ? '📋' : sfIcon(x.n)) + '</span>' +
-        '<span class="sf-ic">' + sfIcon(x.n) + '</span>' +
         '<span class="sf-nm2">' + sfEsc(x.n) + '</span>' +
+        (x.uid ? '<span class="sf-new">新增</span>' : '') +
         (x.tpl ? '<span class="sf-on">可填写</span>' : (hasOn ? '<span class="sf-on">可在线看</span>' : '')) +
         '<span class="sf-sz">' + sfSize(x.s) + '</span>' +
+        '<span class="sf-ops">' +
+          '<button class="sf-op" title="修改" onclick="event.stopPropagation();sfItemDialog(\'edit\',' + x.lv + ',\'' + okey + '\')">✏ 改</button>' +
+          '<button class="sf-op del" title="删除" onclick="event.stopPropagation();sfDelItem(\'' + okey + '\',' + x.lv + ')">🗑 删</button>' +
+        '</span>' +
         '</div>';
     });
     h += '</div></div>';
   });
+
+  // 已删除条目：可一键恢复
+  try {
+    var ov2 = sfLoadOv();
+    var dels = (ov2.deleted || []).filter(function (k) {
+      return ((SF.levels[String(lv)] || []).length === 0) ||
+             !((SF.levels[String(lv)] || []).some(function (x) { return sfOvKey(x) === String(k); }));
+    });
+    if (!searchMode && dels.length) {
+      h += '<div class="sf-del-box"><div class="sf-del-h">🗑 已删除 ' + dels.length + ' 份（可恢复）</div>';
+      dels.forEach(function (kk) {
+        var nm = kk;
+        try {
+          var b = SF._base || {};
+          [1, 2, 3, 4].forEach(function (l) {
+            ((b[String(l)] || [])).forEach(function (x) { if (sfOvKey(x) === String(kk)) nm = x.n; });
+          });
+        } catch (e) {}
+        h += '<div class="sf-del-row"><span>' + sfEsc(nm) + '</span>' +
+          '<button class="sf-op" onclick="sfUndoDel(\'' + String(kk).replace(/'/g, "\\'") + '\')">↺ 恢复</button></div>';
+      });
+      h += '</div>';
+    }
+  } catch (e) {}
 
   h += '</div>';
   container.innerHTML = h;
