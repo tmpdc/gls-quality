@@ -64,6 +64,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .mtodo-row-st.st-rej { background: #fee2e2; color: #b91c1c; }
 .mtodo-row-st.st-run { background: #e0f2fe; color: #075985; }
 .sidebar .nav-badge { background: #ff4d4f; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+/* 侧边栏数量徽标一律不显示（口径为记录条数，含系统预置示例，易被误读为待办） */
+.sidebar .nav-badge,
+#sidebarNav .nav-badge,
+.sidebar .nav-badge-warn { display: none !important; }
 .sidebar .nav-section { padding: 16px 20px 8px; font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
 .sidebar .user-info { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px; }
 .sidebar .user-name { color: #fff; font-size: 14px; font-weight: 600; }
