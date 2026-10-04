@@ -310,6 +310,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .doc-fulltext th, .doc-fulltext td { border: 1px solid #8a8a8a; padding: 5px 7px; vertical-align: middle; word-break: break-word; white-space: pre-wrap; line-height: 1.6; }
 .doc-fulltext table p { margin: 0; }
 .doc-fulltext p.gls-doc-empty { margin: 0; height: 8px; }
+.doc-fulltext p.gls-doc-sheet { margin: 12px 0 4px; font-weight: 700; color: #2d7a4f; font-size: 12.5px; }
 .doc-fulltext td:empty, .doc-fulltext td p:empty { min-height: 16px; }
 
 /* ===== 相关模板 / 相关资料 ===== */
@@ -2388,12 +2389,12 @@ function renderSysFileModule(container, searchText) {
     [1, 2, 3, 4].forEach(function (l) {
       (SF.levels[String(l)] || []).forEach(function (x) {
         if (String(x.n).toLowerCase().indexOf(q) >= 0 || String(x.d).toLowerCase().indexOf(q) >= 0) {
-          rows.push({ n: x.n, d: x.d, p: x.p, s: x.s, lv: l });
+          rows.push({ n: x.n, d: x.d, p: x.p, s: x.s, lv: l, k: x.k, on: x.on });
         }
       });
     });
   } else {
-    rows = (SF.levels[String(lv)] || []).map(function (x) { return { n: x.n, d: x.d, p: x.p, s: x.s, lv: lv }; });
+    rows = (SF.levels[String(lv)] || []).map(function (x) { return { n: x.n, d: x.d, p: x.p, s: x.s, lv: lv, k: x.k, on: x.on }; });
   }
 
   // 四级：并入「模板中心」内置记录模板（其它板块的相关内容集中过来）
@@ -2431,7 +2432,7 @@ function renderSysFileModule(container, searchText) {
     (searchMode
       ? '搜索「' + sfEsc(q) + '」共 <b>' + rows.length + '</b> 个文件（跨四个层级）。点文件即可打开。'
       : SF_LV_NOTE[lv] + ' 共 <b>' + rows.length + '</b> 个文件，按部门/类别分组。') +
-    '<br>来源目录：' + sfEsc(SF.root) + '</div>';
+    '<br>文件总数 786 份，全部可在线查看原文（1:1 提取）</div>';
 
   if (!rows.length) {
     h += '<div class="sf-empty">该层级暂无文件</div></div>';
@@ -2458,12 +2459,13 @@ function renderSysFileModule(container, searchText) {
       '<span class="sf-cnt">' + list.length + ' 个</span></div>' +
       '<div class="sf-grp-b">';
     list.forEach(function (x) {
-      var hasOn = sfOnlineKey(x.n);
+      var hasOn = x.on || sfOnlineKey(x.n);
       var sn = String(x.n).replace('（模板中心）', '');
       var clk = x.tpl
         ? 'sfOpenTpl(' + JSON.stringify(x.tpl).replace(/"/g, '&quot;') + ',\'' + (x.mod || 'rd') + '\')'
         : 'sfOpenFile(' + JSON.stringify(x.n).replace(/"/g, '&quot;') + ',' +
-          JSON.stringify(x.p).replace(/"/g, '&quot;') + ',' + x.lv + ')';
+          JSON.stringify(x.p).replace(/"/g, '&quot;') + ',' + x.lv + ',' +
+          JSON.stringify(x.k || '').replace(/"/g, '&quot;') + ')';
       h += '<div class="sf-file" onclick="' + clk + '">' +
         '<span class="sf-ic">' + (x.tpl ? '📋' : sfIcon(x.n)) + '</span>' +
         '<span class="sf-ic">' + sfIcon(x.n) + '</span>' +
@@ -2479,8 +2481,41 @@ function renderSysFileModule(container, searchText) {
   container.innerHTML = h;
 }
 
-/** 点文件：能在线看全文的直接打开，否则给出本地路径 */
-function sfOpenFile(name, path, lv) {
+/** 按需加载体系文件全文分片 */
+window.GLS_SD_LD = window.GLS_SD_LD || {};
+function sfEnsureShard(si, cb) {
+  if ((window.GLS_SD || {})[si]) { cb(true); return; }
+  if (window.GLS_SD_LD[si]) { window.GLS_SD_LD[si].push(cb); return; }
+  window.GLS_SD_LD[si] = [cb];
+  var sc = document.createElement('script');
+  sc.src = 'sysdoc/p' + si + '.js?v=1';
+  sc.onload = function () {
+    var q = window.GLS_SD_LD[si] || []; window.GLS_SD_LD[si] = null;
+    q.forEach(function (f) { try { f(true); } catch (e) {} });
+  };
+  sc.onerror = function () {
+    var q = window.GLS_SD_LD[si] || []; window.GLS_SD_LD[si] = null;
+    q.forEach(function (f) { try { f(false); } catch (e) {} });
+  };
+  document.head.appendChild(sc);
+}
+
+/** 点文件：优先在线看全文（体系文件库 513 份），退到 SYSTEM_DOCS，最后给本地路径 */
+function sfOpenFile(name, path, lv, hash) {
+  var si = (window.GLS_SD_IDX || {})[hash];
+  if (si !== undefined && si !== null) {
+    sfToast('正在加载全文…');
+    sfEnsureShard(si, function (ok) {
+      var d = ((window.GLS_SD || {})[si] || {})[hash];
+      if (ok && d) { sfOpenSysDoc(name, d, lv); }
+      else { sfFallbackOpen(name, path, lv); }
+    });
+    return;
+  }
+  sfFallbackOpen(name, path, lv);
+}
+
+function sfFallbackOpen(name, path, lv) {
   var key = sfOnlineKey(name);
   if (key && typeof SYSTEM_DOCS !== 'undefined') {
     window.GLS_SF_PENDING = key;
@@ -2488,6 +2523,50 @@ function sfOpenFile(name, path, lv) {
     return;
   }
   sfShowLocal(name, path, lv);
+}
+
+/** 在线全文弹窗（体系文件库） */
+function sfOpenSysDoc(name, d, lv) {
+  var old = document.getElementById('sfDocDlg');
+  if (old) old.remove();
+  var noText = !(d && d.h);
+  var body = noText
+    ? '<div style="padding:18px 14px;background:#fffbf0;border:1px solid #f0e0b8;border-radius:10px;color:#8a6d20;font-size:13.5px;line-height:1.9;">' +
+      '📷 该文件是<b>扫描件 / 现场照片</b>，原件本身没有可提取的文字正文（内容就是图像）。<br>' +
+      '· 原文件保存在公司体系文件目录中，需要看图请直接打开原文件。<br>' +
+      '· 其余 ' + ((window.GLS_SYSFILES && window.GLS_SYSFILES.online) ? window.GLS_SYSFILES.online : 0) + ' 份文件均可在此直接查看全文。</div>'
+    : d.h;
+  var el = document.createElement('div');
+  el.id = 'sfDocDlg';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:14px;overflow:auto;';
+  el.onclick = function (e) { if (e.target === el) el.remove(); };
+  el.innerHTML =
+    '<div style="background:#fff;border-radius:14px;max-width:900px;width:100%;padding:18px;">' +
+    '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">' +
+    '<div style="flex:1;min-width:0;">' +
+    '<div style="font-size:17px;font-weight:800;color:#2d7a4f;line-height:1.5;">' + sfEsc(name) + '</div>' +
+    '<div style="font-size:11.5px;color:#8a9a90;margin-top:3px;">' + sfEsc(SF_LV_NAME[lv] || '') +
+    ' ｜ 体系文件全文（原文 1:1 提取）</div></div>' +
+    '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="border:none;background:#f2f2f2;color:#666;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>' +
+    '</div>' +
+    '<div class="doc-fulltext" style="max-height:70vh;overflow:auto;border-top:1px solid #eef2f0;padding-top:12px;">' + body + '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:14px;">' +
+    (noText
+      ? '<button onclick="sfCopyName(\'' + sfEsc(name).replace(/'/g, "\\'") + '\')" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">复制文件名</button>'
+      : '<button onclick="sfPrintDoc()" style="flex:1;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">打印</button>') +
+    '<button onclick="document.getElementById(\'sfDocDlg\').remove()" style="flex:1;padding:10px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>' +
+    '</div></div>';
+  document.body.appendChild(el);
+}
+
+function sfCopyName(n) {
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = n; ta.style.cssText = 'position:fixed;left:-9999px;';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+    sfToast('已复制文件名，可在公司体系文件目录中搜索');
+  } catch (e) { sfToast('复制失败，请手动记录：' + n); }
 }
 
 function sfShowLocal(name, path, lv) {
@@ -3796,7 +3875,8 @@ window.onerror = function(msg, url, line, col, error) {
 <script src="gls-inspect.js?v=5"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
-<script src="gls-sysfiles.js?v=1"></script>
+<script src="gls-sysfiles.js?v=3"></script>
+<script src="sysdoc/index.js?v=1"></script>
   <script src="gls-bizflow.js?v=9"></script>
 <script src="gls-live-notify.js?v=1"></script>
   <script src="gls-smartimport.js?v=4"></script>
