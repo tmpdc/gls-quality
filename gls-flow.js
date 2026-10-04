@@ -1389,10 +1389,10 @@
             var n = countTodo();
             var un = unreadCount();
             var html = '<div class="nav-section">流程协作</div>' +
-              '<div class="nav-item" onclick="navigateTo(\'flows\'); toggleSidebar()">' +
+              '<div class="nav-item" onclick="navigateTo(\'flows\')">' +
               '<span class="nav-icon">⚡</span><span class="nav-text">流程中心</span>' +
               (n > 0 ? '<span class="nav-badge nav-badge-warn">' + n + '</span>' : '') + '</div>' +
-              '<div class="nav-item" onclick="navigateTo(\'notices\'); toggleSidebar()">' +
+              '<div class="nav-item" onclick="navigateTo(\'notices\')">' +
               '<span class="nav-icon">🔔</span><span class="nav-text">消息中心</span>' +
               (un > 0 ? '<span class="nav-badge">' + un + '</span>' : '') + '</div>';
             var secs = nav.querySelectorAll('.nav-section');
