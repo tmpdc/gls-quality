@@ -192,6 +192,16 @@ table tr:last-child td { border-bottom: none; }
 .apply-detail .k { color:#999; }
 .apply-detail .v { color:#222; word-break:break-all; }
 .apply-tip { background:#f6ffed; border:1px solid #b7eb8f; color:#389e0d; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.6; margin-bottom:16px; }
+
+/* ===== 板块权限勾选 ===== */
+.mod-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:7px 12px; border:1px solid #e8e8e8; border-radius:8px; padding:12px; background:#fafafa; max-height:230px; overflow:auto; }
+.mod-item { display:flex; align-items:center; gap:6px; font-size:13px; color:#444; cursor:pointer; padding:2px 0; }
+.mod-item input { width:auto; margin:0; cursor:pointer; }
+.mod-item:hover { color:#2d7a4f; }
+.mod-tools { margin-top:8px; font-size:12px; }
+.mod-tools a { color:#2d7a4f; cursor:pointer; margin-right:16px; }
+.mod-tools a:hover { text-decoration:underline; }
+.mod-count { font-size:11px; color:#999; margin-left:6px; }
 </style>
 </head>
 <body>
@@ -499,6 +509,15 @@ table tr:last-child td { border-bottom: none; }
       <div class="form-item"><label><span class="req">*</span>角色</label><select id="g_role"></select></div>
       <div class="form-item"><label>部门</label><select id="g_dept" onchange="apFillPosts()"></select></div>
       <div class="form-item"><label>岗位</label><select id="g_post"></select></div>
+      <div class="form-item"><label>可访问板块<span class="mod-count" id="g_modsCount"></span></label>
+        <div class="mod-grid" id="g_mods"></div>
+        <div class="mod-tools">
+          <a onclick="modsAll('g_mods',true)">全选</a>
+          <a onclick="modsAll('g_mods',false)">全不选</a>
+          <a onclick="modsByRole('g_mods')">按角色推荐</a>
+        </div>
+        <div class="form-hint">勾选后该账号的工作台只显示选中的板块</div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-default" onclick="closeGrantModal()">取消</button>
@@ -1124,6 +1143,61 @@ function renderApplies() {
   apUpdateBadge();
 }
 
+
+// ==================== 板块独立权限 ====================
+// 板块清单：要增删改直接改这个数组（与工作台 page.html 模块 id 一一对应）
+var AP_MODULES = [
+  { id: 'suppliers',  name: '供应商管理' },
+  { id: 'incoming',   name: '到货检验' },
+  { id: 'rd',         name: '研发管理' },
+  { id: 'production', name: '生产过程' },
+  { id: 'inspection', name: '成品检验' },
+  { id: 'shipping',   name: '出货管理' },
+  { id: 'abnormal',   name: '异常处理' },
+  { id: 'risk',       name: '风险预警' },
+  { id: 'documents',  name: '体系文件' },
+  { id: 'knowledge',  name: '知识查询' },
+  { id: 'training',   name: '培训管理' }
+];
+function defaultModsForRole(role) {
+  var all = AP_MODULES.map(function (m) { return m.id; });
+  if (role === 'staff') return ['suppliers', 'incoming', 'production', 'inspection', 'documents', 'knowledge', 'training'];
+  return all;
+}
+function modsRender(cid, sel) {
+  var box = document.getElementById(cid);
+  if (!box) return;
+  var picked = Array.isArray(sel) ? sel : AP_MODULES.map(function (m) { return m.id; });
+  box.innerHTML = AP_MODULES.map(function (m) {
+    var on = picked.indexOf(m.id) >= 0 ? ' checked' : '';
+    return '<label class="mod-item"><input type="checkbox" value="' + m.id + '"' + on + ' onchange="modsCount(\'' + cid + '\')">' + m.name + '</label>';
+  }).join('');
+  modsCount(cid);
+}
+function modsCollect(cid) {
+  var box = document.getElementById(cid);
+  if (!box) return [];
+  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]'))
+    .filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+}
+function modsAll(cid, on) {
+  var box = document.getElementById(cid);
+  if (!box) return;
+  Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]')).forEach(function (c) { c.checked = !!on; });
+  modsCount(cid);
+}
+function modsByRole(cid) {
+  var r = document.getElementById('g_role');
+  var role = r ? r.value : '';
+  modsRender(cid, defaultModsForRole(role));
+  showToast('已按角色推荐勾选，可再手动调整', 'success');
+}
+function modsCount(cid) {
+  var el = document.getElementById('g_modsCount');
+  if (!el) return;
+  el.textContent = '（已选 ' + modsCollect(cid).length + '/' + AP_MODULES.length + '）';
+}
+
 function openGrantModal(id) {
   var a = apGetList().filter(function (x) { return x.id === id; })[0];
   if (!a) { showToast('申请不存在', 'error'); return; }
@@ -1147,6 +1221,7 @@ function openGrantModal(id) {
   set('g_password', (a.phone || '').slice(-6) || '123456');
   if (a.post) { var p = document.getElementById('g_post'); if (p) p.value = a.post; }
   window.GLS_GRANT_ID = id;
+  modsRender('g_mods', defaultModsForRole(a.applyRole));
   document.getElementById('grantModal').classList.add('show');
   showToast('默认初始密码为手机号后 6 位，可自行修改', 'success');
 }
@@ -1172,7 +1247,8 @@ function confirmGrant() {
   accs.push({
     id: maxId + 1, username: username, password: password, realname: realname,
     role: role, dept: dept, post: post, phone: a.phone || '', email: a.email || '',
-    status: 'active', createdAt: apNow(), lastLogin: '', fromApply: a.id
+    status: 'active', createdAt: apNow(), lastLogin: '', fromApply: a.id,
+    mods: modsCollect('g_mods')
   });
   saveAccounts(accs);
   var list = apGetList();
