@@ -3042,13 +3042,21 @@ function sfDoDelete(key, lv) {
   var ov = sfLoadOv();
   ov.deleted = ov.deleted || []; ov.added = ov.added || [];
   var k = String(key);
+  var _nm = '';
+  ((window.GLS_SYSFILES || {}).levels && [1, 2, 3, 4]).forEach(function (L) {
+    (((window.GLS_SYSFILES || {}).levels || {})[String(L)] || []).forEach(function (x) {
+      if (sfOvKey(x) === k && x.n) _nm = x.n;
+    });
+  });
   var inAdded = ov.added.some(function (x) { return sfOvKey(x) === k; });
   if (inAdded) {
     ov.added = ov.added.filter(function (x) { return sfOvKey(x) !== k; });   // 自己加的，直接抹掉
   } else {
     if (ov.deleted.indexOf(k) < 0) ov.deleted.push(k);
   }
-  sfSaveOv(ov); sfCloseDlg();
+  sfSaveOv(ov);
+  if (_nm && typeof sfBodyDel === 'function') { sfBodyDel(_nm); }
+  sfCloseDlg();
   sfToast('已删除，可在层级底部恢复');
   sfRefresh();
 }
