@@ -19,7 +19,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .header .action-btn { font-size: 18px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .header .action-btn:active { background: rgba(255,255,255,0.15); }
 
-.sidebar { position: fixed; top: 0; left: calc(-1 * min(280px, 80vw)); width: min(280px, 80vw); height: 100%; background: linear-gradient(180deg, #2d7a4f 0%, #1f5a38 100%); z-index: 200; transition: left 0.3s ease; overflow-y: auto; padding-top: calc(68px + env(safe-area-inset-top)); }
+.sidebar { position: fixed; top: 0; left: calc(-1 * clamp(220px, 68vw, 280px)); width: clamp(220px, 68vw, 280px); height: 100%; background: linear-gradient(180deg, #2d7a4f 0%, #1f5a38 100%); z-index: 200; transition: left 0.3s ease; overflow-y: auto; padding-top: calc(68px + env(safe-area-inset-top)); }
 .sidebar.open { left: 0; }
 .sidebar .brand { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
 .sb-collapse { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.16); color: #fff; font-size: 17px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; padding: 0; -webkit-tap-highlight-color: transparent; }
