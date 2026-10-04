@@ -537,7 +537,7 @@
     var d = getData(), total = 0, k;
     if (d) for (k in ENTITIES) if (!ENTITIES[k].view) total += (d[k] || []).length;
     var html = '<div class="nav-section" data-erp2="1">ERP 业务</div>' +
-      '<div class="nav-item" data-erp2="1" onclick="ERP.openHome(); toggleSidebar()">' +
+      '<div class="nav-item" data-erp2="1" onclick="ERP.openHome()">' +
       '<span class="nav-icon">🏢</span><span class="nav-text">ERP 工作台</span>' +
       (total > 0 ? '<span class="nav-badge">' + total + '</span>' : '') + '</div>';
     if (target) target.insertAdjacentHTML('beforebegin', html);
