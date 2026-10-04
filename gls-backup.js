@@ -187,7 +187,7 @@ window.glsBackup = (function () {
       if (typeof _base === 'function') _base();
       var nav = document.getElementById('sidebarNav');
       if (!nav) return;
-      var extra = '<div class="nav-item" onclick="glsBackup.open(); toggleSidebar()"><span class="nav-icon">💾</span><span class="nav-text">数据备份</span></div>';
+      var extra = '<div class="nav-item" onclick="glsBackup.open()"><span class="nav-icon">💾</span><span class="nav-text">数据备份</span></div>';
       var tpl = document.createElement('div');
       tpl.innerHTML = extra;
       nav.appendChild(tpl.firstChild);
