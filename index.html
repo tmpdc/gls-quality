@@ -164,6 +164,16 @@ table tr:last-child td { border-bottom: none; }
 .apply-detail .v { color: #222; word-break: break-all; }
 .apply-tip { background: #f6ffed; border: 1px solid #b7eb8f; color: #389e0d; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.6; margin-bottom: 16px; }
 .apply-tip.warn { background: #fff7e6; border-color: #ffd591; color: #d46b08; }
+
+/* ===== 板块权限勾选 ===== */
+.mod-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:7px 12px; border:1px solid #e8e8e8; border-radius:8px; padding:12px; background:#fafafa; max-height:230px; overflow:auto; }
+.mod-item { display:flex; align-items:center; gap:6px; font-size:13px; color:#444; cursor:pointer; padding:2px 0; }
+.mod-item input { width:auto; margin:0; cursor:pointer; }
+.mod-item:hover { color:#2d7a4f; }
+.mod-tools { margin-top:8px; font-size:12px; }
+.mod-tools a { color:#2d7a4f; cursor:pointer; margin-right:16px; }
+.mod-tools a:hover { text-decoration:underline; }
+.mod-count { font-size:11px; color:#999; margin-left:6px; }
 </style>
 </head>
 <body>
@@ -493,6 +503,15 @@ table tr:last-child td { border-bottom: none; }
         <label>岗位</label>
         <input type="text" id="g_post">
       </div>
+      <div class="form-item">
+        <label>可访问板块<span class="mod-count" id="g_modsCount"></span></label>
+        <div class="mod-grid" id="g_mods"></div>
+        <div class="mod-tools">
+          <a onclick="modsAll('g_mods',true)">全选</a>
+          <a onclick="modsAll('g_mods',false)">全不选</a>
+          <a onclick="modsByRole('g_mods')">按角色推荐</a>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-default" onclick="closeGrantModal()">取消</button>
@@ -566,12 +585,23 @@ table tr:last-child td { border-bottom: none; }
       </div>
       <div class="form-item">
         <label><span class="req">*</span>角色</label>
-        <select id="f_role">
+        <select id="f_role" onchange="modsRender('f_mods', defaultModsForRole(this.value))">
           <option value="admin">超级管理员</option>
-          <option value="manager">部门主管</option>
-          <option value="staff">普通员工</option>
-          <option value="viewer">只读用户</option>
+          <option value="manager">管理员</option>
+          <option value="deptmgr">经理</option>
+          <option value="staff">员工</option>
+          <option value="guest">游客</option>
         </select>
+      </div>
+      <div class="form-item">
+        <label>可访问板块<span class="mod-count" id="f_modsCount"></span></label>
+        <div class="mod-grid" id="f_mods"></div>
+        <div class="mod-tools">
+          <a onclick="modsAll('f_mods',true)">全选</a>
+          <a onclick="modsAll('f_mods',false)">全不选</a>
+          <a onclick="modsByRole('f_mods')">按角色推荐</a>
+        </div>
+        <div class="form-hint">勾选后该账号的工作台只显示选中的板块；不勾任何板块则该账号看不到业务板块</div>
       </div>
       <div class="form-item">
         <label>部门</label>
@@ -809,7 +839,7 @@ function doLogin() {
   account.lastLogin = formatDateTime(new Date());
   saveAccounts(accounts);
 
-  const session = { id: account.id, username: account.username, realname: account.realname, role: account.role, dept: account.dept || '', post: account.post || '', loginTime: Date.now() };
+  const session = { id: account.id, username: account.username, realname: account.realname, role: account.role, dept: account.dept || '', post: account.post || '', loginTime: Date.now(), mods: Array.isArray(account.mods) ? account.mods : null };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
   if (document.getElementById('rememberMe').checked) {
@@ -888,6 +918,75 @@ function enterWorkbench() {
   setTimeout(() => {
     window.location.href = 'page.html';
   }, 600);
+}
+
+
+// ==================== 板块独立权限 ====================
+// 板块清单：要增删改，直接改这个数组即可（与工作台 page.html 的模块 id 一一对应）
+var AP_MODULES = [
+  { id: 'suppliers',  name: '供应商管理' },
+  { id: 'incoming',   name: '到货检验' },
+  { id: 'rd',         name: '研发管理' },
+  { id: 'production', name: '生产过程' },
+  { id: 'inspection', name: '成品检验' },
+  { id: 'shipping',   name: '出货管理' },
+  { id: 'abnormal',   name: '异常处理' },
+  { id: 'risk',       name: '风险预警' },
+  { id: 'documents',  name: '体系文件' },
+  { id: 'knowledge',  name: '知识查询' },
+  { id: 'training',   name: '培训管理' }
+];
+
+// 按角色的推荐勾选
+function defaultModsForRole(role) {
+  var all = AP_MODULES.map(function (m) { return m.id; });
+  if (role === 'staff') {
+    return ['suppliers', 'incoming', 'production', 'inspection', 'documents', 'knowledge', 'training'];
+  }
+  return all;
+}
+
+// 渲染勾选区；sel 为空数组时按「全不选」渲染，为 undefined/null 时按全选
+function modsRender(cid, sel) {
+  var box = document.getElementById(cid);
+  if (!box) return;
+  var picked = Array.isArray(sel) ? sel : AP_MODULES.map(function (m) { return m.id; });
+  box.innerHTML = AP_MODULES.map(function (m) {
+    var on = picked.indexOf(m.id) >= 0 ? ' checked' : '';
+    return '<label class="mod-item"><input type="checkbox" value="' + m.id + '"' + on + ' onchange="modsCount(\'' + cid + '\')">' + m.name + '</label>';
+  }).join('');
+  modsCount(cid);
+}
+
+// 取当前勾选值
+function modsCollect(cid) {
+  var box = document.getElementById(cid);
+  if (!box) return [];
+  return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]'))
+    .filter(function (c) { return c.checked; })
+    .map(function (c) { return c.value; });
+}
+
+function modsAll(cid, on) {
+  var box = document.getElementById(cid);
+  if (!box) return;
+  Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]')).forEach(function (c) { c.checked = !!on; });
+  modsCount(cid);
+}
+
+function modsByRole(cid) {
+  var role = '';
+  if (cid === 'g_mods') { var r = document.getElementById('g_role'); role = r ? r.value : ''; }
+  else { var f = document.getElementById('f_role'); role = f ? f.value : ''; }
+  modsRender(cid, defaultModsForRole(role));
+  showToast('已按「' + ((ROLES[role] && ROLES[role].name) || role) + '」推荐勾选，可再手动调整', 'success');
+}
+
+function modsCount(cid) {
+  var el = document.getElementById(cid === 'g_mods' ? 'g_modsCount' : 'f_modsCount');
+  if (!el) return;
+  var n = modsCollect(cid).length;
+  el.textContent = '（已选 ' + n + '/' + AP_MODULES.length + '）';
 }
 
 // ===== 导航 =====
@@ -979,6 +1078,7 @@ function showAddAccountModal() {
   document.getElementById('f_email').value = '';
   document.getElementById('f_status').value = 'active';
   document.getElementById('passwordField').style.display = 'block';
+  modsRender('f_mods', defaultModsForRole('staff'));
   document.getElementById('accountModal').classList.add('show');
 }
 
@@ -995,6 +1095,7 @@ function editAccount(id) {
   document.getElementById('f_phone').value = a.phone || '';
   document.getElementById('f_email').value = a.email || '';
   document.getElementById('f_status').value = a.status;
+  modsRender('f_mods', Array.isArray(a.mods) ? a.mods : defaultModsForRole(a.role));
   document.getElementById('passwordField').style.display = 'none';
   document.getElementById('accountModal').classList.add('show');
 }
@@ -1024,7 +1125,7 @@ function saveAccount() {
     if (accounts.some(a => a.username === username && a.id !== parseInt(id))) {
       showToast('该账号已存在', 'error'); return;
     }
-    accounts[idx] = { ...accounts[idx], username, realname, role, dept, phone, email, status };
+    accounts[idx] = { ...accounts[idx], username, realname, role, dept, phone, email, status, mods: modsCollect('f_mods') };
     showToast('账号更新成功', 'success');
   } else {
     const password = document.getElementById('f_password').value.trim();
@@ -1034,7 +1135,7 @@ function saveAccount() {
     }
     accounts.push({
       id: Date.now(), username, password, realname, role, dept, phone, email, status,
-      createdAt: formatDateTime(new Date()), lastLogin: ''
+      createdAt: formatDateTime(new Date()), lastLogin: '', mods: modsCollect('f_mods')
     });
     showToast('账号创建成功', 'success');
   }
@@ -1410,6 +1511,7 @@ function openGrantModal(id) {
   set('g_username', a.username);
   set('g_realname', a.realname);
   set('g_post', a.post || '');
+  modsRender('g_mods', defaultModsForRole(a.applyRole));
   set('g_password', (a.phone || '').slice(-6) || '123456');
   var d = document.getElementById('g_dept'); if (d && a.dept) d.value = a.dept;
   var r = document.getElementById('g_role'); if (r && a.applyRole) r.value = a.applyRole;
@@ -1446,7 +1548,7 @@ function confirmGrant() {
     id: maxId + 1, username: username, password: password, realname: realname,
     role: role, dept: dept, post: post, phone: a.phone || '', email: a.email || '',
     status: 'active', createdAt: formatDateTime(new Date()), lastLogin: '',
-    fromApply: a.id
+    fromApply: a.id, mods: modsCollect('g_mods')
   });
   saveAccounts(accs);
 
