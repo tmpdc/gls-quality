@@ -181,6 +181,17 @@ table tr:last-child td { border-bottom: none; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .login-box { padding: 32px 24px; }
 }
+
+/* ===== 账号申请 ===== */
+.nav-badge { background:#ff4d4f; color:#fff; font-size:10px; line-height:16px; padding:0 6px; border-radius:9px; margin-left:6px; display:inline-block; vertical-align:middle; }
+.apply-status { padding:2px 8px; border-radius:10px; font-size:11px; white-space:nowrap; }
+.st-pending { background:#fff7e6; color:#d46b08; border:1px solid #ffd591; }
+.st-approved { background:#f6ffed; color:#389e0d; border:1px solid #b7eb8f; }
+.st-rejected { background:#fff1f0; color:#cf1322; border:1px solid #ffa39e; }
+.apply-detail { display:grid; grid-template-columns:92px 1fr; gap:9px 12px; font-size:13px; line-height:1.5; }
+.apply-detail .k { color:#999; }
+.apply-detail .v { color:#222; word-break:break-all; }
+.apply-tip { background:#f6ffed; border:1px solid #b7eb8f; color:#389e0d; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.6; margin-bottom:16px; }
 </style>
 </head>
 <body>
@@ -241,6 +252,9 @@ table tr:last-child td { border-bottom: none; }
       </div>
       <div class="nav-item admin-only" data-perm="sys.log" onclick="navTo('logs', this)">
         <span class="n-icon">📋</span><span class="n-text">登录日志</span>
+      </div>
+      <div class="nav-item admin-only" data-perm="sys.account" onclick="navTo('applies', this)">
+        <span class="n-icon">📨</span><span class="n-text">账号申请</span><span class="nav-badge" id="applyBadge" style="display:none;">0</span>
       </div>
       <div class="nav-item" onclick="showChangePasswordModal()">
         <span class="n-icon">🔑</span><span class="n-text">修改密码</span>
@@ -441,6 +455,72 @@ table tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
+      <!-- ===== 账号申请 ===== -->
+      <div class="page-view" id="view-applies">
+        <div class="apply-tip" id="applyTip">同事在登录页提交的账号申请会出现在这里，点「通过并赋权」即可开通账号并设定角色权限。</div>
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="applySearch" placeholder="搜索姓名/账号/部门" oninput="renderApplies()">
+            <select id="applyStatusFilter" onchange="renderApplies()">
+              <option value="pending">待审批</option>
+              <option value="">全部</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已驳回</option>
+            </select>
+          </div>
+          <button class="btn btn-default" onclick="renderApplies()">刷新</button>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <table>
+              <thead><tr><th>申请编号</th><th>姓名</th><th>期望账号</th><th>部门</th><th>岗位</th><th>申请角色</th><th>申请时间</th><th>状态</th><th>操作</th></tr></thead>
+              <tbody id="appliesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== 审批赋权弹窗 ===== -->
+<div class="modal-overlay" id="grantModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title">审批并赋权</div>
+      <button class="m-close" onclick="closeGrantModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="grantApplyInfo" style="margin-bottom:18px;"></div>
+      <div class="form-item"><label><span class="req">*</span>登录账号</label><input type="text" id="g_username"></div>
+      <div class="form-item"><label><span class="req">*</span>姓名</label><input type="text" id="g_realname"></div>
+      <div class="form-item"><label><span class="req">*</span>初始密码</label><input type="text" id="g_password"><div class="form-hint">发给申请人，登录后可自行修改</div></div>
+      <div class="form-item"><label><span class="req">*</span>角色</label><select id="g_role"></select></div>
+      <div class="form-item"><label>部门</label><select id="g_dept" onchange="apFillPosts()"></select></div>
+      <div class="form-item"><label>岗位</label><select id="g_post"></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeGrantModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmGrant()">通过并开通</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 驳回弹窗 ===== -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="m-title">驳回申请</div>
+      <button class="m-close" onclick="closeRejectModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-item"><label><span class="req">*</span>驳回原因</label>
+        <textarea id="r_reason" placeholder="请说明驳回原因，申请人查询进度时可看到"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeRejectModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmReject()">确认驳回</button>
     </div>
   </div>
 </div>
@@ -922,6 +1002,7 @@ function enterAdmin() {
   applyMenuPerms();
   navTo('dashboard', document.querySelector('.sidebar .nav-item:not([style*="display: none"])'));
   updateStats();
+  if (typeof apUpdateBadge === 'function') { apUpdateBadge(); setTimeout(apUpdateBadge, 800); }
 }
 
 function enterWorkbench() {
@@ -931,10 +1012,220 @@ function enterWorkbench() {
   }, 600);
 }
 
+
+// ==================== 账号申请审批（与登录页共用同一份数据） ====================
+var AP_KEY = 'gls_account_applies';
+
+function apGetList() {
+  try {
+    if (window.DATAHUB && DATAHUB.get) { var a = DATAHUB.get('accountApplies'); if (Array.isArray(a)) return a; }
+  } catch (e) {}
+  try {
+    var c = JSON.parse(localStorage.getItem('gls_quality_data_v2') || '{}');
+    if (Array.isArray(c.accountApplies)) return c.accountApplies;
+  } catch (e) {}
+  try { return JSON.parse(localStorage.getItem(AP_KEY) || '[]'); } catch (e) { return []; }
+}
+function apSaveList(list) {
+  try {
+    var c = JSON.parse(localStorage.getItem('gls_quality_data_v2') || '{}');
+    c.accountApplies = list;
+    localStorage.setItem('gls_quality_data_v2', JSON.stringify(c));
+  } catch (e) {}
+  try { localStorage.setItem(AP_KEY, JSON.stringify(list)); } catch (e) {}
+  try { if (window.DATAHUB && DATAHUB.set) DATAHUB.set('accountApplies', list); } catch (e) {}
+}
+function apStatusText(s) { return s === 'approved' ? '已通过' : (s === 'rejected' ? '已驳回' : '待审批'); }
+function apStatusHtml(s) {
+  var cls = s === 'approved' ? 'st-approved' : (s === 'rejected' ? 'st-rejected' : 'st-pending');
+  return '<span class="apply-status ' + cls + '">' + apStatusText(s) + '</span>';
+}
+function apEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function apRoleName(k) {
+  try { var r = roleOf(k); if (r && r.name) return r.name; } catch (e) {}
+  return k || '-';
+}
+function apPending() { return apGetList().filter(function (a) { return a.status === 'pending'; }).length; }
+function apUpdateBadge() {
+  var n = apPending();
+  var el = document.getElementById('applyBadge');
+  if (el) { el.textContent = n; el.style.display = n > 0 ? 'inline-block' : 'none'; }
+  var t = document.getElementById('applyTip');
+  if (t) {
+    t.innerHTML = n > 0
+      ? '有 <b style="font-size:15px;">' + n + '</b> 条申请待审批。点「通过并赋权」即可开通账号并设定角色权限。'
+      : '当前没有待审批的申请。同事在登录页提交后会出现在这里。';
+  }
+}
+function apDepts() {
+  try { var o = getOrg(); if (o && Array.isArray(o.depts)) return o.depts.map(function (d) { return d.name; }); } catch (e) {}
+  return [];
+}
+function apRoleKeys() {
+  var out = [];
+  try { var r = getRoles(); if (r && Array.isArray(r.roles)) r.roles.forEach(function (x) { out.push(x.key); }); } catch (e) {}
+  if (!out.length) out = ['manager', 'deptmgr', 'staff', 'guest'];
+  return out.filter(function (k) { return k !== 'admin'; });
+}
+function apFillSelect(fid, items, cur) {
+  var sel = document.getElementById(fid); if (!sel) return;
+  sel.innerHTML = items.map(function (x) { return '<option value="' + apEsc(x) + '">' + apEsc(x) + '</option>'; }).join('');
+  if (cur) sel.value = cur;
+}
+function apFillRoleSelect(fid, cur) {
+  var sel = document.getElementById(fid); if (!sel) return;
+  sel.innerHTML = apRoleKeys().map(function (k) {
+    return '<option value="' + k + '">' + apRoleName(k) + '</option>';
+  }).join('');
+  if (cur) sel.value = cur;
+}
+function apFillPosts() {
+  var dEl = document.getElementById('g_dept'), pEl = document.getElementById('g_post');
+  if (!dEl || !pEl) return;
+  var dept = dEl.value, posts = [];
+  try {
+    var o = getOrg();
+    var d = o.depts.filter(function (x) { return x.name === dept; })[0];
+    if (d && o.posts && o.posts[d.id]) posts = o.posts[d.id];
+  } catch (e) {}
+  pEl.innerHTML = '<option value="">（未设置）</option>' +
+    posts.map(function (p) { return '<option value="' + apEsc(p) + '">' + apEsc(p) + '</option>'; }).join('');
+}
+
+function renderApplies() {
+  var body = document.getElementById('appliesBody');
+  if (!body) return;
+  var kwEl = document.getElementById('applySearch'), stEl = document.getElementById('applyStatusFilter');
+  var kw = kwEl ? kwEl.value.trim().toLowerCase() : '';
+  var st = stEl ? stEl.value : 'pending';
+  var list = apGetList().filter(function (a) {
+    if (st && a.status !== st) return false;
+    if (!kw) return true;
+    return ((a.realname || '') + (a.username || '') + (a.dept || '') + (a.id || '')).toLowerCase().indexOf(kw) >= 0;
+  });
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:40px 0;">' +
+      (st === 'pending' ? '暂无待审批申请' : '没有符合条件的申请') + '</td></tr>';
+  } else {
+    body.innerHTML = list.map(function (a) {
+      var ops = a.status === 'pending'
+        ? '<a href="javascript:void(0)" onclick="openGrantModal(\'' + a.id + '\')" style="color:#2e7d52;font-weight:600;">通过并赋权</a> ' +
+          '<a href="javascript:void(0)" onclick="openRejectModal(\'' + a.id + '\')" style="color:#c0392b;">驳回</a>'
+        : '<span style="color:#aaa;">' + apEsc(a.handler || '') + '</span>';
+      return '<tr><td>' + apEsc(a.id) + '</td><td>' + apEsc(a.realname) + '</td><td>' + apEsc(a.username) + '</td>' +
+        '<td>' + apEsc(a.dept || '-') + '</td><td>' + apEsc(a.post || '-') + '</td>' +
+        '<td>' + apEsc(apRoleName(a.applyRole)) + '</td><td>' + apEsc(a.applyTime || '') + '</td>' +
+        '<td>' + apStatusHtml(a.status) + '</td><td>' + ops + '</td></tr>';
+    }).join('');
+  }
+  apUpdateBadge();
+}
+
+function openGrantModal(id) {
+  var a = apGetList().filter(function (x) { return x.id === id; })[0];
+  if (!a) { showToast('申请不存在', 'error'); return; }
+  var info = document.getElementById('grantApplyInfo');
+  if (info) {
+    info.innerHTML = '<div class="apply-detail">' +
+      '<div class="k">申请编号</div><div class="v">' + apEsc(a.id) + '</div>' +
+      '<div class="k">姓名</div><div class="v">' + apEsc(a.realname) + '</div>' +
+      '<div class="k">手机号</div><div class="v">' + apEsc(a.phone || '-') + '</div>' +
+      '<div class="k">申请部门</div><div class="v">' + apEsc(a.dept || '-') + '　' + apEsc(a.post || '') + '</div>' +
+      '<div class="k">申请角色</div><div class="v">' + apEsc(apRoleName(a.applyRole)) + '</div>' +
+      '<div class="k">申请理由</div><div class="v">' + apEsc(a.reason || '-') + '</div>' +
+      '<div class="k">申请时间</div><div class="v">' + apEsc(a.applyTime) + '</div></div>';
+  }
+  apFillRoleSelect('g_role', a.applyRole);
+  apFillSelect('g_dept', apDepts(), a.dept);
+  apFillPosts();
+  var set = function (f, v) { var el = document.getElementById(f); if (el) el.value = v; };
+  set('g_username', a.username);
+  set('g_realname', a.realname);
+  set('g_password', (a.phone || '').slice(-6) || '123456');
+  if (a.post) { var p = document.getElementById('g_post'); if (p) p.value = a.post; }
+  window.GLS_GRANT_ID = id;
+  document.getElementById('grantModal').classList.add('show');
+  showToast('默认初始密码为手机号后 6 位，可自行修改', 'success');
+}
+function closeGrantModal() {
+  document.getElementById('grantModal').classList.remove('show');
+  window.GLS_GRANT_ID = null;
+}
+function confirmGrant() {
+  var id = window.GLS_GRANT_ID;
+  var a = apGetList().filter(function (x) { return x.id === id; })[0];
+  if (!a) { showToast('申请不存在', 'error'); return; }
+  var val = function (f) { var el = document.getElementById(f); return el ? el.value.trim() : ''; };
+  var username = val('g_username'), realname = val('g_realname'), password = val('g_password'), post = val('g_post');
+  var dEl = document.getElementById('g_dept'), rEl = document.getElementById('g_role');
+  var dept = dEl ? dEl.value : '', role = rEl ? rEl.value : 'staff';
+  if (!username) { showToast('请填写登录账号', 'error'); return; }
+  if (!/^[A-Za-z0-9_.-]{3,20}$/.test(username)) { showToast('账号需 3-20 位英文/数字/._-', 'error'); return; }
+  if (!realname) { showToast('请填写姓名', 'error'); return; }
+  if (!password || password.length < 6) { showToast('初始密码至少 6 位', 'error'); return; }
+  var accs = getAccounts();
+  if (accs.some(function (x) { return x && x.username === username; })) { showToast('账号名已被占用，请换一个', 'error'); return; }
+  var maxId = accs.reduce(function (m, x) { return Math.max(m, Number(x.id) || 0); }, 0);
+  accs.push({
+    id: maxId + 1, username: username, password: password, realname: realname,
+    role: role, dept: dept, post: post, phone: a.phone || '', email: a.email || '',
+    status: 'active', createdAt: apNow(), lastLogin: '', fromApply: a.id
+  });
+  saveAccounts(accs);
+  var list = apGetList();
+  var cur = list.filter(function (x) { return x.id === id; })[0];
+  if (cur) {
+    cur.status = 'approved'; cur.username = username; cur.realname = realname;
+    cur.grantedRole = role; cur.dept = dept; cur.post = post;
+    cur.handleTime = apNow();
+    var me = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    cur.handler = me ? (me.realname || me.username) : '管理员';
+  }
+  apSaveList(list);
+  try { addLog(username, realname, true, '账号申请获批开通'); } catch (e) {}
+  closeGrantModal();
+  if (typeof updateStats === 'function') updateStats();
+  renderApplies();
+  showToast('已开通账号 ' + username + '，请把初始密码告知申请人', 'success');
+}
+function openRejectModal(id) {
+  window.GLS_REJECT_ID = id;
+  var el = document.getElementById('r_reason'); if (el) el.value = '';
+  document.getElementById('rejectModal').classList.add('show');
+}
+function closeRejectModal() {
+  document.getElementById('rejectModal').classList.remove('show');
+  window.GLS_REJECT_ID = null;
+}
+function confirmReject() {
+  var id = window.GLS_REJECT_ID;
+  var el = document.getElementById('r_reason');
+  var reason = el ? el.value.trim() : '';
+  if (!reason) { showToast('请填写驳回原因', 'error'); return; }
+  var list = apGetList();
+  var cur = list.filter(function (x) { return x.id === id; })[0];
+  if (!cur) { showToast('申请不存在', 'error'); return; }
+  cur.status = 'rejected'; cur.rejectReason = reason; cur.handleTime = apNow();
+  var me = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  cur.handler = me ? (me.realname || me.username) : '管理员';
+  apSaveList(list);
+  closeRejectModal();
+  renderApplies();
+  showToast('已驳回该申请', 'success');
+}
+function apNow() {
+  var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+    p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
 // ===== 导航 =====
-const PAGE_TITLES = { dashboard: '仪表盘', org: '组织架构', accounts: '账号管理', roles: '角色权限', logs: '登录日志' };
-const ADMIN_PAGES = ['org', 'accounts', 'roles', 'logs'];
-const PAGE_PERM = { org: 'sys.account', accounts: 'sys.account', roles: 'sys.role', logs: 'sys.log' };
+const PAGE_TITLES = { dashboard: '仪表盘', org: '组织架构', accounts: '账号管理', roles: '角色权限', logs: '登录日志', applies: '账号申请' };
+const ADMIN_PAGES = ['org', 'accounts', 'roles', 'logs', 'applies'];
+const PAGE_PERM = { org: 'sys.account', accounts: 'sys.account', roles: 'sys.role', logs: 'sys.log', applies: 'sys.account' };
 function navTo(page, el) {
   // 权限校验：按角色被授予的权限点判断
   const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
@@ -955,6 +1246,7 @@ function navTo(page, el) {
   if (page === 'accounts') { refreshRoleSelects(); renderAccounts(); }
   if (page === 'roles') { refreshRoleSelects(); renderRoles(); }
   if (page === 'logs') renderLogs();
+  if (page === 'applies') renderApplies();
 }
 
 // ===== 仪表盘 =====
