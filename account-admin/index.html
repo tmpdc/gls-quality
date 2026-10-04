@@ -628,6 +628,15 @@ table tr:last-child td { border-bottom: none; }
           <option value="disabled">禁用</option>
         </select>
       </div>
+      <div class="form-item">
+        <label>可访问板块<span class="mod-count" id="f_modsCount"></span></label>
+        <div class="mod-grid" id="f_mods"></div>
+        <div class="mod-tools">
+          <a onclick="modsAll('f_mods',true)">全选</a>
+          <a onclick="modsAll('f_mods',false)">全不选</a>
+        </div>
+        <div class="form-hint">勾选后该账号的工作台只显示选中的板块；不勾任何板块则该账号看不到业务板块</div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-default" onclick="closeAccountModal()">取消</button>
@@ -1193,7 +1202,7 @@ function modsByRole(cid) {
   showToast('已按角色推荐勾选，可再手动调整', 'success');
 }
 function modsCount(cid) {
-  var el = document.getElementById('g_modsCount');
+  var el = document.getElementById(cid === 'f_mods' ? 'f_modsCount' : 'g_modsCount');
   if (!el) return;
   el.textContent = '（已选 ' + modsCollect(cid).length + '/' + AP_MODULES.length + '）';
 }
@@ -1636,6 +1645,7 @@ function showAddAccountModal() {
   document.getElementById('f_email').value = '';
   document.getElementById('f_status').value = 'active';
   document.getElementById('passwordField').style.display = 'block';
+  modsRender('f_mods', defaultModsForRole('staff'));
   document.getElementById('accountModal').classList.add('show');
 }
 
@@ -1653,6 +1663,7 @@ function editAccount(id) {
   document.getElementById('f_phone').value = a.phone || '';
   document.getElementById('f_email').value = a.email || '';
   document.getElementById('f_status').value = a.status;
+  modsRender('f_mods', Array.isArray(a.mods) ? a.mods : defaultModsForRole(a.role));
   document.getElementById('passwordField').style.display = 'none';
   document.getElementById('accountModal').classList.add('show');
 }
@@ -1683,7 +1694,7 @@ function saveAccount() {
     if (accounts.some(a => a.username === username && a.id !== parseInt(id))) {
       showToast('该账号已存在', 'error'); return;
     }
-    accounts[idx] = { ...accounts[idx], username, realname, role, dept, post, phone, email, status };
+    accounts[idx] = { ...accounts[idx], username, realname, role, dept, post, phone, email, status, mods: modsCollect('f_mods') };
     showToast('账号更新成功', 'success');
   } else {
     const password = document.getElementById('f_password').value.trim();
@@ -1693,7 +1704,7 @@ function saveAccount() {
     }
     accounts.push({
       id: Date.now(), username, password, realname, role, dept, post, phone, email, status,
-      createdAt: formatDateTime(new Date()), lastLogin: ''
+      createdAt: formatDateTime(new Date()), lastLogin: '', mods: modsCollect('f_mods')
     });
     showToast('账号创建成功', 'success');
   }
