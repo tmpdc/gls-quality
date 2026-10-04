@@ -725,6 +725,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 }
 @media (max-width: 768px) {
   .sb-collapse.wide { display: none; }
+  /* 窄屏侧边栏：默认展开、与主区并排（挤压式，不覆盖），宽度再收窄约 1/3 */
+  .sidebar { width: clamp(168px, 47vw, 196px); left: 0; }
+  .sidebar.hidden { left: calc(-1 * clamp(168px, 47vw, 196px)); }
+  .main { margin-left: clamp(168px, 47vw, 196px); transition: margin-left .3s ease; }
+  .main.full { margin-left: 0; }
+  .overlay { display: none !important; }
+  .sidebar .brand { padding: 18px 14px; }
+  .sidebar .brand-icon { font-size: 27px; margin-bottom: 6px; }
+  .sidebar .brand-name { font-size: 16.5px; }
+  .sidebar .brand-sub { font-size: 10.5px; margin-top: 3px; }
+  .sidebar .nav { padding: 8px 0; }
+  /* 文字强制单行不折；空间不足时只让徽章折到第二行 */
+  .sidebar .nav-item { padding: 12px 11px; flex-wrap: wrap; row-gap: 2px; align-items: center; }
+  .sidebar .nav-icon { flex: 0 0 auto; }
+  .sidebar .nav-item .nav-text { flex: 0 1 auto; min-width: 0; white-space: nowrap; }
+  .sidebar .nav-badge { flex: 0 0 auto; margin-left: 30px; }
+  .sidebar .nav-icon { font-size: 17px; margin-right: 9px; width: 21px; }
+  .sidebar .nav-text { font-size: 13.5px; }
+  .sidebar .nav-badge { font-size: 10px; padding: 1px 6px; }
+  .sidebar .nav-section { padding: 13px 11px 6px; font-size: 10px; letter-spacing: .5px; }
+  .sidebar .user-info { padding: 14px 11px; margin-top: 14px; }
+  .sidebar .user-name { font-size: 13px; }
+  .sidebar .user-role { font-size: 11px; }
+  .sidebar .logout-btn { padding: 9px; font-size: 12.5px; margin-top: 10px; }
+  .sb-collapse { top: 10px; right: 8px; width: 30px; height: 30px; font-size: 15px; border-radius: 8px; }
+  .sb-collapse .lbl { font-size: 10px; margin-left: 2px; }
 }
 </style>
 <script src="system_docs.js?v=2"></script>
@@ -2008,52 +2034,37 @@ function renderSidebar() {
 function glsSbWidth() {
     return Math.round(Math.min(280, Math.max(180, window.innerWidth * 0.8)));
   }
-  /* 按当前视口宽高比与断点，把侧边栏恢复到该模式应有的状态 */
-  function syncSidebarLayout(resetManual) {
+  /* 跨断点 / 转屏：保持用户当前的展开或收起选择，只把类名与主区对齐 */
+  function syncSidebarLayout() {
     var sb = document.getElementById('sidebar');
     var m = document.getElementById('mainContent');
     var ov = document.getElementById('overlay');
     if (!sb) return;
-    var w = window.innerWidth || document.documentElement.clientWidth;
-    var desktop = w > 768;
-    if (desktop) {
-      // 桌面/横屏：侧边栏常驻，清掉抽屉态
-      sb.classList.remove('open');
-      if (ov) ov.classList.remove('show');
-      var hidden = resetManual ? false : sb.classList.contains('hidden');
-      sb.classList.toggle('hidden', hidden);
-      if (m) m.classList.toggle('full', hidden);
-    } else {
-      // 手机竖屏：抽屉态，默认收起，清掉桌面态
-      sb.classList.remove('hidden');
-      if (resetManual) sb.classList.remove('open');
-      if (ov) ov.classList.toggle('show', sb.classList.contains('open'));
-      if (m) m.classList.remove('full');
-    }
+    sb.classList.remove('open');
+    if (ov) ov.classList.remove('show');
+    var hidden = sb.classList.contains('hidden');
+    if (m) m.classList.toggle('full', hidden);
     syncMenuIcon();
   }
   function syncMenuIcon() {
     var sb = document.getElementById('sidebar');
     var mb = document.querySelector('.header .menu-btn');
     if (!sb || !mb) return;
-    var w = window.innerWidth || document.documentElement.clientWidth;
-    var collapsed = (w > 768) ? sb.classList.contains('hidden') : !sb.classList.contains('open');
+    var ov = document.getElementById('overlay');
+    var collapsed = sb.classList.contains('hidden');
     mb.textContent = collapsed ? '\u2630' : '\u2715';
-    mb.title = collapsed ? '显示导航' : '收起导航';
+    mb.title = collapsed ? '显示导航' : '隐藏导航';
     mb.setAttribute('aria-label', mb.title);
   }
   function toggleSidebar() {
     var sb = document.getElementById('sidebar');
     var m = document.getElementById('mainContent');
     var ov = document.getElementById('overlay');
-    var w = window.innerWidth || document.documentElement.clientWidth;
-    if (w > 768) {
-      var hidden = sb.classList.toggle('hidden');
-      if (m) m.classList.toggle('full', hidden);
-    } else {
-      var open = sb.classList.toggle('open');
-      if (ov) ov.classList.toggle('show', open);
-    }
+    // 统一为「收起 / 展开」：收起给 .hidden + 主区 .full，展开相反。窄屏与桌面同一套。
+    var hidden = sb.classList.toggle('hidden');
+    sb.classList.remove('open');
+    if (m) m.classList.toggle('full', hidden);
+    if (ov) { ov.classList.remove('show'); }
     syncMenuIcon();
   }
   /* 横竖屏 / 窗口尺寸变化：自动重算布局（跨断点复位，同断点保状态） */
@@ -2064,15 +2075,15 @@ function glsSbWidth() {
       var d = isDesktop();
       var crossed = (lastDesktop !== null && d !== lastDesktop);
       var rotated = (window.innerWidth !== lastW && (window.innerWidth - lastW) * (window.innerHeight - lastH) < 0);
-      syncSidebarLayout(crossed || rotated);
+      syncSidebarLayout();
       lastDesktop = d; lastW = window.innerWidth; lastH = window.innerHeight;
     }
     lastDesktop = isDesktop();
     window.addEventListener('resize', function () { clearTimeout(timer); timer = setTimeout(run, 120); });
     window.addEventListener('orientationchange', function () { setTimeout(run, 220); });
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () { syncSidebarLayout(true); });
-    } else { setTimeout(function () { syncSidebarLayout(true); }, 0); }
+      document.addEventListener('DOMContentLoaded', function () { syncSidebarLayout(); });
+    } else { setTimeout(function () { syncSidebarLayout(); }, 0); }
   })();
 
 // ==================== 首页 ====================
