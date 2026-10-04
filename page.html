@@ -19,9 +19,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .header .action-btn { font-size: 18px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .header .action-btn:active { background: rgba(255,255,255,0.15); }
 
-.sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: linear-gradient(180deg, #2d7a4f 0%, #1f5a38 100%); z-index: 200; transition: left 0.3s ease; overflow-y: auto; padding-top: env(safe-area-inset-top); }
+.sidebar { position: fixed; top: 0; left: calc(-1 * min(280px, 80vw)); width: min(280px, 80vw); height: 100%; background: linear-gradient(180deg, #2d7a4f 0%, #1f5a38 100%); z-index: 200; transition: left 0.3s ease; overflow-y: auto; padding-top: calc(68px + env(safe-area-inset-top)); }
 .sidebar.open { left: 0; }
-.sidebar .brand { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.sidebar .brand { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); position: relative; }
+.sb-collapse { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,0.16); color: #fff; font-size: 17px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; padding: 0; -webkit-tap-highlight-color: transparent; }
+.sb-collapse:active { background: rgba(255,255,255,0.30); }
+.sb-collapse .lbl { font-size: 11px; margin-left: 3px; }
+.sb-collapse.wide { width: auto; padding: 0 10px; font-size: 13px; font-weight: 600; }
 .sidebar .brand-icon { font-size: 36px; margin-bottom: 8px; }
 .sidebar .brand-name { font-size: 20px; font-weight: 700; color: #fff; }
 .sidebar .brand-sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
@@ -711,11 +715,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 
 /* ===== 桌面端侧边栏常驻 + 隐藏/显示 ===== */
 @media (min-width: 769px) {
-  .sidebar { left: 0; padding-top: 76px; }
-  .main { margin-left: 280px; transition: margin-left .3s ease; }
-  .sidebar.hidden { left: -280px; }
+  :root { --sb-w: 280px; }
+  .sidebar { left: 0; width: var(--sb-w); padding-top: calc(68px + env(safe-area-inset-top)); }
+  .main { margin-left: var(--sb-w); transition: margin-left .3s ease; }
+  .sidebar.hidden { left: calc(-1 * var(--sb-w)); }
   .main.full { margin-left: 0; }
   .overlay { display: none !important; }
+  .sb-collapse.wide { display: flex; }
+}
+@media (max-width: 768px) {
+  .sb-collapse.wide { display: none; }
 }
 </style>
 <script src="system_docs.js?v=2"></script>
@@ -742,6 +751,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <!-- 侧边栏 -->
 <div class="sidebar" id="sidebar">
   <div class="brand">
+    <button type="button" class="sb-collapse" id="sbCollapse" onclick="toggleSidebar()" title="收起导航">✕<span class="lbl">收起</span></button>
     <div class="brand-icon">🏭</div>
     <div class="brand-name">格丽思质量</div>
     <div class="brand-sub">全流程质量管理系统</div>
@@ -1995,18 +2005,75 @@ function renderSidebar() {
   nav.innerHTML = html;
 }
 
-function toggleSidebar() {
+function glsSbWidth() {
+    return Math.round(Math.min(280, Math.max(180, window.innerWidth * 0.8)));
+  }
+  /* 按当前视口宽高比与断点，把侧边栏恢复到该模式应有的状态 */
+  function syncSidebarLayout(resetManual) {
     var sb = document.getElementById('sidebar');
+    var m = document.getElementById('mainContent');
+    var ov = document.getElementById('overlay');
+    if (!sb) return;
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    var desktop = w > 768;
+    if (desktop) {
+      // 桌面/横屏：侧边栏常驻，清掉抽屉态
+      sb.classList.remove('open');
+      if (ov) ov.classList.remove('show');
+      var hidden = resetManual ? false : sb.classList.contains('hidden');
+      sb.classList.toggle('hidden', hidden);
+      if (m) m.classList.toggle('full', hidden);
+    } else {
+      // 手机竖屏：抽屉态，默认收起，清掉桌面态
+      sb.classList.remove('hidden');
+      if (resetManual) sb.classList.remove('open');
+      if (ov) ov.classList.toggle('show', sb.classList.contains('open'));
+      if (m) m.classList.remove('full');
+    }
+    syncMenuIcon();
+  }
+  function syncMenuIcon() {
+    var sb = document.getElementById('sidebar');
+    var mb = document.querySelector('.header .menu-btn');
+    if (!sb || !mb) return;
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    var collapsed = (w > 768) ? sb.classList.contains('hidden') : !sb.classList.contains('open');
+    mb.textContent = collapsed ? '\u2630' : '\u2715';
+    mb.title = collapsed ? '显示导航' : '收起导航';
+    mb.setAttribute('aria-label', mb.title);
+  }
+  function toggleSidebar() {
+    var sb = document.getElementById('sidebar');
+    var m = document.getElementById('mainContent');
+    var ov = document.getElementById('overlay');
     var w = window.innerWidth || document.documentElement.clientWidth;
     if (w > 768) {
       var hidden = sb.classList.toggle('hidden');
-      var m = document.getElementById('mainContent');
       if (m) m.classList.toggle('full', hidden);
     } else {
-      sb.classList.toggle('open');
-      document.getElementById('overlay').classList.toggle('show');
+      var open = sb.classList.toggle('open');
+      if (ov) ov.classList.toggle('show', open);
     }
+    syncMenuIcon();
   }
+  /* 横竖屏 / 窗口尺寸变化：自动重算布局（跨断点复位，同断点保状态） */
+  (function () {
+    var lastDesktop = null, lastW = window.innerWidth, lastH = window.innerHeight, timer = null;
+    function isDesktop() { return (window.innerWidth || 0) > 768; }
+    function run() {
+      var d = isDesktop();
+      var crossed = (lastDesktop !== null && d !== lastDesktop);
+      var rotated = (window.innerWidth !== lastW && (window.innerWidth - lastW) * (window.innerHeight - lastH) < 0);
+      syncSidebarLayout(crossed || rotated);
+      lastDesktop = d; lastW = window.innerWidth; lastH = window.innerHeight;
+    }
+    lastDesktop = isDesktop();
+    window.addEventListener('resize', function () { clearTimeout(timer); timer = setTimeout(run, 120); });
+    window.addEventListener('orientationchange', function () { setTimeout(run, 220); });
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { syncSidebarLayout(true); });
+    } else { setTimeout(function () { syncSidebarLayout(true); }, 0); }
+  })();
 
 // ==================== 首页 ====================
 function goFlowPage() { navigateTo('flows'); }
