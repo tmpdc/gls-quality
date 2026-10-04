@@ -1431,13 +1431,13 @@
     }
     var cnt = getAllTemplates().length;
     var html = '<div class="nav-section" data-erp="side">常用工具</div>' +
-      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'search\'); toggleSidebar()">' +
+      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'search\')">' +
       '<span class="nav-icon">🔍</span><span class="nav-text">全局搜索</span></div>' +
-      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'templates\'); toggleSidebar()">' +
+      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'templates\')">' +
       '<span class="nav-icon">📋</span><span class="nav-text">模板中心</span>' +
       (cnt ? '<span class="nav-badge" style="background:#7dd3a0;color:#1f5a38">' + cnt + '</span>' : '') +
       '</div>' +
-      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'files\'); toggleSidebar()">' +
+      '<div class="nav-item" data-erp="side" onclick="navigateTo(\'files\')">' +
       '<span class="nav-icon">🗂</span><span class="nav-text">技术资料库</span>' +
       '<span class="nav-badge" style="background:#dbeafe;color:#1d4ed8">图纸/PDF</span>' +
       '</div>';
