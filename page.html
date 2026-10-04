@@ -718,7 +718,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <script src="knowledge_index.js"></script>
 <script src="knowledge_loader.js"></script>
 <script src="gls-excel.js?v=3"></script>
-<script src="templates.js?v=6" async onload="onTemplatesLoaded()"></script>
+<script src="templates.js?v=6" async onload="window.GLS_TPL_READY=1;if(typeof onTemplatesLoaded==='function'){try{onTemplatesLoaded();}catch(e){console.warn('tpl onload',e);}}"></script>
 </head>
 <body>
 <div id="glsLoader" style="position:fixed;inset:0;background:#fff;z-index:99998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;"><div style="width:38px;height:38px;border:3px solid #e6f7ee;border-top-color:#2d7a4f;border-radius:50%;animation:glsSpin .8s linear infinite;"></div><div style="font-size:14px;color:#2d7a4f;font-weight:500;">格丽思质量管理系统 正在加载…</div><div style="font-size:12px;color:#aaa;">首次打开需下载模板与知识库，之后会快很多</div></div>
@@ -2314,6 +2314,14 @@ var SF_LV_NOTE = {
   4: '四级文件：记录表单，可直接填写、打印、归档。'
 };
 
+function sfToast(msg, type) {
+  try {
+    if (typeof showToast === 'function') { showToast(msg, type || ''); return; }
+    if (typeof window.showToast === 'function') { window.showToast(msg, type || ''); return; }
+  } catch (e) {}
+  try { console.log('[toast] ' + msg); } catch (e2) {}
+}
+
 function sfEsc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 function sfIcon(name) {
@@ -2394,7 +2402,7 @@ function renderSysFileModule(container, searchText) {
           (TEMPLATE_CARDS[mk] || []).forEach(function (t) {
             if (!t || !t.name) return;
             var dup = rows.some(function (r) { return String(r.n).replace(/\.[^.]+$/, '') === String(t.name); });
-            if (!dup) add.push({ n: t.name + '（模板中心）', d: '系统内置记录模板（模板中心）', p: '', s: 0, lv: 4, tpl: t.id });
+            if (!dup) add.push({ n: t.name + '（模板中心）', d: '系统内置记录模板（模板中心）', p: '', s: 0, lv: 4, tpl: t.id, mod: mk });
           });
         });
         rows = rows.concat(add);
@@ -2450,7 +2458,7 @@ function renderSysFileModule(container, searchText) {
       var hasOn = sfOnlineKey(x.n);
       var sn = String(x.n).replace('（模板中心）', '');
       var clk = x.tpl
-        ? 'sfOpenTpl(' + JSON.stringify(x.tpl).replace(/"/g, '&quot;') + ',\'' + (x.d || '').replace(/'/g, '') + '\')'
+        ? 'sfOpenTpl(' + JSON.stringify(x.tpl).replace(/"/g, '&quot;') + ',\'' + (x.mod || 'rd') + '\')'
         : 'sfOpenFile(' + JSON.stringify(x.n).replace(/"/g, '&quot;') + ',' +
           JSON.stringify(x.p).replace(/"/g, '&quot;') + ',' + x.lv + ')';
       h += '<div class="sf-file" onclick="' + clk + '">' +
@@ -2504,7 +2512,7 @@ function sfCopyPath(p) {
   var t = String(p).replace(/\//g, '\\');
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(t).then(function () { toast('路径已复制'); }, function () { sfFallbackCopy(t); });
+      navigator.clipboard.writeText(t).then(function () { sfToast('路径已复制'); }, function () { sfFallbackCopy(t); });
     } else { sfFallbackCopy(t); }
   } catch (e) { sfFallbackCopy(t); }
 }
@@ -2512,21 +2520,21 @@ function sfFallbackCopy(t) {
   var ta = document.createElement('textarea');
   ta.value = t; ta.style.position = 'fixed'; ta.style.left = '-9999px';
   document.body.appendChild(ta); ta.select();
-  try { document.execCommand('copy'); toast('路径已复制'); } catch (e) { toast('复制失败，请手动选择', false); }
+  try { document.execCommand('copy'); sfToast('路径已复制'); } catch (e) { sfToast('复制失败，请手动选择'); }
   ta.remove();
 }
 function sfTryOpen(p) {
   try {
     var u = 'file:///' + encodeURI(String(p).replace(/\\/g, '/'));
     var w = window.open(u, '_blank');
-    if (!w) toast('浏览器拦住了本地文件，请用「复制路径」后在资源管理器打开');
-  } catch (e) { toast('无法直接打开，请用「复制路径」'); }
+    if (!w) sfToast('浏览器拦住了本地文件，请用「复制路径」后在资源管理器打开');
+  } catch (e) { sfToast('无法直接打开，请用「复制路径」'); }
 }
 
 /** 打开在线全文（复用 SYSTEM_DOCS） */
 function openDocFullText(key) {
   var raw = SYSTEM_DOCS[key];
-  if (!raw) { toast('该文件暂无在线全文', false); return; }
+  if (!raw) { sfToast('该文件暂无在线全文'); return; }
   var code = '', ver = 'A0', title = key, body = '';
   if (typeof raw === 'string') { body = raw; }
   else { code = raw.code || ''; ver = raw.version || 'A0'; title = raw.title || key; body = raw.content || ''; }
@@ -2569,8 +2577,8 @@ function sfOpenTpl(tplId, mod) {
       });
       if (hit) { sfShowTpl(hit); return; }
     }
-    toast('该模板暂时打不开', false);
-  } catch (e) { toast('打开失败：' + e.message, false); }
+    sfToast('该模板暂时打不开');
+  } catch (e) { sfToast('打开失败：' + e.message); }
 }
 
 function sfShowTpl(t) {
@@ -2599,7 +2607,7 @@ function sfPrintTpl() {
   var box = document.getElementById('sfTplBody');
   if (!box) return;
   var w = window.open('', '_blank');
-  if (!w) { toast('打印窗口被拦截', false); return; }
+  if (!w) { sfToast('打印窗口被拦截'); return; }
   w.document.write('<html><head><meta charset="utf-8"><title>记录模板</title>' +
     '<style>body{font-family:"宋体",serif;padding:12px;}table{border-collapse:collapse;width:100%;}' +
     'td,th{border:1px solid #666;padding:3px;font-size:12px;}</style></head><body>' + box.innerHTML + '</body></html>');
@@ -2611,7 +2619,7 @@ function sfPrintDoc() {
   var box = document.querySelector('#sfDocDlg .doc-fulltext');
   if (!box) return;
   var w = window.open('', '_blank');
-  if (!w) { toast('打印窗口被拦截', false); return; }
+  if (!w) { sfToast('打印窗口被拦截'); return; }
   w.document.write('<html><head><meta charset="utf-8"><title>体系文件</title>' +
     '<style>body{font-family:"宋体",serif;padding:18px;line-height:1.9;font-size:14px;}' +
     'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #666;padding:4px;font-size:12px;}</style></head><body>' +
