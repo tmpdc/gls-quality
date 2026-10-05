@@ -108,6 +108,18 @@
       '.insp-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);}',
       '.insp-card .t{font-size:16px;font-weight:600;margin-bottom:6px;}',
       '.insp-card .d{font-size:12px;color:#888;line-height:1.6;}',
+      /* 4 类检验单合一：整行大卡，里面每类一行 */
+      '.insp-one{grid-column:1/-1;cursor:default;}',
+      '.insp-one:hover{transform:none;box-shadow:0 1px 3px rgba(0,0,0,.06);}',
+      '.insp-types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px;}',
+      '.insp-type{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px dashed #eef0ee;}',
+      '.insp-type:nth-child(-n+2){border-top:0;}',
+      '@media(max-width:700px){.insp-types{grid-template-columns:1fr;}'
+      + '.insp-type:nth-child(-n+2){border-top:1px dashed #eef0ee;}.insp-type:first-child{border-top:0;}}',
+      '.insp-type .nm{font-size:14px;font-weight:600;color:#2c5e36;white-space:nowrap;}',
+      '.insp-type .fl{flex:1;min-width:0;}',
+      '.insp-type .ct{color:#999;white-space:nowrap;}',
+      '.insp-type .go{font-size:12px;padding:4px 12px;white-space:nowrap;}',
       '.insp-badge{display:inline-block;background:#f56c6c;color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px;}',
       '.insp-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0;}',
       '.insp-toolbar input,.insp-toolbar select{padding:9px 12px;border:1px solid #dcdfe6;border-radius:6px;font-size:14px;}',
@@ -193,13 +205,23 @@
       + '</div>';
 
     h += '<div class="insp-grid">';
+    /* 4 类检验单原先是 4 张一样的卡（点开都是同一套表单），整合成一张：
+       类型 / 放行流程 / 本类已建单数 在一行里看全，每类直接「＋ 新建」 */
+    h += '<div class="insp-card insp-one">'
+      + '<div class="t">检验单 <span style="font-size:12px;color:#999;font-weight:400">'
+      + Object.keys(TYPES).length + ' 类合一 · 同一套表单，只是检验类型不同</span></div>'
+      + '<div class="d insp-types">';
     Object.keys(TYPES).forEach(function (k) {
       var t = TYPES[k];
       var cnt = DB.inspections.filter(function (r) { return r.type === k; }).length;
-      h += '<div class="insp-card" onclick="INSP.openForm(\'' + k + '\')">'
-        + '<div class="t">' + t.name + '</div>'
-        + '<div class="d">合格放行 → ' + t.passFlow + '<br>不合格 → 进入 MRB 评审<br><b>本类已建单：' + cnt + '</b></div></div>';
+      h += '<div class="insp-type">'
+        + '<span class="nm">' + t.name + '</span>'
+        + '<span class="fl">合格放行 → ' + t.passFlow + '<br>不合格 → 进入 MRB 评审</span>'
+        + '<span class="ct">已建单 <b>' + cnt + '</b></span>'
+        + '<button class="insp-btn insp-btn-p go" onclick="event.stopPropagation();INSP.openForm(\'' + k + '\')">＋ 新建</button>'
+        + '</div>';
     });
+    h += '</div></div>';
     // 合格单的流转审批（部门上级）
     h += '<div class="insp-card" style="border-left-color:#e6a236" onclick="INSP.openApprove()">'
       + '<div class="t">流转审批' + (ap ? '<span class="insp-badge">' + ap + '</span>' : '') + '</div>'
