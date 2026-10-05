@@ -265,7 +265,11 @@
       '    <div id="scanPaneCam">' +
       '      <video class="scan-video" id="scanVideo" playsinline muted></video>' +
       '      <div class="scan-hint" id="scanCamHint">正在启动摄像头…</div>' +
+      '      <button type="button" class="scan-btn" onclick="SCAN.retryCam()">重新申请权限</button>' +
+      '      <button type="button" class="scan-btn ghost" onclick="SCAN.pickImage()">📁 用照片识别条码</button>' +
+      '      <button type="button" class="scan-btn ghost" onclick="SCAN.copyUrl()">📋 复制网址，去系统浏览器打开</button>' +
       '      <button type="button" class="scan-btn ghost" onclick="SCAN.stopCam()">停止摄像头</button>' +
+      '      <input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none" onchange="SCAN.onFile(this)">' +
       '    </div>' +
       '    <div id="scanPaneGun" style="display:none">' +
       '      <input class="scan-input" id="scanGunInput" placeholder="把光标放在这里，直接用扫码枪扫" autocomplete="off">' +
@@ -326,23 +330,136 @@
   /* ---------- 摄像头 ---------- */
   var camStream = null, camTimer = null, camDet = null;
 
-  SCAN.startCam = function () {
+  /* 摄像头失败的分类诊断（不同错误名给不同做法） */
+  var CAM_ERR = {
+    NotAllowedError: {
+      t: '摄像头权限被拒绝',
+      d: '这个页面现在拿不到摄像头权限：可能是弹窗时点了「拒绝」，也可能是当前这个内置浏览器（例如豆包 App 里的浏览器）没有向网页开放摄像头。',
+      a: '① 先点下面的「重新申请权限」再试一次；<br>② 还是不行，就用手机/电脑<strong>自带的浏览器</strong>（Chrome / Edge / Safari）打开同一个网址，会正常弹授权；<br>③ 在内置浏览器里可以直接用「扫码枪」或「手动」方式，功能一样完整。'
+    },
+    PermissionDeniedError: {
+      t: '摄像头权限被拒绝',
+      d: '同上：权限没有放开。',
+      a: '① 点「重新申请权限」重试；② 换系统自带浏览器打开；③ 或用「扫码枪」「手动」。'
+    },
+    NotFoundError: {
+      t: '没有检测到摄像头',
+      d: '这台设备没有可用的摄像头，或者系统把它禁用了。',
+      a: '请改用「扫码枪」或「手动」方式。电脑如需摄像头，检查设备管理器里摄像头是否被禁用。'
+    },
+    DevicesNotFoundError: {
+      t: '没有检测到摄像头',
+      d: '这台设备没有可用的摄像头。',
+      a: '请改用「扫码枪」或「手动」方式。'
+    },
+    NotReadableError: {
+      t: '摄像头被其它程序占用',
+      d: '摄像头已经打开了（比如正在开视频会议、或另一个标签页在用），系统不让网页抢。',
+      a: '关掉正在使用摄像头的软件 / 其它标签页，然后点「重新申请权限」再试。'
+    },
+    TrackStartError: {
+      t: '摄像头启动失败',
+      d: '摄像头被占用或驱动异常。',
+      a: '关掉占用摄像头的程序后重试，或改用「扫码枪」「手动」。'
+    },
+    OverconstrainedError: {
+      t: '摄像头不满足要求',
+      d: '设备上的摄像头不支持要求的取景方式。',
+      a: '点「重新申请权限」会改用普通模式再试一次。'
+    },
+    SecurityError: {
+      t: '当前打开方式不允许用摄像头',
+      d: '浏览器规定：只有在 https 网址下才允许网页调用摄像头。如果这个页面是用本地文件方式打开的，就用不了。',
+      a: '请用网站地址（https://）打开，而不是本地文件；或直接用「扫码枪」「手动」。'
+    },
+    AbortError: {
+      t: '摄像头启动被中断',
+      d: '启动过程被中断了。',
+      a: '点「重新申请权限」重试。'
+    }
+  };
+
+  /* 是否在 App 内置浏览器里（这些环境通常不给网页摄像头） */
+  SCAN.isEmbedded = function () {
+    var ua = navigator.userAgent || '';
+    if (/Doubao|MicroMessenger|DingTalk|Lark|Feishu|QQ\/|QQBrowser|Weibo|Alipay|Baidu|UCBrowser|Quark/i.test(ua)) return true;
+    if (/; wv\)/.test(ua)) return true;                 /* Android WebView */
+    if (/iPhone|iPad/.test(ua) && !/Safari/.test(ua)) return true;  /* iOS 内嵌 */
+    return false;
+  };
+
+  function camHintHtml(err) {
+    var name = (err && err.name) ? err.name : '';
+    var info = CAM_ERR[name];
+    if (!info) {
+      info = {
+        t: '无法打开摄像头',
+        d: '原因：' + (name || '未知') + '。',
+        a: '可以点「重新申请权限」重试，或改用「扫码枪」「手动」方式。'
+      };
+    }
+    var pre = SCAN.isEmbedded()
+      ? '<div style="background:#fff8e1;border-radius:8px;padding:8px 10px;margin-bottom:8px;color:#8a6d3b">' +
+        '检测到你正用 <strong>App 内置浏览器</strong> 打开本页——这类环境一般<strong>不向网页开放摄像头</strong>，' +
+        '不是系统的问题。换成手机自带的浏览器（Chrome / Edge / Safari）打开同一个网址，摄像头就能正常用了。</div>'
+      : '';
+    return pre + '<strong style="color:#c0392b">' + info.t + '</strong><br>' + info.d +
+      '<div style="margin-top:7px">' + info.a + '</div>';
+  }
+
+  /* 查询浏览器里的摄像头权限状态（能查到就给一句实话） */
+  SCAN.checkCamPerm = function () {
+    var hint = $('scanCamHint');
+    if (!navigator.permissions || !navigator.permissions.query) return;
+    try {
+      navigator.permissions.query({ name: 'camera' }).then(function (st) {
+        var map = { granted: '已授权', denied: '被拒绝', prompt: '还没问过（会弹窗申请）' };
+        var tip = '摄像头权限状态：' + (map[st.state] || st.state);
+        if (hint && !hint.dataset.busy) hint.innerHTML = tip + '<br>点上面的「开始扫码」或「重新申请权限」。';
+        st.onchange = function () { SCAN.checkCamPerm(); };
+      }).catch(function () {});
+    } catch (e) {}
+  };
+
+  /* 重新申请：先停掉旧的，再重新走一次 getUserMedia */
+  SCAN.retryCam = function () {
+    SCAN.stopCam();
+    var hint = $('scanCamHint');
+    if (hint) { hint.dataset.busy = '1'; hint.innerHTML = '正在重新申请摄像头权限…'; }
+    SCAN.startCam(true);
+  };
+
+  SCAN.startCam = function (retry) {
     var v = $('scanVideo'), hint = $('scanCamHint');
     if (!v) return;
+    if (hint) hint.dataset.busy = '1';
+
     var hasDet = (typeof global.BarcodeDetector !== 'undefined');
+
+    /* 先排掉根本不可能成功的情况，直接说清楚 */
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      if (hint) hint.innerHTML = '当前环境不支持调用摄像头（需要用 https 打开，或浏览器不允许）。<br>请改用「扫码枪」或「手动」方式。';
+      if (hint) {
+        hint.dataset.busy = '';
+        hint.innerHTML = '<strong style="color:#c0392b">当前环境不支持调用摄像头</strong><br>' +
+          '这个浏览器没有提供摄像头接口（常见于 App 内置浏览器，或非 https 打开的页面）。' +
+          '<div style="margin-top:7px">请改用「扫码枪」或「手动」方式，或换系统自带浏览器（Chrome / Edge / Safari）打开本站。</div>';
+      }
       return;
     }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+
+    var constraints = { video: { facingMode: 'environment' } };
+    if (retry) constraints = { video: true };   /* 重试时放宽，避免 Overconstrained */
+
+    navigator.mediaDevices.getUserMedia(constraints)
       .then(function (st) {
         camStream = st;
         v.srcObject = st;
         v.play().catch(function () {});
         if (hint) {
+          hint.dataset.busy = '';
           hint.innerHTML = hasDet
-            ? '把条码对准取景框，识别到会自动跳转。'
-            : '当前浏览器不支持自动识别条码，请用「扫码枪」或「手动」方式（手机端建议用 Chrome / Edge 打开）。';
+            ? '✅ 摄像头已开启。把条码对准取景框，识别到会自动跳转。'
+            : '⚠️ 摄像头已开，但这个浏览器不支持自动识别条码。请改用「扫码枪」或「手动」（手机建议用 Chrome / Edge 打开本站）。';
         }
         if (hasDet) {
           try { camDet = new global.BarcodeDetector(); } catch (e) { camDet = null; }
@@ -350,9 +467,96 @@
         }
       })
       .catch(function (err) {
-        if (hint) hint.innerHTML = '无法打开摄像头：' + (err && err.name ? err.name : '未知原因') +
-          '。<br>请检查浏览器权限，或改用「扫码枪」「手动」方式。';
+        var name = (err && err.name) || '';
+        /* 某些浏览器在 Overconstrained 时会再抛，重试一次普通模式 */
+        if (!retry && (name === 'OverconstrainedError' || name === 'NotFoundError')) {
+          constraints = { video: true };
+          navigator.mediaDevices.getUserMedia(constraints).then(function (st) {
+            camStream = st;
+            v.srcObject = st;
+            v.play().catch(function () {});
+            if (hint) { hint.dataset.busy = ''; hint.innerHTML = '✅ 摄像头已开启。'; }
+            if (hasDet) { try { camDet = new global.BarcodeDetector(); } catch (e) { camDet = null; } if (camDet) camScanLoop(); }
+          }).catch(function (e2) {
+            if (hint) { hint.dataset.busy = ''; hint.innerHTML = camHintHtml(e2); }
+          });
+          return;
+        }
+        if (hint) { hint.dataset.busy = ''; hint.innerHTML = camHintHtml(err); }
       });
+  };
+
+  /* ---------- 复制网址（内置浏览器不给摄像头时，换个浏览器就能用） ---------- */
+  SCAN.copyUrl = function () {
+    var url = location.href;
+    function done() { toast('网址已复制，粘贴到系统浏览器（Chrome / Edge / Safari）打开即可用摄像头'); }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done).catch(function () { fallbackCopy(url, done); });
+      } else { fallbackCopy(url, done); }
+    } catch (e) { fallbackCopy(url, done); }
+  };
+  function fallbackCopy(txt, cb) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      cb();
+    } catch (e) { toast('复制失败，请手动复制地址栏网址'); }
+  }
+
+  /* ---------- 从图片/照片识别（摄像头不能用时的兜底） ---------- */
+  SCAN.pickImage = function () {
+    var f = $('scanFile');
+    if (!f) return;
+    if (typeof global.BarcodeDetector === 'undefined') {
+      toast('这个浏览器不支持图片识别条码，请用扫码枪或手动输入');
+      return;
+    }
+    f.value = '';
+    f.click();
+  };
+
+  SCAN.onFile = function (input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var hint = $('scanCamHint');
+    if (hint) { hint.dataset.busy = '1'; hint.innerHTML = '正在识别图片里的条码…'; }
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var det;
+      try { det = new global.BarcodeDetector(); } catch (e) { det = null; }
+      if (!det) {
+        if (hint) { hint.dataset.busy = ''; hint.innerHTML = '这个浏览器不支持图片识别，请改用「扫码枪」「手动」。'; }
+        URL.revokeObjectURL(url);
+        return;
+      }
+      det.detect(img).then(function (codes) {
+        URL.revokeObjectURL(url);
+        if (hint) hint.dataset.busy = '';
+        if (codes && codes.length && codes[0].rawValue) {
+          var val = codes[0].rawValue;
+          SCAN.close();
+          SCAN.handle(val);
+        } else {
+          if (hint) hint.innerHTML = '<strong style="color:#c0392b">这张图里没认出条码</strong><br>拍清楚一点（条码占满画面、别反光、别斜着拍）再试一次。';
+        }
+      }).catch(function () {
+        URL.revokeObjectURL(url);
+        if (hint) { hint.dataset.busy = ''; hint.innerHTML = '识别图片失败，请换一张或改用「扫码枪」「手动」。'; }
+      });
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      if (hint) { hint.dataset.busy = ''; hint.innerHTML = '图片读不出来，请换一张。'; }
+    };
+    img.src = url;
   };
 
   function camScanLoop() {
