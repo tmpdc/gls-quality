@@ -115,7 +115,7 @@
       F('measured', '实测记录', 'textarea', { placeholder: '逐项记录实测值 / 目视结果，可多行；尺寸项记数值不记「合格」' }),
       F('defectDesc', '不良现象描述', 'textarea', { placeholder: '不合格时的具体现象、部位、数量' }),
       F('handle', '处理方式', 'select', { dict: '处理方式' }),
-      F('inspector', '检验人', 'text', { placeholder: '检验人姓名' }),
+      F('inspector', '检验人', 'select', { dict: '人员', from: 'user:IQC,IPQC,OQC,检验,测试,品质', hint: '下拉来自账号的「岗位 / 职责」，如 来料检验员IQC / 巡检IPQC / 成品检验员OQC；账号里没填岗位的也会列出来兜底' }),
       F('date', '检验日期', 'date', { placeholder: '' }),
       F('result', '判定结果', 'radio', { options: [['pass', '合格'], ['fail', '不合格']], required: true })
     ],
@@ -167,7 +167,7 @@
       F('badQty', '不良数量', 'number'),
       F('badRate', '不良率(%)', 'number', { calc: 'badQty/sampleQty*100', decimals: 2, readonly: true, hint: '自动计算 = 不良数量 ÷ 抽样数 × 100' }),
       F('handle', '处理方式', 'select', { dict: '处理方式' }),
-      F('inspector', '检验员', 'text'),
+      F('inspector', '检验员', 'select', { dict: '人员', from: 'user:IQC,IPQC,OQC,检验,测试,品质', hint: '下拉来自账号的「岗位 / 职责」' }),
       F('date', '检验日期', 'date'),
       F('desc', '备注', 'textarea')
     ],
@@ -178,7 +178,7 @@
       F('code', '项目编号', 'text'),
       F('stage', '研发阶段', 'select', { dict: '研发阶段' }),
       F('source', '客户 / 市场来源', 'text'),
-      F('owner', '负责人', 'text'),
+      F('owner', '负责人', 'select', { dict: '人员', from: 'user:', hint: '下拉来自账号列表（全部在用账号）' }),
       F('startDate', '立项日期', 'date'),
       F('input', '设计输入', 'textarea'),
       F('output', '设计输出', 'textarea'),
@@ -202,7 +202,7 @@
       F('badType', '不良类型', 'select', { dict: '不良类型' }),
       F('defectLevel', '缺陷等级', 'select', { dict: '缺陷等级' }),
       F('handle', '处理方式', 'select', { dict: '处理方式' }),
-      F('inspector', '巡检员', 'text'),
+      F('inspector', '巡检员', 'select', { dict: '人员', from: 'user:IPQC,巡检,IQC,OQC,检验,测试,品质', hint: '下拉来自账号的「岗位 / 职责」，巡检IPQC 会自动出现' }),
       F('desc', '备注', 'textarea')
     ],
 
@@ -224,7 +224,7 @@
       F('result', '判定', 'select', { dict: '判定结果' }),
       F('badQty', '不良数', 'number'),
       F('badRate', '不良率(%)', 'number', { calc: 'badQty/sampleQty*100', decimals: 2, readonly: true, hint: '自动计算 = 不良数 ÷ 抽样数 × 100' }),
-      F('inspector', '检验员', 'text'),
+      F('inspector', '检验员', 'select', { dict: '人员', from: 'user:IQC,IPQC,OQC,检验,测试,品质', hint: '下拉来自账号的「岗位 / 职责」' }),
       F('inQty', '入库数量', 'number'),
       F('desc', '备注', 'textarea')
     ],
@@ -271,7 +271,7 @@
       F('level', '风险等级', 'select', { dict: '风险等级' }),
       F('impact', '可能影响', 'textarea'),
       F('preventive', '预防措施', 'textarea'),
-      F('owner', '责任人', 'text'),
+      F('owner', '责任人', 'select', { dict: '人员', from: 'user:', hint: '下拉来自账号列表（全部在用账号）' }),
       F('closeDate', '关闭日期', 'date'),
       F('status', '状态', 'select', { dict: '风险状态' })
     ],
@@ -284,9 +284,9 @@
       F('ver', '版本号', 'text'),
       F('effDate', '生效日期', 'date'),
       F('revDate', '修订日期', 'date'),
-      F('writer', '编制人', 'text'),
-      F('reviewer', '审核人', 'text'),
-      F('approver', '批准人', 'text'),
+      F('writer', '编制人', 'select', { dict: '人员', from: 'user:', hint: '下拉来自账号列表（全部在用账号）' }),
+      F('reviewer', '审核人', 'select', { dict: '人员', from: 'user:', hint: '下拉来自账号列表（全部在用账号）' }),
+      F('approver', '批准人', 'select', { dict: '人员', from: 'user:', hint: '下拉来自账号列表（全部在用账号）' }),
       F('status', '状态', 'select', { dict: '文件状态' }),
       F('location', '存放位置', 'text'),
       F('desc', '备注', 'textarea')
@@ -506,9 +506,52 @@
     }
     return db || {};
   }
+  /* 账号人员：from:'user:检验,IQC' —— 按「岗位 / 部门 / 姓名」模糊匹配已注册账号。
+     一个都没匹配上时列出全部在用账号，保证下拉永远不会空；不写关键词 = 全部人。 */
+  function userAccounts() {
+    var arr = null;
+    try { if (window.DATAHUB && DATAHUB.get) arr = DATAHUB.get('accounts'); } catch (e) { arr = null; }
+    if (arr && !Array.isArray(arr)) arr = arr.users || arr.list || null;
+    if (!Array.isArray(arr)) {
+      try {
+        var c = JSON.parse(localStorage.getItem('gls_quality_data_v2') || 'null');
+        if (c && Array.isArray(c.accounts)) arr = c.accounts;
+        else if (c && c.accounts && Array.isArray(c.accounts.users)) arr = c.accounts.users;
+      } catch (e) { arr = null; }
+    }
+    if (!Array.isArray(arr)) {
+      try {
+        var a2 = JSON.parse(localStorage.getItem('gls_accounts') || '[]');
+        arr = a2 && !Array.isArray(a2) ? (a2.users || a2.list || []) : a2;
+      } catch (e) { arr = []; }
+    }
+    return Array.isArray(arr) ? arr : [];
+  }
+  function userNames(kw) {
+    var all = userAccounts().filter(function (u) {
+      return u && u.status !== 'disabled' && (u.realname || u.username);
+    });
+    var kws = String(kw == null ? '' : kw).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var list = all;
+    if (kws.length) {
+      var hit = all.filter(function (u) {
+        var hay = [u.post, u.dept, u.realname, u.username, u.role].join(' ');
+        for (var i = 0; i < kws.length; i++) { if (hay.indexOf(kws[i]) >= 0) return true; }
+        return false;
+      });
+      if (hit.length) list = hit;
+    }
+    var out = [];
+    list.forEach(function (u) {
+      var nm = String(u.realname || u.username || '').replace(/\s+/g, ' ').trim();
+      if (nm && out.indexOf(nm) < 0) out.push(nm);
+    });
+    return out;
+  }
   function sourceValues(f) {
     if (!f || !f.from) return [];
     var p = String(f.from).split(':'), kind = p[0], rest = p.slice(1).join(':');
+    if (kind === 'user') return userNames(rest);
     var q = rest.split('.'), table = q[0] || '', col = q[1] || '';
     var rows = [];
     try {
@@ -547,6 +590,12 @@
       h += '<textarea id="' + id + '" placeholder="' + esc(f.placeholder) + '">' + esc(v) + '</textarea>';
     } else if (f.type === 'select') {
       var opts = optionsOf(f);
+      /* 老记录里的值可能不在当前选项里（人离职、选项改过），补一个选项进去，编辑时不会被清空 */
+      if (v !== '' && v != null) {
+        var hasV = false;
+        for (var oi = 0; oi < opts.length; oi++) { if (String(opts[oi].value) === String(v)) { hasV = true; break; } }
+        if (!hasV) opts = [{ value: v, label: v }].concat(opts);
+      }
       h += '<select id="' + id + '"><option value="">请选择</option>';
       opts.forEach(function (o) {
         h += '<option value="' + esc(o.value) + '"' + (String(v) === String(o.value) ? ' selected' : '') + '>' + esc(o.label) + '</option>';
