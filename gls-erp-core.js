@@ -45,6 +45,7 @@
         { k: 'spec', label: '规格型号', type: 'text', w: '130px' },
         { k: 'unit', label: '单位', type: 'select', opts: UNITS, def: 'PCS', w: '60px' },
         { k: 'category', label: '类别', type: 'select', opts: CATS, w: '80px' },
+        { k: 'location', label: '库位', type: 'text', w: '110px' },
         { k: 'safeStock', label: '安全库存', type: 'number', w: '85px' },
         { k: 'price', label: '参考单价', type: 'number', w: '80px' },
         { k: 'supplier', label: '默认供应商', type: 'text', w: '90px' },
@@ -147,6 +148,7 @@
         { k: 'items', label: '发货明细', type: 'items', cols: [
           { k: 'code', label: '物料/产品', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
           { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' }
         ] },
@@ -167,6 +169,7 @@
         { k: 'items', label: '退货明细', type: 'items', cols: [
           { k: 'code', label: '物料/产品', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
           { k: 'reason', label: '退货原因', type: 'text' }
         ] },
@@ -266,6 +269,7 @@
         { k: 'items', label: '收货明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '到货数量', type: 'number', w: '100px' },
           { k: 'okQty', label: '合格数量', type: 'number', w: '100px' },
           { k: 'batch', label: '批次号', type: 'text', w: '120px' }
@@ -290,6 +294,7 @@
         { k: 'items', label: '入库明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
           { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' },
           { k: 'batch', label: '批次号', type: 'text', w: '120px' }
@@ -314,6 +319,7 @@
         { k: 'items', label: '出库明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
           { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' }
         ] },
@@ -333,6 +339,7 @@
         { k: 'items', label: '盘点明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'bookQty', label: '账面数', type: 'number', w: '90px' },
           { k: 'realQty', label: '实盘数', type: 'number', w: '90px' },
           { k: 'diff', label: '差异', type: 'calc', expr: 'realQty-bookQty', w: '80px' }
@@ -376,6 +383,7 @@
         { k: 'items', label: '领料明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
+          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
           { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' }
         ] },
@@ -396,6 +404,7 @@
         { k: 'okQty', label: '合格数量', type: 'number' },
         { k: 'inDate', label: '入库日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '入库仓库', type: 'ref', ref: 'warehouse' },
+        { k: 'location', label: '库位', type: 'text' },
         { k: 'status', label: '状态', type: 'select', opts: FLOW_STATUS, def: '待处理' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -1213,6 +1222,8 @@
       });
     }
     html += '</tbody></table></div>';
+    html += '<div class="erp-items-foot"><span class="erp-addrow" onclick="ERP.addItemRow()">＋ 增加一行</span>' +
+            '<span class="erp-foot-tip">明细可增行、可删行；填满最后一行会自动续一行</span></div>';
     box.innerHTML = html;
     ERP.calcTotals();
   };
