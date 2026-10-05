@@ -564,6 +564,28 @@
   }
   function setTitle(t) { var e = $('pageTitle'); if (e) e.textContent = t; }
 
+  /* 下拉选项变更后：原地重建表单里所有下拉的选项，保留已经选好的值 */
+  ERP.refreshDicts = function () {
+    var list = document.querySelectorAll('select[data-erpdict]');
+    Array.prototype.forEach.call(list, function (sel) {
+      var name = sel.getAttribute('data-erpdict');
+      if (!name) return;
+      var from = sel.getAttribute('data-erpdictfrom') || '';
+      var opts = (ERP.dictOptions ? ERP.dictOptions({ dict: name, dictFrom: from }) : []);
+      var keep = sel.value || '';
+      var all = opts.slice();
+      if (keep !== '' && all.map(String).indexOf(keep) < 0) all.unshift(keep);
+      var html = '<option value="">— 请选择 —</option>';
+      all.forEach(function (x) {
+        html += '<option value="' + escAttr(x) + '"' + (String(x) === keep ? ' selected' : '') + '>' + escHtml(x) + '</option>';
+      });
+      sel.innerHTML = html;
+      sel.value = keep;
+    });
+  };
+  /* 供 gls-fields.js 广播调用 */
+  ERP.onDictChange = function () { try { ERP.refreshDicts(); } catch (e) {} };
+
   /* 打开「下拉选项管理」：所有下拉的选项都能在这里增/删/改/排序 */
   ERP.openDictManager = function (dictName) {
     if (window.FIELDS && typeof FIELDS.openDictManager === 'function') {
@@ -1231,7 +1253,8 @@
       var opts = dictOptions(f);
       var _vv = String(v == null ? '' : v);
       if (_vv !== '' && opts.map(String).indexOf(_vv) < 0) opts.unshift(_vv);
-      inp = '<select class="erp-in" id="erpf_' + f.k + '">';
+      var _dattr = ' data-erpdict="' + escAttr(f.dict || '') + '"' + (f.dictFrom ? ' data-erpdictfrom="' + escAttr(f.dictFrom) + '"' : '');
+      inp = '<select class="erp-in" id="erpf_' + f.k + '"' + _dattr + '>';
       inp += '<option value=""' + (_vv === '' ? ' selected' : '') + '>— 请选择 —</option>';
       opts.forEach(function (o) {
         inp += '<option value="' + escAttr(o) + '"' + (String(o) === _vv ? ' selected' : '') + '>' + escHtml(o) + '</option>';
@@ -1263,7 +1286,8 @@
     if (c.type === 'select') {
       var so = dictOptions(c);
       if (v !== '' && so.indexOf(String(v)) < 0) so.unshift(String(v));
-      var sh = '<select class="erp-in sm" onchange="ERP.itemChange(' + i + ',\'' + c.k + '\',this.value,1)">';
+      var _cd = ' data-erpdict="' + escAttr(c.dict || '') + '"' + (c.dictFrom ? ' data-erpdictfrom="' + escAttr(c.dictFrom) + '"' : '');
+      var sh = '<select class="erp-in sm"' + _cd + ' onchange="ERP.itemChange(' + i + ',\'' + c.k + '\',this.value,1)">';
       sh += '<option value=""' + (v === '' ? ' selected' : '') + '>— 请选择 —</option>';
       so.forEach(function (op) {
         sh += '<option value="' + escAttr(op) + '"' + (String(v) === String(op) ? ' selected' : '') + '>' + escHtml(op) + '</option>';
