@@ -879,6 +879,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
   <div class="menu-btn" onclick="toggleSidebar()">☰</div>
   <div class="title" id="pageTitle">质量管理工作台</div>
   <div class="actions">
+    <div class="action-btn" id="scanBtn" onclick="SCAN.open()" title="扫码（快捷键 F8）">📷</div>
     <div class="action-btn" onclick="openNotices()" id="noticeBtn">🔔<span class="notice-dot" id="noticeDot" style="display:none"></span></div>
     <div class="action-btn" onclick="showSearch()" id="searchBtn">🔍</div>
   </div>
@@ -5156,5 +5157,6 @@ init();
 </script>
 <script src="gls-fields.js?v=2"></script>
 <script src="gls-fields-ui.js?v=1"></script>
+<script src="gls-scan.js?v=1"></script>
 </body>
 </html>
