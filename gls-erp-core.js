@@ -112,6 +112,32 @@
       ]
     },
 
+    equip: {
+      key: 'equip', name: '检测设备一览表', icon: '🧰', group: '基础资料', prefix: 'EQ',
+      desc: '计量器具 / 检测设备台账：规格、量程、检定周期、有效期、校准证书',
+      fields: [
+        { k: 'code', label: '设备编号', type: 'text', req: true, auto: true, w: '110px' },
+        { k: 'name', label: '设备名称', type: 'text', req: true, w: '170px' },
+        { k: 'spec', label: '规格型号', type: 'text', w: '140px' },
+        { k: 'range', label: '测量范围', type: 'text', w: '120px' },
+        { k: 'grade', label: '准确度 / 分度值', type: 'text', w: '130px' },
+        { k: 'maker', label: '制造厂', type: 'text', w: '120px' },
+        { k: 'sn', label: '出厂编号', type: 'text', w: '110px' },
+        { k: 'calibType', label: '校准方式', type: 'select', dict: '校准方式', w: '100px' },
+        { k: 'cycle', label: '检定周期(月)', type: 'number', def: '12', w: '95px' },
+        { k: 'lastDate', label: '上次检定日期', type: 'date', w: '115px' },
+        { k: 'nextDate', label: '下次检定日期', type: 'date', w: '115px' },
+        { k: 'org', label: '检定 / 校准机构', type: 'text', w: '150px' },
+        { k: 'cert', label: '证书编号', type: 'text', w: '130px' },
+        { k: 'result', label: '检定结论', type: 'select', dict: '检定结论', w: '90px' },
+        { k: 'status', label: '设备状态', type: 'select', dict: '设备状态', def: '在用', w: '90px' },
+        { k: 'location', label: '存放位置', type: 'text', w: '120px' },
+        { k: 'owner', label: '使用部门', type: 'select', dict: '部门', w: '100px' },
+        { k: 'keeper', label: '责任人', type: 'select', dict: '人员', w: '90px' },
+        { k: 'remark', label: '备注', type: 'textarea' }
+      ]
+    },
+
     /* ---------- 销售 ---------- */
     so: {
       key: 'so', name: '销售订单', icon: '📝', group: '销售管理', prefix: 'SO',
@@ -419,7 +445,7 @@
 
   /* ==================== 分组 ==================== */
   var GROUPS = [
-    { name: '基础资料', icon: '📚', keys: ['material', 'customer', 'supplier', 'warehouse', 'bom'] },
+    { name: '基础资料', icon: '📚', keys: ['material', 'customer', 'supplier', 'warehouse', 'bom', 'equip'] },
     { name: '销售管理', icon: '📝', keys: ['so', 'soShip', 'soReturn'] },
     { name: '采购管理', icon: '🛒', keys: ['pr', 'po', 'poRecv'] },
     { name: '仓储管理', icon: '🏬', keys: ['stockIn', 'stockOut', 'stockCheck'], extras: ['stock'] },
