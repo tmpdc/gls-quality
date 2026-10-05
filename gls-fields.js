@@ -85,7 +85,10 @@
       calc: opt.calc || '',
       decimals: (opt.decimals == null ? 2 : opt.decimals),
       from: opt.from || '',
-      tpl: opt.tpl || ''
+      tpl: opt.tpl || '',
+      /* 联动下拉：dep = 依赖的同表单字段 key，depName = 第二依赖（如按物料名称找供应商） */
+      dep: opt.dep || '',
+      depName: opt.depName || ''
     };
   }
 
@@ -94,8 +97,8 @@
     inspect: [
       F('type', '检验类型', 'select', { required: true, options: [['IQC', '来料检验'], ['FIRST', '首件检验'], ['PATROL', '巡检'], ['OQC', '成品检验']] }),
       F('matCode', '扫码 / 物料编码', 'scan', { required: true, placeholder: '扫码枪扫物料条码，或输入编码/名称后回车', hint: '点「带出标准」自动带出该物料的检验标准' }),
-      F('matName', '物料名称', 'readonly'),
-      F('supplier', '供应商', 'text', { placeholder: '来料检验必填' }),
+      F('matName', '物料名称', 'select', { from: 'link:matName', dep: 'matCode', placeholder: '按物料编码自动过滤', hint: '下拉跟着「物料编码」走：扫码/输入编码后只列该物料；编码为空时列出全部物料' }),
+      F('supplier', '供应商', 'select', { from: 'link:matSupplier', dep: 'matCode', depName: 'matName', hint: '下拉跟着「物料编码」走：优先列该物料的供应商（物料档案的默认供应商 + 供应商档案的供应产品编码 + 供应商管理台账），没有对应关系时列出全部供应商' }),
       F('batch', '批次号', 'text', { placeholder: '如 LOT-20260929-001' }),
       F('wo', '生产工单号', 'text', { placeholder: '首件 / 巡检 / 成品检验填写' }),
       F('recvQty', '来料数量', 'number', { placeholder: '本批到货或送检总量', hint: '即送检批量 N，用于查抽样方案' }),
@@ -152,8 +155,8 @@
 
     /* —— 到货检验 —— */
     incoming: [
-      F('name', '物料名称', 'text', { required: true }),
-      F('supplier', '供应商', 'text'),
+      F('name', '物料名称', 'select', { required: true, from: 'link:matName', hint: '下拉来自物料档案（物料档案里新增物料后自动出现）' }),
+      F('supplier', '供应商', 'select', { from: 'link:matSupplier', hint: '下拉来自供应商档案与供应商管理台账' }),
       F('spec', '规格型号', 'text'),
       F('batch', '批号', 'text'),
       F('qty', '送检数量', 'number'),
@@ -379,9 +382,16 @@
     list.forEach(function (f) {
       var d = _defMap[f.key];
       if (!d) return;
-      ['calc', 'decimals', 'from', 'tpl'].forEach(function (k) {
+      ['calc', 'decimals', 'from', 'tpl', 'dep', 'depName'].forEach(function (k) {
         if ((f[k] === undefined || f[k] === null || f[k] === '') && d[k] !== undefined && d[k] !== '') f[k] = d[k];
       });
+      /* 联动字段（from:'link:xxx'）由系统托管：类型与依赖一律以默认配置为准，
+         否则老配置里存的是文本框/只读，升级后联动下拉不会生效 */
+      if (d.from && String(d.from).indexOf('link:') === 0) {
+        f.type = d.type; f.from = d.from;
+        if (d.dep) f.dep = d.dep;
+        if (d.depName) f.depName = d.depName;
+      }
     });
     var gone = (o.__removed__ && o.__removed__[moduleId]) || [];
     def.forEach(function (f) {
@@ -470,7 +480,7 @@
   }
 
   /* ---------- 字段取值（下拉选项） ---------- */
-  function optionsOf(field) {
+  function optionsOf(field, depCode, depName) {
     field = field || {};
     var out = [];
     if (field.options && field.options.length) {
@@ -483,7 +493,7 @@
     }
     /* 动态来源：台账 / 资料库里新增记录后选项自动出现，不用回来改配置。
        台账来的排最前——它才是权威来源，字典里的只作兜底。 */
-    var dyn = sourceValues(field).map(function (v) { return { value: v, label: v }; });
+    var dyn = sourceValues(field, depCode, depName).map(function (v) { return { value: v, label: v }; });
     if (dyn.length) {
       var seen = {};
       dyn.forEach(function (o) { seen[String(o.value)] = 1; });
@@ -548,10 +558,96 @@
     });
     return out;
   }
-  function sourceValues(f) {
+  /* ---------- 物料 / 供应商 联动来源 ----------
+     from:'link:matName'     物料名称：给了物料编码只列该物料，没给列出全部物料
+     from:'link:matSupplier' 供应商：按物料编码找（物料默认供应商 + 供应商档案供应编码 + 供应商管理台账） */
+  function _ldeq(a, b) {
+    return String(a == null ? '' : a).trim().toLowerCase() === String(b == null ? '' : b).trim().toLowerCase();
+  }
+  function _ldpush(arr, seen, v) {
+    v = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    if (v && !seen[v]) { seen[v] = 1; arr.push(v); }
+  }
+  function rowsOf(sec) {
+    try { if (typeof appData !== 'undefined' && appData && Array.isArray(appData[sec])) return appData[sec]; } catch (e) {}
+    try {
+      var c = JSON.parse(localStorage.getItem('gls_quality_data_v2') || 'null');
+      if (c && Array.isArray(c[sec])) return c[sec];
+    } catch (e) {}
+    return [];
+  }
+  function erpRowsOf(key) {
+    try { if (typeof appData !== 'undefined' && appData && appData.erp && Array.isArray(appData.erp[key])) return appData.erp[key]; } catch (e) {}
+    try {
+      var c = JSON.parse(localStorage.getItem('gls_quality_data_v2') || 'null');
+      if (c && c.erp && Array.isArray(c.erp[key])) return c.erp[key];
+    } catch (e) {}
+    return [];
+  }
+  function _matNamesBy(c) {
+    var out = [], seen = {};
+    function take(list) {
+      if (!Array.isArray(list)) return;
+      list.forEach(function (r) { if (r && (!c || _ldeq(r.code, c))) _ldpush(out, seen, r.name); });
+    }
+    var pqs = rowsOf('pqs');
+    take(pqs && pqs.material);
+    take(erpRowsOf('material'));
+    take((window.PQS_DATA && window.PQS_DATA.materials) || []);
+    return out;
+  }
+  function matNames(code) {
+    var c = String(code == null ? '' : code).trim();
+    var out = _matNamesBy(c);
+    if (!out.length && c) out = _matNamesBy('');   /* 编码没匹配上时列出全部，下拉不空 */
+    return out;
+  }
+  function _supNamesBy(c, nm) {
+    var out = [], seen = {};
+    /* ① 物料档案的「默认供应商」 */
+    erpRowsOf('material').forEach(function (r) {
+      if (!r) return;
+      var hit = c ? _ldeq(r.code, c) : (nm ? String(r.name || '').trim() === nm : false);
+      if (hit) _ldpush(out, seen, r.supplier);
+    });
+    /* ② 供应商档案：供应产品编码 / 供应产品名称 */
+    erpRowsOf('supplier').forEach(function (r) {
+      if (!r) return;
+      if (!c && !nm) { _ldpush(out, seen, r.name); return; }
+      var hit = c ? _ldeq(r.supplyCode, c) : (nm ? String(r.supplyName || '').trim() === nm : false);
+      if (hit) _ldpush(out, seen, r.name);
+    });
+    /* ③ 供应商管理台账：物料编码 / 供应产品名称 */
+    rowsOf('suppliers').forEach(function (r) {
+      if (!r) return;
+      if (!c && !nm) { _ldpush(out, seen, r.name); return; }
+      var hit = c ? (_ldeq(r.matCode, c) || _ldeq(r.code, c)) : (nm ? String(r.material || '').trim() === nm : false);
+      if (hit) _ldpush(out, seen, r.name);
+    });
+    return out;
+  }
+  function supNames(code, matName) {
+    var c = String(code == null ? '' : code).trim(), nm = String(matName == null ? '' : matName).trim();
+    var out = _supNamesBy(c, nm);
+    if (!out.length && (c || nm)) out = _supNamesBy('', '');   /* 兜底：列出全部供应商 */
+    return out;
+  }
+  /* 同表单兄弟字段的当前值：先看回填值，再看页面上已输入/已扫码的值 */
+  function sibVal(moduleId, key, values) {
+    try {
+      if (values && values[key] !== undefined && values[key] !== null && values[key] !== '') return String(values[key]);
+    } catch (e) {}
+    var el = document.getElementById('fx_' + moduleId + '_' + key);
+    return el ? String(el.value == null ? '' : el.value) : '';
+  }
+  function sourceValues(f, depCode, depName) {
     if (!f || !f.from) return [];
     var p = String(f.from).split(':'), kind = p[0], rest = p.slice(1).join(':');
     if (kind === 'user') return userNames(rest);
+    if (kind === 'link') {
+      if (rest === 'matSupplier') return supNames(depCode, depName);
+      return matNames(depCode);          /* link:matName */
+    }
     var q = rest.split('.'), table = q[0] || '', col = q[1] || '';
     var rows = [];
     try {
@@ -589,7 +685,8 @@
     if (f.type === 'textarea') {
       h += '<textarea id="' + id + '" placeholder="' + esc(f.placeholder) + '">' + esc(v) + '</textarea>';
     } else if (f.type === 'select') {
-      var opts = optionsOf(f);
+      var opts = optionsOf(f, f.dep ? sibVal(moduleId, f.dep, values) : '',
+                             f.depName ? sibVal(moduleId, f.depName, values) : '');
       /* 老记录里的值可能不在当前选项里（人离职、选项改过），补一个选项进去，编辑时不会被清空 */
       if (v !== '' && v != null) {
         var hasV = false;
@@ -619,6 +716,7 @@
         + '</div>';
     } else if (f.type === 'scan') {
       h += '<div class="fx-scan"><input id="' + id + '" placeholder="' + esc(f.placeholder) + '"'
+        + ' onchange="FIELDS.syncDep(\'' + esc(moduleId) + '\',\'' + esc(f.key) + '\')"'
         + ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial();}">'
         + '<button type="button" class="fx-btn fx-btn-g" onclick="if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial()">带出标准</button></div>';
     } else if (f.type === 'multiselect') {
@@ -630,11 +728,35 @@
     } else {
       var t = (f.type === 'number') ? 'number' : (f.type === 'date' ? 'date' : 'text');
       h += '<input id="' + id + '" type="' + t + '" value="' + esc(v) + '" placeholder="' + esc(f.placeholder) + '"'
+        + ' onchange="FIELDS.syncDep(\'' + esc(moduleId) + '\',\'' + esc(f.key) + '\')"'
         + (f.readonly || f.type === 'readonly' ? ' readonly' : '') + '>';
     }
     if (f.hint) h += '<div class="fx-hint">' + esc(f.hint) + '</div>';
     h += '</div>';
     return h;
+  }
+
+  /* 联动刷新：某个字段（如物料编码）变了，重算依赖它的下拉（物料名称 / 供应商） */
+  function syncDep(moduleId, key) {
+    var list = get(moduleId);
+    list.forEach(function (f) {
+      if (f.type !== 'select' || f.dep !== key) return;
+      var el = document.getElementById('fx_' + moduleId + '_' + f.key);
+      if (!el) return;
+      var cur = String(el.value || '');
+      var opts = optionsOf(f, sibVal(moduleId, f.dep, null),
+                             f.depName ? sibVal(moduleId, f.depName, null) : '');
+      var html = '<option value="">请选择</option>';
+      opts.forEach(function (x) {
+        html += '<option value="' + esc(x.value) + '">' + esc(x.label) + '</option>';
+      });
+      el.innerHTML = html;
+      /* 上游（物料编码）变了：旧值还属于新编码就留着，不属于就清掉——
+         否则会出现「编码换成 M002、物料名称还写着 M001 的物料」这种错记录 */
+      if (cur && opts.some(function (x) { return String(x.value) === cur; })) el.value = cur;
+      else if (opts.length === 1) el.value = opts[0].value;   /* 只此一个候选时自动选中 */
+      else el.value = '';
+    });
   }
 
   /* 渲染整个表单区（values 用于编辑回填） */
@@ -936,6 +1058,7 @@
     dicts: allDicts, dict: dict, setDict: setDict, delDict: delDict, renameDict: renameDict,
     /* 渲染与读写 */
     render: render, collect: collect, validate: validate, optionsOf: optionsOf, esc: esc,
+    syncDep: syncDep, matNames: matNames, supNames: supNames,
     calc: calcFields,
     /* 多选下拉控件（供内联 onclick 调用） */
     msToggle: msToggle, msPick: msPick, msDel: msDel, msKey: msKey,
