@@ -3257,7 +3257,7 @@ function sfSaveItem(mode, key) {
                     n: name, d: dir, s: size, lv: lv, on: on, p: path });
     sfToast('已新增：' + name);
   }
-  try { sfSaveNewBody(String((document.getElementById('sfDlgName') || {}).value || '').trim() || it.n); } catch (e) {}
+  try { sfSaveNewBody(name); } catch (e) {}
   var _pf = window.GLS_SF_PICK; window.GLS_SF_PICK = null;
   if (_pf) {
     var _fid = FV.uid();
@@ -3606,6 +3606,9 @@ function renderSysFileModule(container, searchText) {
       '<div class="sf-grp-b">';
     list.forEach(function (x) {
       var hasOn = x.on || sfOnlineKey(x.n);
+      /* 「可在线看」只在真的打得开时才亮：原文库 / 改过的正文 / 存进来的原文件 */
+      var canSee = !x.uid || sfBodyHas(x.n) || !!sfOnlineKey(x.n) || !!sfFileIdOf(x.n) ||
+        (!!x.k && !!window.GLS_SD_IDX && window.GLS_SD_IDX[x.k] !== undefined && window.GLS_SD_IDX[x.k] !== null);
       var sn = String(x.n).replace('（模板中心）', '');
       var clk = x.tpl
         ? 'sfOpenTpl(' + JSON.stringify(x.tpl).replace(/"/g, '&quot;') + ',\'' + (x.mod || 'rd') + '\')'
@@ -3618,7 +3621,7 @@ function renderSysFileModule(container, searchText) {
         '<span class="sf-nm2">' + sfEsc(x.n) + '</span>' +
         (x.uid ? '<span class="sf-new">新增</span>' : '') +
         (sfFileIdOf(x.n) ? '<span class="sf-fvtag">原文件</span>' : '') +
-        (x.tpl ? '<span class="sf-on">可填写</span>' : (hasOn ? '<span class="sf-on">可在线看</span>' : '')) +
+        (x.tpl ? '<span class="sf-on">可填写</span>' : ((hasOn && canSee) ? '<span class="sf-on">可在线看</span>' : '')) +
         '<span class="sf-sz">' + sfSize(x.s) + '</span>' +
         '<span class="sf-ops">' +
           '<button class="sf-op" title="修改" onclick="event.stopPropagation();sfItemDialog(\'edit\',' + x.lv + ',\'' + okey + '\')">✏ 改</button>' +
@@ -3699,6 +3702,8 @@ function sfFallbackOpen(name, path, lv) {
     openDocFullText(key);
     return;
   }
+  /* 存过原文件：直接 1:1 预览（表格 / 文档 / PDF / 图纸都走这里） */
+  if (typeof sfFileIdOf === 'function' && sfFileIdOf(name)) { sfOpenSysDoc(name, { h: '' }, lv); return; }
   sfShowLocal(name, path, lv);
 }
 
@@ -3832,22 +3837,53 @@ function sfCopyName(n) {
 function sfShowLocal(name, path, lv) {
   var old = document.getElementById('sfLocalDlg');
   if (old) old.remove();
+  var J = function (s) { return JSON.stringify(String(s == null ? '' : s)).replace(/"/g, '&quot;'); };
+  var LV = Number(lv) || 4;
+  var hasPath = String(path || '').trim();
   var d = document.createElement('div');
   d.id = 'sfLocalDlg';
   d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
   d.onclick = function (e) { if (e.target === d) d.remove(); };
   d.innerHTML =
-    '<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:80vh;overflow:auto;padding:18px;">' +
+    '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:86vh;overflow:auto;padding:18px;">' +
     '<div style="font-size:16px;font-weight:800;color:#2d7a4f;margin-bottom:4px;">' + sfEsc(name) + '</div>' +
-    '<div style="font-size:11.5px;color:#8a9a90;margin-bottom:12px;">' + (SF_LV_NAME[lv] || '') + ' · 本地文件</div>' +
-    '<div style="font-size:12px;color:#666;line-height:1.9;background:#f7fbf8;border:1px solid #e6f0ea;border-radius:9px;padding:10px;margin-bottom:12px;">' +
-    '文件路径：<br><span style="font-size:11.5px;color:#2d7a4f;word-break:break-all;">' + sfEsc(path) + '</span></div>' +
+    '<div style="font-size:11.5px;color:#8a9a90;margin-bottom:12px;">' + (SF_LV_NAME[LV] || '') + ' · 还没有可看的内容</div>' +
+    '<div style="font-size:12px;color:#666;line-height:1.9;background:#fffbf0;border:1px solid #f0e0b8;border-radius:9px;padding:10px;margin-bottom:14px;">' +
+      '这份资料还没有正文、也没有存原文件，所以现在点开看不到内容。下面任选一种补上，之后就能直接查看 / 打印 / 填写。' +
+      (hasPath ? '<br>已填的本机路径：<span style="color:#2d7a4f;word-break:break-all;">' + sfEsc(path) + '</span>' : '') +
+    '</div>' +
+    '<div style="font-size:12.5px;font-weight:700;color:#2d7a4f;margin:0 0 6px;">① 上传原文件（1:1 原样：表格 / 文档 / PDF / 图片 / 图纸）</div>' +
+    '<input type="file" onchange="sfLocalPick(' + J(name) + ',' + LV + ',this)" style="width:100%;box-sizing:border-box;font-size:12.5px;padding:9px;border:1px dashed #9cc3ab;border-radius:9px;background:#fbfefc;">' +
+    '<div style="font-size:12.5px;font-weight:700;color:#2d7a4f;margin:14px 0 6px;">② 或者直接把内容录进来</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-    '<button onclick="sfCopyPath(' + JSON.stringify(path).replace(/"/g, '&quot;') + ')" style="flex:1;min-width:110px;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">复制路径</button>' +
-    '<button onclick="sfTryOpen(' + JSON.stringify(path).replace(/"/g, '&quot;') + ')" style="flex:1;min-width:110px;padding:10px;border:1px solid #d1d5db;background:#fff;color:#555;border-radius:9px;font-size:13px;cursor:pointer;">试着打开</button>' +
+    '<button onclick="sfLocalEdit(' + J(name) + ',' + LV + ')" style="flex:1;min-width:140px;padding:10px;border:1px solid #2d7a4f;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">\u270F\uFE0F 编辑内容</button>' +
+    (hasPath ? '<button onclick="sfCopyPath(' + J(path) + ')" style="flex:1;min-width:110px;padding:10px;border:1px solid #2d7a4f;background:#eef7f1;color:#2d7a4f;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">复制路径</button>' : '') +
+    (hasPath ? '<button onclick="sfTryOpen(' + J(path) + ')" style="flex:1;min-width:110px;padding:10px;border:1px solid #d1d5db;background:#fff;color:#555;border-radius:9px;font-size:13px;cursor:pointer;">试着打开</button>' : '') +
     '<button onclick="document.getElementById(\'sfLocalDlg\').remove()" style="flex:1;min-width:110px;padding:10px;border:none;background:#2d7a4f;color:#fff;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;">关闭</button>' +
     '</div></div>';
   document.body.appendChild(d);
+}
+
+/* 在这个弹窗里直接补上原文件（1:1 原样存本机，随即可看可打印） */
+function sfLocalPick(name, lv, inp) {
+  var f = inp && inp.files && inp.files[0];
+  if (!f) return;
+  var fid = FV.uid();
+  sfSetFileId(name, fid, f.name);
+  FV.put({ id: fid, name: f.name, type: f.type || '', size: f.size, mtime: Date.now(),
+           ext: (f.name.split('.').pop() || '').toLowerCase(), blob: f })
+    .then(function () {
+      sfToast('原文件已原样存入本机：' + f.name);
+      var o = document.getElementById('sfLocalDlg'); if (o) o.remove();
+      sfOpenSysDoc(name, { h: '' }, lv);
+      try { sfRefresh(); } catch (e) { }
+    })
+    .catch(function (e) { sfToast('原文件保存失败：' + ((e && e.message) || e), false); });
+}
+function sfLocalEdit(name, lv) {
+  var o = document.getElementById('sfLocalDlg'); if (o) o.remove();
+  sfOpenSysDoc(name, { h: '' }, lv);
+  setTimeout(function () { try { sfEditBodyDlg(); } catch (e) { sfToast('打开编辑失败', false); } }, 130);
 }
 
 function sfCopyPath(p) {
