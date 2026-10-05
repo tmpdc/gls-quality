@@ -17,7 +17,7 @@
   }
   var TYPE_LABEL = {
     text: '单行文本', textarea: '多行文本', number: '数字', date: '日期',
-    select: '下拉选择', radio: '单选按钮', scan: '扫码/编码', readonly: '只读'
+    select: '下拉选择', multiselect: '多选下拉', radio: '单选按钮', scan: '扫码/编码', readonly: '只读'
   };
 
   var _draft = null;      // 设计器里的字段副本
