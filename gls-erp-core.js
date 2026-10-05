@@ -340,7 +340,7 @@
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
           { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
-          { k: 'bookQty', label: '账面数', type: 'number', w: '90px' },
+          { k: 'bookQty', label: '账面数', type: 'number', w: '90px', tip: '选物料后自动带出当前库存', autoFrom: 'code:__stock__' },
           { k: 'realQty', label: '实盘数', type: 'number', w: '90px' },
           { k: 'diff', label: '差异', type: 'calc', expr: 'realQty-bookQty', w: '80px' }
         ] },
@@ -503,7 +503,7 @@
     function touch(code, name, unit, spec) {
       if (!code) return null;
       if (!map[code]) {
-        map[code] = { code: code, name: name || code, unit: unit || '', spec: spec || '', cat: '原材料', aft: false, in: 0, out: 0, aftIn: 0, aftOut: 0, safe: 0, bal: 0, aftBal: 0 };
+        map[code] = { code: code, name: name || code, unit: unit || '', spec: spec || '', cat: '原材料', aft: false, in: 0, out: 0, aftIn: 0, aftOut: 0, safe: 0, bal: 0, aftBal: 0, adj: 0 };
         rows.push(map[code]);
       }
       if (name && map[code].name === code) map[code].name = name;
@@ -530,7 +530,22 @@
         if (g) { g.out += num(it.qty); if (aftDoc) { g.aft = true; g.aftOut += num(it.qty); } }
       });
     });
-    rows.forEach(function (r) { r.bal = r.in - r.out; r.aftBal = r.aftIn - r.aftOut; });
+    /* 盘点调整：状态为「已完成」的盘点单，盘盈盘亏计入库存台账 */
+    listOf('stockCheck').forEach(function (doc) {
+      if (doc.status !== '已完成') return;
+      (doc.items || []).forEach(function (it) {
+        if (!it || !it.code) return;
+        var g = touch(it.code, it.name, it.unit);
+        if (!g) return;
+        var d = num(it.realQty) - num(it.bookQty);
+        if (d) { if (g.adj == null) g.adj = 0; g.adj += d; }
+      });
+    });
+    rows.forEach(function (r) {
+      if (r.adj == null) r.adj = 0;
+      r.bal = r.in - r.out + r.adj;
+      r.aftBal = r.aftIn - r.aftOut;
+    });
     rows.sort(function (a, b) { return String(a.code).localeCompare(String(b.code)); });
     return rows;
   };
@@ -1390,6 +1405,14 @@
         if (!c.autoFrom) return;
         var parts = String(c.autoFrom).split(':');
         if (parts[0] !== k) return;
+        if (parts[1] === '__stock__') {
+          var _bal = 0;
+          try {
+            (ERP.buildStock() || []).forEach(function (r) { if (String(r.code) === String(v)) _bal = r.bal; });
+          } catch (e) { _bal = 0; }
+          arr[i][c.k] = _bal;
+          return;
+        }
         var src = findRec(c.ref || f.cols[0].ref, v);
         if (src) arr[i][c.k] = src[parts[1]] == null ? '' : src[parts[1]];
       });
@@ -1422,6 +1445,7 @@
         var v = 0;
         try { v = eval(expr); } catch (e) { v = 0; }
         el.textContent = money(v);
+        row[c.k] = v;
       });
     });
     if (sumField) {
@@ -1612,9 +1636,10 @@
       { key: '成品', label: '成品库存', desc: '生产成品 + 售后翻新成品 合并台账，售后翻新带印记' }
     ];
     function balOf(r, k) { return r.bal; }
+    function adjOf(r) { return r.adj || 0; }
     function inOf(r, k) { return r.in; }
     function outOf(r, k) { return r.out; }
-    var html = '<div class="erp-count">库存台账按类别分开：原材料 / 半成品 / 成品（售后翻新成品并入成品台账并带印记，共 <b>' + rows.length + '</b> 种物料）</div>';
+    var html = '<div class="erp-count">库存台账按类别分开：原材料 / 半成品 / 成品（售后翻新成品并入成品台账并带印记，共 <b>' + rows.length + '</b> 种物料）· 结存 = 入库 − 出库 + 盘点调整（盘点单状态改为「已完成」后自动计入）</div>';
     groups.forEach(function (g) {
       var rs = rows.filter(function (r) {
         if (g.key === '成品') return r.cat === '成品' || r.aftIn > 0;
@@ -1630,10 +1655,11 @@
         '<th style="min-width:130px">物料编码</th><th style="min-width:150px">物料名称</th>' +
         '<th style="min-width:120px">规格型号</th><th style="min-width:70px">单位</th>' +
         '<th style="min-width:90px">入库合计</th><th style="min-width:90px">出库合计</th>' +
+        '<th style="min-width:90px">盘点调整</th>' +
         '<th style="min-width:90px">结存</th><th style="min-width:90px">安全库存</th>' +
         '<th style="min-width:110px">状态</th></tr></thead><tbody>';
       if (!rs.length) {
-        html += '<tr><td colspan="9" class="erp-empty">暂无数据</td></tr>';
+        html += '<tr><td colspan="10" class="erp-empty">暂无数据</td></tr>';
       } else {
         rs.forEach(function (r) {
           var bal = balOf(r, g.key), low = r.safe > 0 && bal < r.safe;
@@ -1642,6 +1668,7 @@
           var mark = (g.key === '成品' && r.aftIn > 0) ? ' <span class="erp-tag aft" title="含退货/翻新入库 ' + r.aftIn + ' 件">售后翻新</span>' : '';
           html += '<tr><td>' + escHtml(r.code) + '</td><td>' + escHtml(r.name) + mark + '</td><td>' + escHtml(r.spec) + '</td>' +
             '<td>' + escHtml(r.unit) + '</td><td>' + inOf(r, g.key) + '</td><td>' + outOf(r, g.key) + '</td>' +
+            '<td>' + (adjOf(r) ? (adjOf(r) > 0 ? '+' + adjOf(r) : adjOf(r)) : '') + '</td>' +
             '<td><b>' + bal + '</b></td><td>' + (r.safe || '') + '</td><td>' + tag + '</td></tr>';
         });
       }
