@@ -315,6 +315,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .doc-fulltext { white-space: normal !important; font-size: 13px; line-height: 1.9; }
 .doc-fulltext p { margin: 0 0 5px; }
 .doc-fulltext table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; table-layout: auto; }
+.doc-fulltext td[data-sfmerge] { font-weight: 700; background: #f6faf7; letter-spacing: .3px; }
+.doc-fulltext td[data-sfmerge]:only-child { padding-left: 10px; }
 .doc-fulltext th, .doc-fulltext td { border: 1px solid #8a8a8a; padding: 5px 7px; vertical-align: middle; word-break: break-word; white-space: pre-wrap; line-height: 1.6; }
 .doc-fulltext table p { margin: 0; }
 .doc-fulltext p.gls-doc-empty { margin: 0; height: 8px; }
@@ -3707,6 +3709,89 @@ function sfFallbackOpen(name, path, lv) {
   sfShowLocal(name, path, lv);
 }
 
+/* 日期序列值（Excel 1900 制）→ 2026-03-01 */
+function sfSerialDate(n) {
+  var d = new Date(Date.UTC(1899, 11, 30) + Math.round(Number(n)) * 86400000);
+  var m = d.getUTCMonth() + 1, dd = d.getUTCDate();
+  return d.getUTCFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (dd < 10 ? '0' : '') + dd;
+}
+
+/* 全文视图按原件规则还原：整行合并的标题行合并回去、日期列把序列值变日期
+   （提取 HTML 时这两样都丢了；原件里 A1:G1 是真合并、受控日期是 46082 这种日期） */
+function sfFixDocHtml(html) {
+  if (!html || html.indexOf('<table') < 0) return html;
+  try {
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    var tbs = box.getElementsByTagName('table');
+    for (var t = 0; t < tbs.length; t++) {
+      var rows = tbs[t].rows;
+      if (!rows || rows.length < 2) continue;
+      /* 表格总列数 */
+      var cols = 0;
+      for (var r0 = 0; r0 < rows.length; r0++) {
+        var n0 = 0;
+        for (var c0 = 0; c0 < rows[r0].cells.length; c0++) n0 += (rows[r0].cells[c0].colSpan || 1);
+        if (n0 > cols) cols = n0;
+      }
+      if (!cols) continue;
+      /* 表头里带「日期 / 时间」的列（按列号记） */
+      var dateCols = [];
+      for (var r1 = 0; r1 < Math.min(6, rows.length); r1++) {
+        var cs1 = rows[r1].cells, txt = 0;
+        for (var k1 = 0; k1 < cs1.length; k1++) { if (String(cs1[k1].textContent).trim()) txt++; }
+        if (txt >= 3) {
+          var ci = 0;
+          for (var k2 = 0; k2 < cs1.length; k2++) {
+            var sp = cs1[k2].colSpan || 1;
+            if (/日期|时间|date/i.test(cs1[k2].textContent)) { for (var s = 0; s < sp; s++) dateCols.push(ci + s); }
+            ci += sp;
+          }
+          break;
+        }
+      }
+      for (var r = 0; r < rows.length; r++) {
+        var cs = rows[r].cells;
+        /* ① 整行合并还原：首格有字、其余全空 —— 原件里就是跨整行的合并标题/标签行 */
+        if (cs.length > 1) {
+          var head = String(cs[0].textContent).trim();
+          var rest = true;
+          for (var i = 1; i < cs.length; i++) {
+            if (String(cs[i].textContent).trim() || (cs[i].rowSpan || 1) > 1) { rest = false; break; }
+          }
+          if (head && rest) {
+            var total = 0;
+            for (var i2 = 0; i2 < cs.length; i2++) total += (cs[i2].colSpan || 1);
+            for (var i3 = cs.length - 1; i3 >= 1; i3--) { cs[i3].parentNode.removeChild(cs[i3]); }
+            cs[0].colSpan = Math.max(total, cols);
+            cs[0].setAttribute('data-sfmerge', '1');
+            if (head.length <= 30 && !/序号|文件编号|检验项目/.test(head)) {
+              cs[0].style.textAlign = 'center';
+            }
+          }
+        }
+        /* ② 日期列：20000~60000 的纯数字 = 日期序列值 */
+        if (dateCols.length) {
+          var ci2 = 0;
+          for (var c = 0; c < rows[r].cells.length; c++) {
+            var cell = rows[r].cells[c], sp2 = cell.colSpan || 1, isD = false;
+            for (var s2 = 0; s2 < sp2; s2++) { if (dateCols.indexOf(ci2 + s2) >= 0) { isD = true; } }
+            if (isD) {
+              var tv = String(cell.textContent).trim();
+              if (/^\d{4,6}(\.\d+)?$/.test(tv)) {
+                var num = parseFloat(tv);
+                if (num > 20000 && num < 60000) cell.textContent = sfSerialDate(num);
+              }
+            }
+            ci2 += sp2;
+          }
+        }
+      }
+    }
+    return box.innerHTML;
+  } catch (e) { return html; }
+}
+
 /** 在线全文弹窗（体系文件库） */
 function sfOpenSysDoc(name, d, lv) {
   var old = document.getElementById('sfDocDlg');
@@ -3738,7 +3823,7 @@ function sfOpenSysDoc(name, d, lv) {
       + '\u00B7 你可以点下方「\u270F\uFE0F 编辑内容」直接把这份资料的内容录进来，录完下次打开就能看到。<br>'
       + '\u00B7 其余 ' + ((window.GLS_SYSFILES && window.GLS_SYSFILES.online) ? window.GLS_SYSFILES.online : 0) + ' 份文件均可在此直接查看全文。</div>';
   } else {
-    body = raw;
+    body = sfFixDocHtml(raw);
   }
   var el = document.createElement('div');
   el.id = 'sfDocDlg';
