@@ -72,7 +72,9 @@
       enabled: opt.enabled === false ? false : true,
       placeholder: opt.placeholder || '',
       readonly: !!opt.readonly,
-      hint: opt.hint || ''
+      hint: opt.hint || '',
+      calc: opt.calc || '',
+      decimals: (opt.decimals == null ? 2 : opt.decimals)
     };
   }
 
@@ -94,8 +96,8 @@
       F('aql', 'AQL 值', 'select', { dict: 'AQL', hint: '致命 0.065；严重 0.65；轻微 2.5（关键安全件加严一档）' }),
       F('acRe', '判定标准 Ac/Re', 'text', { placeholder: '如 0/1', hint: '由批量 + 检验水平 + AQL 查表得出：Ac 合格判定数 / Re 不合格判定数' }),
       F('sampleQty', '抽检数量', 'number', { placeholder: '实际抽取的样本量 n' }),
-      F('badQty', '不合格品数', 'number', { placeholder: '发现的不合格品数 d' }),
-      F('badRate', '不合格率(%)', 'number'),
+      F('badQty', '不合格品数', 'number'),
+      F('badRate', '不合格率(%)', 'number', { calc: 'badQty/sampleQty*100', decimals: 2, readonly: true, hint: '自动计算 = 不合格品数 ÷ 抽检数量 × 100' }),
       F('defectLevel', '缺陷等级', 'select', { dict: '缺陷等级' }),
       F('tool', '测量器具', 'text', { placeholder: '如 数显卡尺 0-150 / 耐压测试仪，须在检定有效期内' }),
       F('stdVer', '标准 / 图纸版本', 'text', { placeholder: '如 A/2，须为受控最新版' }),
@@ -152,7 +154,7 @@
       F('sampleQty', '抽样数', 'number'),
       F('result', '判定', 'select', { dict: '判定结果' }),
       F('badQty', '不良数量', 'number'),
-      F('badRate', '不良率(%)', 'number'),
+      F('badRate', '不良率(%)', 'number', { calc: 'badQty/sampleQty*100', decimals: 2, readonly: true, hint: '自动计算 = 不良数量 ÷ 抽样数 × 100' }),
       F('handle', '处理方式', 'select', { dict: '处理方式' }),
       F('inspector', '检验员', 'text'),
       F('date', '检验日期', 'date'),
@@ -210,7 +212,7 @@
       F('items', '检验项目', 'textarea'),
       F('result', '判定', 'select', { dict: '判定结果' }),
       F('badQty', '不良数', 'number'),
-      F('badRate', '不良率(%)', 'number'),
+      F('badRate', '不良率(%)', 'number', { calc: 'badQty/sampleQty*100', decimals: 2, readonly: true, hint: '自动计算 = 不良数 ÷ 抽样数 × 100' }),
       F('inspector', '检验员', 'text'),
       F('inQty', '入库数量', 'number'),
       F('desc', '备注', 'textarea')
@@ -360,6 +362,16 @@
     var list = o[moduleId].map(cloneField);
     var has = {};
     list.forEach(function (f) { has[f.key] = 1; });
+    /* 老配置里没有「自动计算」这类系统能力键，从默认配置补齐，避免升级后失效 */
+    var _defMap = {};
+    def.forEach(function (f) { _defMap[f.key] = f; });
+    list.forEach(function (f) {
+      var d = _defMap[f.key];
+      if (!d) return;
+      ['calc', 'decimals'].forEach(function (k) {
+        if ((f[k] === undefined || f[k] === null || f[k] === '') && d[k] !== undefined && d[k] !== '') f[k] = d[k];
+      });
+    });
     var gone = (o.__removed__ && o.__removed__[moduleId]) || [];
     def.forEach(function (f) {
       if (has[f.key]) return;
@@ -500,6 +512,10 @@
       h += '<div class="fx-scan"><input id="' + id + '" placeholder="' + esc(f.placeholder) + '"'
         + ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial();}">'
         + '<button type="button" class="fx-btn fx-btn-g" onclick="if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial()">带出标准</button></div>';
+    } else if (f.calc) {
+      var _t = (f.type === 'number') ? 'number' : 'text';
+      h += '<input id="' + id + '" type="' + _t + '" value="' + esc(v) + '" readonly class="fx-calc"'
+        + ' data-fxcalc="' + esc(f.calc) + '" data-fxdec="' + esc(f.decimals) + '" title="自动计算：' + esc(f.calc) + '">';
     } else {
       var t = (f.type === 'number') ? 'number' : (f.type === 'date' ? 'date' : 'text');
       h += '<input id="' + id + '" type="' + t + '" value="' + esc(v) + '" placeholder="' + esc(f.placeholder) + '"'
@@ -565,6 +581,7 @@
     '.fx-row>input,.fx-row>select,.fx-row>textarea,.fx-row>.fx-scan,.fx-row>.fx-radio{flex:1;min-width:0}',
     '.fx-row input[type=text],.fx-row input[type=number],.fx-row input[type=date],.fx-row select,.fx-row textarea{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #d1d5db;border-radius:7px;font-size:14px;background:#fff;color:#111827;font-family:inherit}',
     '.fx-row input[readonly]{background:#f3f4f6;color:#6b7280}',
+    '.fx-row input.fx-calc{background:#eef7f1;color:#14663c;font-weight:600;border-color:#b7ddc6}',
     '.fx-row textarea{min-height:82px;resize:vertical}',
     '.fx-hint{flex-basis:100%;margin-left:142px;color:#9ca3af;font-size:12px}',
     '.fx-scan{display:flex;gap:8px}',
@@ -594,6 +611,66 @@
     document.addEventListener('DOMContentLoaded', injectCss);
   } else { injectCss(); }
 
+  /* ==================== 自动计算（联动） ====================
+     字段上写 { calc: 'badQty/sampleQty*100' } 即自动算：
+       源数据没填全时不动，避免把已有值清零；
+       源数据一填全就立刻刷新，人不用手算。 */
+  function numOf(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+  function refsOf(expr) {
+    var out = [], re = /[a-zA-Z_][a-zA-Z0-9_]*/g, m;
+    while ((m = re.exec(String(expr)))) if (out.indexOf(m[0]) < 0) out.push(m[0]);
+    return out;
+  }
+  function calcFields(box) {
+    if (!box) return;
+    if (!box.classList || !box.classList.contains('fx-form')) {
+      box = box.closest ? box.closest('.fx-form') : null;
+    }
+    if (!box) return;
+    var moduleId = box.getAttribute('data-module');
+    if (!moduleId) return;
+    var all = get(moduleId).filter(function (f) { return f.enabled !== false; });
+    var vals = {};
+    all.forEach(function (g) {
+      if (g.type === 'html') return;
+      var e = box.querySelector('#fx_' + moduleId + '_' + g.key);
+      if (e) vals[g.key] = e.value;
+    });
+    all.forEach(function (f) {
+      if (!f.calc) return;
+      var el = box.querySelector('#fx_' + moduleId + '_' + f.key);
+      if (!el) return;
+      var blank = false;
+      refsOf(f.calc).forEach(function (k) {
+        if (String(vals[k] == null ? '' : vals[k]).trim() === '') blank = true;
+      });
+      if (blank) return;
+      var expr = String(f.calc).replace(/[a-zA-Z_][a-zA-Z0-9_]*/g, function (m) {
+        return 'numOf(vals["' + m + '"])';
+      });
+      var v = 0;
+      try { v = eval(expr); } catch (e) { return; }
+      if (isNaN(v) || !isFinite(v)) return;
+      var d = (f.decimals == null ? 2 : f.decimals);
+      var s = Number(v).toFixed(d);
+      if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+      if (String(el.value) !== s) el.value = s;
+    });
+  }
+  (function bindCalc() {
+    function onEv(ev) {
+      var t = ev.target;
+      if (!t || !t.id || String(t.id).indexOf('fx_') !== 0) return;
+      var box = t.closest ? t.closest('.fx-form') : null;
+      if (box) calcFields(box);
+    }
+    document.addEventListener('input', onEv, true);
+    document.addEventListener('change', onEv, true);
+  })();
+
   window.FIELDS = {
     /* 数据 */
     get: get, save: save, reset: reset, isCustom: isCustom, moduleIds: moduleIds,
@@ -603,6 +680,7 @@
     dicts: allDicts, dict: dict, setDict: setDict, delDict: delDict, renameDict: renameDict,
     /* 渲染与读写 */
     render: render, collect: collect, validate: validate, optionsOf: optionsOf, esc: esc,
+    calc: calcFields,
     /* 界面（在 gls-fields-ui.js 中实现，挂载到此处） */
     openDesigner: function (id) { alert('配置界面未加载'); }
   };
