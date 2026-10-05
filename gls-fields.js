@@ -409,15 +409,21 @@
     return base;
   }
   function dict(name) { return allDicts()[name] || []; }
+  /* 选项变更后广播：让已经渲染出来的表单同步刷新 */
+  function notifyDict(name) {
+    try { if (window.ERP && typeof ERP.onDictChange === 'function') ERP.onDictChange(name); } catch (e) {}
+  }
   function setDict(name, arr) {
     var o = lsGet(D_KEY, {}) || {};
     o[name] = arr;
     lsSet(D_KEY, o);
+    notifyDict(name);
   }
   function delDict(name) {
     var o = lsGet(D_KEY, {}) || {};
     delete o[name];
     lsSet(D_KEY, o);
+    notifyDict(name);
     // 清掉字段上对已删字典的引用
     var f = allFields();
     var changed = false;
@@ -437,6 +443,7 @@
       f[m].forEach(function (x) { if (x.dict === oldName) x.dict = newName; });
     });
     lsSet(F_KEY, f);
+     notifyDict(newName);
   }
 
   /* ---------- 字段取值（下拉选项） ---------- */
