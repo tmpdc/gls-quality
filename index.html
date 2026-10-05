@@ -616,6 +616,39 @@ table tr:last-child td { border-bottom: none; }
         </select>
       </div>
       <div class="form-item">
+        <label>岗位 / 职责</label>
+        <input type="text" id="f_post" list="f_post_list" placeholder="如 来料检验员IQC、巡检IPQC、原材料仓管员">
+        <datalist id="f_post_list">
+          <option value="经理"></option>
+          <option value="来料检验员IQC"></option>
+          <option value="巡检IPQC"></option>
+          <option value="成品检验员OQC"></option>
+          <option value="测试员"></option>
+          <option value="文控/体系专员"></option>
+          <option value="车间主管"></option>
+          <option value="班组长"></option>
+          <option value="装配工"></option>
+          <option value="机修工"></option>
+          <option value="结构工程师"></option>
+          <option value="电子工程师"></option>
+          <option value="工艺工程师"></option>
+          <option value="研发助理"></option>
+          <option value="采购员"></option>
+          <option value="采购助理"></option>
+          <option value="销售员"></option>
+          <option value="业务员"></option>
+          <option value="跟单员"></option>
+          <option value="原材料仓管员"></option>
+          <option value="半成品仓管员"></option>
+          <option value="成品仓管员"></option>
+          <option value="售后仓管员"></option>
+          <option value="人事专员"></option>
+          <option value="行政专员"></option>
+          <option value="财务会计"></option>
+        </datalist>
+        <div class="form-hint">检验单的「检验人」下拉，就是按这里填的岗位自动筛出来的（含「检验 / IQC / IPQC / OQC / 测试」等字样的会自动进检验人名单）</div>
+      </div>
+      <div class="form-item">
         <label>手机号</label>
         <input type="text" id="f_phone" placeholder="选填">
       </div>
@@ -1052,7 +1085,7 @@ function renderAccounts() {
   }
   tbody.innerHTML = accounts.map(a => `<tr>
     <td><strong>${a.username}</strong></td>
-    <td>${a.realname}</td>
+    <td>${a.realname}${a.post ? '<div style="color:#888;font-size:12px">' + a.post + '</div>' : ''}</td>
     <td><span class="tag tag-${a.role === 'admin' ? 'danger' : a.role === 'manager' ? 'info' : a.role === 'staff' ? 'success' : 'default'}">${ROLES[a.role]?.name || a.role}</span></td>
     <td>${a.dept}</td>
     <td>${a.lastLogin || '从未登录'}</td>
@@ -1074,6 +1107,7 @@ function showAddAccountModal() {
   document.getElementById('f_password').value = '';
   document.getElementById('f_role').value = 'staff';
   document.getElementById('f_dept').value = '品质部';
+  document.getElementById('f_post').value = '';
   document.getElementById('f_phone').value = '';
   document.getElementById('f_email').value = '';
   document.getElementById('f_status').value = 'active';
@@ -1092,6 +1126,7 @@ function editAccount(id) {
   document.getElementById('f_realname').value = a.realname;
   document.getElementById('f_role').value = a.role;
   document.getElementById('f_dept').value = a.dept;
+  document.getElementById('f_post').value = a.post || '';
   document.getElementById('f_phone').value = a.phone || '';
   document.getElementById('f_email').value = a.email || '';
   document.getElementById('f_status').value = a.status;
@@ -1110,6 +1145,7 @@ function saveAccount() {
   const realname = document.getElementById('f_realname').value.trim();
   const role = document.getElementById('f_role').value;
   const dept = document.getElementById('f_dept').value;
+  const post = document.getElementById('f_post').value.trim();
   const phone = document.getElementById('f_phone').value.trim();
   const email = document.getElementById('f_email').value.trim();
   const status = document.getElementById('f_status').value;
@@ -1125,7 +1161,7 @@ function saveAccount() {
     if (accounts.some(a => a.username === username && a.id !== parseInt(id))) {
       showToast('该账号已存在', 'error'); return;
     }
-    accounts[idx] = { ...accounts[idx], username, realname, role, dept, phone, email, status, mods: modsCollect('f_mods') };
+    accounts[idx] = { ...accounts[idx], username, realname, role, dept, post, phone, email, status, mods: modsCollect('f_mods') };
     showToast('账号更新成功', 'success');
   } else {
     const password = document.getElementById('f_password').value.trim();
@@ -1134,7 +1170,7 @@ function saveAccount() {
       showToast('该账号已存在', 'error'); return;
     }
     accounts.push({
-      id: Date.now(), username, password, realname, role, dept, phone, email, status,
+      id: Date.now(), username, password, realname, role, dept, post, phone, email, status,
       createdAt: formatDateTime(new Date()), lastLogin: '', mods: modsCollect('f_mods')
     });
     showToast('账号创建成功', 'success');
