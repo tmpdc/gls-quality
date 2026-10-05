@@ -14,6 +14,23 @@
     PATROL: { name: '巡检',     needSupplier: false, passFlow: '继续生产' },
     OQC:    { name: '成品检验', needSupplier: false, passFlow: '成品入库 → 仓储部' }
   };
+  /* 检验类型 → 字段规则（改这里即可调整，不用动别的代码）
+     label：换个叫法；ro:true：置灰不可操作（仍可见、值仍会存）；hide:true：整项不显示
+     来料检验（IQC）四项都可操作；首件/巡检/成品 只改名称与可操作性 */
+  var NON_IQC_RULE = {
+    matName: { label: '产品名称' },
+    supplier: { ro: true },
+    batch: { ro: true },
+    recvQty: { ro: true }
+  };
+  var TYPE_FIELD_RULES = {
+    IQC: {},              /* 来料检验：物料名称、供应商、批次号、来料数量 都可操作 */
+    FIRST: NON_IQC_RULE,  /* 首件检验 */
+    PATROL: NON_IQC_RULE, /* 巡检 */
+    OQC: NON_IQC_RULE     /* 成品检验 */
+  };
+  function rulesOf(type) { return TYPE_FIELD_RULES[type] || {}; }
+
   /* 状态机：
    * 合格单：新建 → 待审批(部门上级放行流转权限) → 已流转(到下一部门) / 已驳回(退回检验人)
    * 不合格单：新建 → 待评审(MRB 不合格品评审) → 已流转(按 MRB 结论处理) / 已驳回(退回重检)
@@ -267,15 +284,18 @@
   }
 
   /* ===== 新建检验单（扫码） ===== */
-  function openForm(type) {
+  function openForm(type, vals) {
     showPage('page-insp-form');
+    var cur = vals || { type: (type || 'IQC'), date: today() };
+    if (!cur.type) cur.type = (type || 'IQC');
     var h = '<h2 style="margin:0 0 16px">新建检验单</h2><div class="insp-form">';
 
     if (window.FIELDS) {
-      /* 字段全部来自配置：可在「⚙ 配置项目」里随时增/减/改，无需改代码 */
-      h += FIELDS.render('inspect', { type: (type || 'IQC'), date: today() });
+      /* 字段全部来自配置：可在「⚙ 配置项目」里随时增/减/改，无需改代码
+         rules：按「检验类型」改字段（来料检验全可操作；首件/巡检/成品 只换名称、供应商与批次等置灰） */
+      h += FIELDS.render('inspect', cur, { rules: rulesOf(cur.type) });
     } else {
-      h += legacyFields(type);
+      h += legacyFields(cur.type);
     }
 
     h += '<div style="text-align:right;margin-top:18px">'
@@ -284,6 +304,13 @@
     h += '</div>';
     $('inspFormBody').innerHTML = h;
 
+    /* 换检验类型：按新类型的规则重渲染，已填内容原样带过去 */
+    var tsel = $('fx_inspect_type');
+    if (tsel && !tsel.getAttribute('data-bound')) {
+      tsel.setAttribute('data-bound', '1');
+      tsel.addEventListener('change', function () { retype(); });
+    }
+
     /* 检验标准展示盒：插在「扫码 / 物料编码」后面 */
     var scanRow = document.querySelector('#inspFormBody .fx-row[data-key="matCode"]');
     if (scanRow && !$('fStdBox')) {
@@ -291,6 +318,18 @@
       box.id = 'fStdBox';
       scanRow.parentNode.insertBefore(box, scanRow.nextSibling);
     }
+  }
+
+  function retype() {
+    var el = $('fx_inspect_type');
+    var t = el ? String(el.value || 'IQC') : 'IQC';
+    var vals = null;
+    if (window.FIELDS) { try { vals = FIELDS.collect('inspect'); } catch (e) { vals = null; } }
+    if (!vals) vals = { type: t, date: today() };
+    vals.type = t;
+    if (!vals.date) vals.date = today();
+    openForm(t, vals);
+    toast('已切换到「' + ((TYPES[t] || {}).name || t) + '」');
   }
 
   /* 引擎未加载时的兜底（老版硬编码字段） */
@@ -956,6 +995,7 @@
     openHome: openHome,
     openForm: openForm, openApprove: openApprove, openMrb: openMrb, openList: openList,
     scanMaterial: scanMaterial, saveForm: saveForm, approve: approve, mrbDecide: mrbDecide,
+    retype: retype, _rules: function (t) { return rulesOf(t); },
     askApprove: askApprove, closeApproveDlg: closeApproveDlg,
     viewDetail: viewDetail, matDetail: matDetail, openImport: openImport, doImport: doImport, exportRecords: exportRecords,
     _db: function () { return DB; },
