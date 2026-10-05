@@ -308,7 +308,15 @@
       if (nameEl) nameEl.value = '';
       return;
     }
-    if (nameEl) nameEl.value = m.name || '';
+    /* 先把「物料名称 / 供应商」两个下拉按这个编码重算，再回填，值才落得进去 */
+    if (window.FIELDS && FIELDS.syncDep) { try { FIELDS.syncDep('inspect', 'matCode'); } catch (e) {} }
+    if (nameEl) {
+      nameEl.value = m.name || '';
+      if (nameEl.tagName === 'SELECT' && nameEl.value !== (m.name || '') && m.name) {
+        nameEl.insertAdjacentHTML('beforeend', '<option value="' + String(m.name).replace(/[&<>"]/g, '') + '"></option>');
+        nameEl.value = m.name;
+      }
+    }
     if (box) box.innerHTML = '<div class="insp-std"><b>已带出检验标准：</b><br>'
       + '分类：' + esc(m.cls || '—') + '　版本：' + esc(m.ver || '—') + '<br>'
       + '<b>关键检验要求：</b>' + esc(m.key || '—') + '<br>'
