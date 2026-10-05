@@ -57,7 +57,16 @@
     '收款方式': ['电汇', '承兑汇票', '现金', '月结30天', '月结60天', '货到付款'],
     '运输方式': ['快递', '物流', '自提', '送货上门', '专车'],
     '工单状态': ['待排产', '已排产', '生产中', '暂停', '已完工', '已关闭'],
-    '优先级': ['普通', '紧急', '特急']
+    '优先级': ['普通', '紧急', '特急'],
+    /* —— 计量器具 / 标准图纸（可在「下拉选项管理」里增删） —— */
+    '量具': ['数显卡尺 0-150mm', '数显千分尺 0-25mm', '钢卷尺 3m', '直尺', '塞尺', '螺纹规', '半径规',
+             '耐压测试仪', '绝缘电阻测试仪', '接地电阻测试仪', '泄漏电流测试仪', '功率计', '万用表',
+             '恒温水浴锅', '温度记录仪', '红外测温仪', '推拉力计', '扭矩测试仪', '硬度计',
+             '盐雾试验箱', '灼热丝试验仪', '标准砝码', '色差仪', '光泽度计'],
+    '标准图纸': [],
+    '校准方式': ['检定', '校准', '内部比对', '免校（一次性使用）'],
+    '检定结论': ['合格', '限用', '停用', '报废'],
+    '设备状态': ['在用', '封存', '维修中', '停用', '报废']
   };
 
   /* ==================== 各模块默认字段（首次使用时的初始配置） ==================== */
@@ -74,7 +83,9 @@
       readonly: !!opt.readonly,
       hint: opt.hint || '',
       calc: opt.calc || '',
-      decimals: (opt.decimals == null ? 2 : opt.decimals)
+      decimals: (opt.decimals == null ? 2 : opt.decimals),
+      from: opt.from || '',
+      tpl: opt.tpl || ''
     };
   }
 
@@ -93,14 +104,14 @@
       F('inspLevel', '检验水平', 'select', { dict: '检验水平', hint: '一般检验水平 II；破坏性 / 高成本项目用特殊检验水平 S-2、S-4' }),
       F('samplePlan', '抽样方案', 'select', { dict: '抽样方案' }),
       F('strictLevel', '检验严格度', 'select', { dict: '检验严格度' }),
-      F('aql', 'AQL 值', 'select', { dict: 'AQL', hint: '致命 0.065；严重 0.65；轻微 2.5（关键安全件加严一档）' }),
+      F('aql', 'AQL 值', 'multiselect', { dict: 'AQL', hint: '致命 0.065；严重 0.65；轻微 2.5（关键安全件加严一档）；每一档都选一个' }),
       F('acRe', '判定标准 Ac/Re', 'text', { placeholder: '如 0/1', hint: '由批量 + 检验水平 + AQL 查表得出：Ac 合格判定数 / Re 不合格判定数' }),
       F('sampleQty', '抽检数量', 'number', { placeholder: '实际抽取的样本量 n' }),
       F('badQty', '不合格品数', 'number'),
       F('badRate', '不合格率(%)', 'number', { calc: 'badQty/sampleQty*100', decimals: 2, readonly: true, hint: '自动计算 = 不合格品数 ÷ 抽检数量 × 100' }),
       F('defectLevel', '缺陷等级', 'select', { dict: '缺陷等级' }),
-      F('tool', '测量器具', 'text', { placeholder: '如 数显卡尺 0-150 / 耐压测试仪，须在检定有效期内' }),
-      F('stdVer', '标准 / 图纸版本', 'text', { placeholder: '如 A/2，须为受控最新版' }),
+      F('tool', '测量器具', 'multiselect', { dict: '量具', from: 'erp:equip.name', placeholder: '从「检测设备一览表」里选，可多选', hint: '来源：ERP「检测设备一览表」——台账里新增设备后，这里自动出现；须在检定有效期内' }),
+      F('stdVer', '标准 / 图纸版本', 'multiselect', { dict: '标准图纸', from: 'pqs:doc', tpl: '{code} {name}（{ver}）', placeholder: '从品质资料库「受控文件」里选，可多选', hint: '来源：品质资料库 →「受控文件」——选择后为受控最新版；图纸请先在受控文件里登记' }),
       F('measured', '实测记录', 'textarea', { placeholder: '逐项记录实测值 / 目视结果，可多行；尺寸项记数值不记「合格」' }),
       F('defectDesc', '不良现象描述', 'textarea', { placeholder: '不合格时的具体现象、部位、数量' }),
       F('handle', '处理方式', 'select', { dict: '处理方式' }),
@@ -368,7 +379,7 @@
     list.forEach(function (f) {
       var d = _defMap[f.key];
       if (!d) return;
-      ['calc', 'decimals'].forEach(function (k) {
+      ['calc', 'decimals', 'from', 'tpl'].forEach(function (k) {
         if ((f[k] === undefined || f[k] === null || f[k] === '') && d[k] !== undefined && d[k] !== '') f[k] = d[k];
       });
     });
@@ -460,14 +471,63 @@
 
   /* ---------- 字段取值（下拉选项） ---------- */
   function optionsOf(field) {
+    field = field || {};
+    var out = [];
     if (field.options && field.options.length) {
       // radio 形式 [[val,label],...] 或 select 形式 ['a','b']
-      return field.options.map(function (o) {
+      out = field.options.map(function (o) {
         return Array.isArray(o) ? { value: o[0], label: o[1] } : { value: o, label: o };
       });
+    } else if (field.dict) {
+      out = dict(field.dict).map(function (o) { return { value: o, label: o }; });
     }
-    if (field.dict) return dict(field.dict).map(function (o) { return { value: o, label: o }; });
-    return [];
+    /* 动态来源：台账 / 资料库里新增记录后选项自动出现，不用回来改配置。
+       台账来的排最前——它才是权威来源，字典里的只作兜底。 */
+    var dyn = sourceValues(field).map(function (v) { return { value: v, label: v }; });
+    if (dyn.length) {
+      var seen = {};
+      dyn.forEach(function (o) { seen[String(o.value)] = 1; });
+      out = dyn.concat(out.filter(function (o) { return !seen[String(o.value)]; }));
+    }
+    return out;
+  }
+
+  /* ---------- 动态选项来源 ----------
+     from:'erp:equip.name'                     → ERP「检测设备一览表」的名称列
+     from:'pqs:doc' + tpl:'{code} {name}（{ver}）' → 品质资料库「受控文件」整表，按模板拼 */
+  function pqsDB() {
+    var db = null;
+    try { if (window.DATAHUB && DATAHUB.get) db = DATAHUB.get('pqs'); } catch (e) { db = null; }
+    if (!db) { try { db = JSON.parse(localStorage.getItem('gls_pqs_db_v1') || 'null'); } catch (e) { db = null; } }
+    if (!db && window.PQS_DATA) {
+      var d = window.PQS_DATA;
+      db = { material: d.materials, param: d.params, process: d.processes, product: d.products,
+             supplier: d.suppliers, doc: d.docs, sampling: d.sampling };
+    }
+    return db || {};
+  }
+  function sourceValues(f) {
+    if (!f || !f.from) return [];
+    var p = String(f.from).split(':'), kind = p[0], rest = p.slice(1).join(':');
+    var q = rest.split('.'), table = q[0] || '', col = q[1] || '';
+    var rows = [];
+    try {
+      if (kind === 'erp') rows = (window.ERP && ERP._listOf) ? (ERP._listOf(table) || []) : [];
+      else if (kind === 'pqs') { var db = pqsDB(); rows = (db && db[table]) || []; }
+    } catch (e) { rows = []; }
+    var out = [];
+    rows.forEach(function (r) {
+      if (!r) return;
+      var s;
+      if (f.tpl) {
+        s = String(f.tpl).replace(/\{(\w+)\}/g, function (m, k) { return r[k] == null ? '' : String(r[k]); });
+      } else {
+        s = col ? (r[col] == null ? '' : String(r[col])) : '';
+      }
+      s = String(s).replace(/\s+/g, ' ').trim();
+      if (s && out.indexOf(s) < 0) out.push(s);
+    });
+    return out;
   }
 
   /* ==================== 渲染 ==================== */
@@ -512,6 +572,8 @@
       h += '<div class="fx-scan"><input id="' + id + '" placeholder="' + esc(f.placeholder) + '"'
         + ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial();}">'
         + '<button type="button" class="fx-btn fx-btn-g" onclick="if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial()">带出标准</button></div>';
+    } else if (f.type === 'multiselect') {
+      h += msHtml(moduleId, f, v, id);
     } else if (f.calc) {
       var _t = (f.type === 'number') ? 'number' : 'text';
       h += '<input id="' + id + '" type="' + _t + '" value="' + esc(v) + '" readonly class="fx-calc"'
@@ -582,6 +644,21 @@
     '.fx-row input[type=text],.fx-row input[type=number],.fx-row input[type=date],.fx-row select,.fx-row textarea{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #d1d5db;border-radius:7px;font-size:14px;background:#fff;color:#111827;font-family:inherit}',
     '.fx-row input[readonly]{background:#f3f4f6;color:#6b7280}',
     '.fx-row input.fx-calc{background:#eef7f1;color:#14663c;font-weight:600;border-color:#b7ddc6}',
+    '.fx-ms{position:relative;flex:1;min-width:0}',
+    '.fx-ms-box{display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 11px;border:1px solid #d1d5db;border-radius:7px;background:#fff;cursor:pointer;flex-wrap:wrap}',
+    '.fx-ms-chips{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0;align-items:center}',
+    '.fx-ms-ph{color:#9ca3af;font-size:14px}',
+    '.fx-ms-chip{display:inline-flex;align-items:center;gap:5px;background:#eef7f1;color:#14663c;border:1px solid #b7ddc6;border-radius:5px;padding:2px 7px;font-size:13px;line-height:1.5}',
+    '.fx-ms-chip>b{cursor:pointer;color:#94a3b8;font-weight:700;font-size:14px}',
+    '.fx-ms-chip>b:hover{color:#dc2626}',
+    '.fx-ms-ar{color:#9ca3af;font-size:12px;flex:none}',
+    '.fx-ms-panel{position:absolute;z-index:80;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.13);padding:8px}',
+    '.fx-ms-sr input{width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit}',
+    '.fx-ms-list{margin-top:6px;max-height:230px;overflow:auto;display:flex;flex-direction:column}',
+    '.fx-ms-opt{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.4}',
+    '.fx-ms-opt:hover{background:#f3f7f4}',
+    '.fx-ms-opt.on{background:#eef7f1;color:#14663c;font-weight:600}',
+    '.fx-ms-opt input{width:16px;height:16px;flex:none;margin:0}',
     '.fx-row textarea{min-height:82px;resize:vertical}',
     '.fx-hint{flex-basis:100%;margin-left:142px;color:#9ca3af;font-size:12px}',
     '.fx-scan{display:flex;gap:8px}',
@@ -671,6 +748,136 @@
     document.addEventListener('change', onEv, true);
   })();
 
+  /* ==================== 多选下拉控件 ==================== */
+  function msHtml(moduleId, f, v, id) {
+    var opts = optionsOf(f);
+    var sel = String(v == null ? '' : v).split(',').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x !== ''; });
+    /* 已存进记录里的值，就算选项里没有也要显示，不能丢 */
+    sel.forEach(function (s) {
+      var has = false;
+      opts.forEach(function (o) { if (String(o.value) === s) has = true; });
+      if (!has) opts.push({ value: s, label: s });
+    });
+    var ph = f.placeholder || '请选择（可多选）';
+    var h = '<div class="fx-ms" data-dict="' + esc(f.dict || '') + '" data-ph="' + esc(ph) + '">';
+    h += '<input type="hidden" id="' + id + '" value="' + esc(sel.join(',')) + '">';
+    h += '<div class="fx-ms-box" onclick="FIELDS.msToggle(this)"><span class="fx-ms-chips">';
+    h += sel.length
+      ? sel.map(function (s) {
+          return '<span class="fx-ms-chip">' + esc(s)
+            + '<b data-v="' + esc(s) + '" onclick="event.stopPropagation();FIELDS.msDel(this)">×</b></span>';
+        }).join('')
+      : '<span class="fx-ms-ph">' + esc(ph) + '</span>';
+    h += '</span><span class="fx-ms-ar">▾</span></div>';
+    h += '<div class="fx-ms-panel" hidden><div class="fx-ms-sr">'
+      + '<input type="text" placeholder="搜索；要新增的项输入后按回车" onkeydown="FIELDS.msKey(this, event)">'
+      + '</div><div class="fx-ms-list">';
+    opts.forEach(function (o) {
+      var on = sel.indexOf(String(o.value)) >= 0;
+      h += '<label class="fx-ms-opt' + (on ? ' on' : '') + '">'
+        + '<input type="checkbox" value="' + esc(o.value) + '"' + (on ? ' checked' : '')
+        + ' onchange="FIELDS.msPick(this)"><span>' + esc(o.label) + '</span></label>';
+    });
+    h += '</div></div></div>';
+    return h;
+  }
+  function msOf(el) { return el && el.closest ? el.closest('.fx-ms') : null; }
+  function msSync(ms) {
+    if (!ms) return;
+    var hid = ms.querySelector('input[type=hidden]');
+    if (!hid) return;
+    var sel = [];
+    Array.prototype.forEach.call(ms.querySelectorAll('.fx-ms-list input[type=checkbox]'), function (c) {
+      if (c.checked) sel.push(c.value);
+    });
+    hid.value = sel.join(',');
+    var box = ms.querySelector('.fx-ms-chips');
+    if (!box) return;
+    var ph = ms.getAttribute('data-ph') || '请选择（可多选）';
+    box.innerHTML = sel.length
+      ? sel.map(function (s) {
+          return '<span class="fx-ms-chip">' + esc(s)
+            + '<b data-v="' + esc(s) + '" onclick="event.stopPropagation();FIELDS.msDel(this)">×</b></span>';
+        }).join('')
+      : '<span class="fx-ms-ph">' + esc(ph) + '</span>';
+  }
+  function msToggle(box) {
+    var ms = msOf(box); if (!ms) return;
+    var p = ms.querySelector('.fx-ms-panel'); if (!p) return;
+    var willOpen = p.hidden;
+    Array.prototype.forEach.call(document.querySelectorAll('.fx-ms-panel'), function (x) { x.hidden = true; });
+    p.hidden = !willOpen;
+    if (!p.hidden) {
+      var s = p.querySelector('.fx-ms-sr input');
+      if (s) setTimeout(function () { try { s.focus(); } catch (e) {} }, 30);
+    }
+  }
+  function msPick(cb) {
+    var ms = msOf(cb); if (!ms) return;
+    var lb = cb.closest ? cb.closest('.fx-ms-opt') : null;
+    if (lb) lb.className = 'fx-ms-opt' + (cb.checked ? ' on' : '');
+    msSync(ms);
+  }
+  function msDel(b) {
+    var ms = msOf(b); if (!ms) return;
+    var v = b.getAttribute('data-v');
+    Array.prototype.forEach.call(ms.querySelectorAll('.fx-ms-list input[type=checkbox]'), function (c) {
+      if (c.value === v) {
+        c.checked = false;
+        var lb = c.closest ? c.closest('.fx-ms-opt') : null;
+        if (lb) lb.className = 'fx-ms-opt';
+      }
+    });
+    msSync(ms);
+  }
+  function msKey(input, ev) {
+    if (!ev || ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var ms = msOf(input); if (!ms) return;
+    var v = String(input.value || '').trim();
+    if (!v) return;
+    var list = ms.querySelector('.fx-ms-list');
+    var hit = null;
+    Array.prototype.forEach.call(list.querySelectorAll('input[type=checkbox]'), function (c) {
+      if (c.value === v) hit = c;
+    });
+    if (!hit) {
+      var lb = document.createElement('label');
+      lb.className = 'fx-ms-opt on';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = v; cb.checked = true;
+      cb.setAttribute('onchange', 'FIELDS.msPick(this)');
+      var sp = document.createElement('span'); sp.textContent = v;
+      lb.appendChild(cb); lb.appendChild(sp);
+      list.appendChild(lb);
+    } else {
+      hit.checked = true;
+      var lb2 = hit.closest ? hit.closest('.fx-ms-opt') : null;
+      if (lb2) lb2.className = 'fx-ms-opt on';
+    }
+    input.value = '';
+    msSync(ms);
+    /* 新增的项存进字典，下次打开还在 */
+    var dn = ms.getAttribute('data-dict');
+    if (dn) {
+      try {
+        var arr = dict(dn).slice();
+        if (arr.indexOf(v) < 0) { arr.push(v); setDict(dn, arr); }
+      } catch (e) {}
+    }
+  }
+  /* 点空白处收起面板 */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    var inMs = t && t.closest ? t.closest('.fx-ms') : null;
+    Array.prototype.forEach.call(document.querySelectorAll('.fx-ms-panel'), function (p) {
+      if (p.hidden) return;
+      var ms = p.closest ? p.closest('.fx-ms') : null;
+      if (ms !== inMs) p.hidden = true;
+    });
+  }, false);
+
   window.FIELDS = {
     /* 数据 */
     get: get, save: save, reset: reset, isCustom: isCustom, moduleIds: moduleIds,
@@ -681,6 +888,9 @@
     /* 渲染与读写 */
     render: render, collect: collect, validate: validate, optionsOf: optionsOf, esc: esc,
     calc: calcFields,
+    /* 多选下拉控件（供内联 onclick 调用） */
+    msToggle: msToggle, msPick: msPick, msDel: msDel, msKey: msKey,
+    sources: sourceValues,
     /* 界面（在 gls-fields-ui.js 中实现，挂载到此处） */
     openDesigner: function (id) { alert('配置界面未加载'); }
   };
