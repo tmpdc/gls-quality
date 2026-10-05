@@ -39,7 +39,7 @@ window.glsBackup = (function () {
       } catch (e) { return 0; }
     }
     var e = { 物料: len('erp', ['material']), 客户: len('erp', ['customer']), 供应商: len('erp', ['supplier']),
-      仓库: len('erp', ['warehouse']), BOM: len('erp', ['bom']), 销售订单: len('erp', ['so']),
+      仓库: len('erp', ['warehouse']), BOM: len('erp', ['bom']), 检测设备: len('erp', ['equip']), 销售订单: len('erp', ['so']),
       销售发货: len('erp', ['soShip']), 销售退货: len('erp', ['soReturn']), 采购申请: len('erp', ['pr']),
       采购订单: len('erp', ['po']), 采购收货: len('erp', ['poRecv']), 生产工单: len('erp', ['mo']),
       生产领料: len('erp', ['moPick']), 完工入库: len('erp', ['moIn']), 入库单: len('erp', ['stockIn']),
