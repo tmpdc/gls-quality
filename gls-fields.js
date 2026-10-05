@@ -715,7 +715,7 @@
         + '<textarea id="' + id + '" style="min-height:118px" placeholder="' + esc(f.placeholder) + '">' + esc(v) + '</textarea>'
         + '</div>';
     } else if (f.type === 'scan') {
-      h += '<div class="fx-scan"><input id="' + id + '" placeholder="' + esc(f.placeholder) + '"'
+      h += '<div class="fx-scan"><input id="' + id + '" value="' + esc(v) + '" placeholder="' + esc(f.placeholder) + '"'
         + ' onchange="FIELDS.syncDep(\'' + esc(moduleId) + '\',\'' + esc(f.key) + '\')"'
         + ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial();}">'
         + '<button type="button" class="fx-btn fx-btn-g" onclick="if(window.INSP&&INSP.scanMaterial)INSP.scanMaterial()">带出标准</button></div>';
@@ -732,6 +732,11 @@
         + (f.readonly || f.type === 'readonly' ? ' readonly' : '') + '>';
     }
     if (f.hint) h += '<div class="fx-hint">' + esc(f.hint) + '</div>';
+    if (f.ro) {
+      /* 不可操作：保留可见与值，控件 disabled + 整行置灰 */
+      h = h.replace('data-key="' + esc(f.key) + '">', 'data-key="' + esc(f.key) + '" style="opacity:.72">');
+      h = h.replace(/<(input|select|textarea)\b/, '<$1 disabled');
+    }
     h += '</div>';
     return h;
   }
@@ -760,9 +765,22 @@
   }
 
   /* 渲染整个表单区（values 用于编辑回填） */
+  /* 临时套用规则：{ key: { label:'产品名称', ro:true, hide:true } }
+     只影响这一次渲染，不动存储的字段配置 */
+  function applyRule(f, r) {
+    if (!r) return f;
+    var c = cloneField(f);
+    if (r.label) c.label = r.label;
+    if (r.ro) c.ro = true;
+    if (r.hide) c.hidden = true;
+    return c;
+  }
+
   function render(moduleId, values, opts) {
     opts = opts || {};
-    var list = get(moduleId).filter(function (f) { return f.enabled !== false; });
+    var rules = opts.rules || {};
+    var list = get(moduleId).filter(function (f) { return f.enabled !== false && !(rules[f.key] && rules[f.key].hide); })
+      .map(function (f) { return applyRule(f, rules[f.key]); });
     var h = '<div class="fx-form" data-module="' + esc(moduleId) + '">';
     list.forEach(function (f) { h += fieldHtml(moduleId, f, values); });
     h += '</div>';
@@ -814,6 +832,8 @@
     '.fx-row>input,.fx-row>select,.fx-row>textarea,.fx-row>.fx-scan,.fx-row>.fx-radio{flex:1;min-width:0}',
     '.fx-row input[type=text],.fx-row input[type=number],.fx-row input[type=date],.fx-row select,.fx-row textarea{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #d1d5db;border-radius:7px;font-size:14px;background:#fff;color:#111827;font-family:inherit}',
     '.fx-row input[readonly]{background:#f3f4f6;color:#6b7280}',
+    '.fx-row input:disabled,.fx-row select:disabled,.fx-row textarea:disabled{background:#f3f4f6;color:#9ca3af;cursor:not-allowed}',
+    '.fx-row input:disabled+*, .fx-row.fx-ro>label{color:#9ca3af}',
     '.fx-row input.fx-calc{background:#eef7f1;color:#14663c;font-weight:600;border-color:#b7ddc6}',
     '.fx-ms{position:relative;flex:1;min-width:0}',
     '.fx-ms-box{display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 11px;border:1px solid #d1d5db;border-radius:7px;background:#fff;cursor:pointer;flex-wrap:wrap}',
@@ -1057,7 +1077,7 @@
     /* 字典 */
     dicts: allDicts, dict: dict, setDict: setDict, delDict: delDict, renameDict: renameDict,
     /* 渲染与读写 */
-    render: render, collect: collect, validate: validate, optionsOf: optionsOf, esc: esc,
+    render: render, collect: collect, validate: validate, optionsOf: optionsOf, esc: esc, applyRule: applyRule,
     syncDep: syncDep, matNames: matNames, supNames: supNames,
     calc: calcFields,
     /* 多选下拉控件（供内联 onclick 调用） */
