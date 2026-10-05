@@ -41,14 +41,14 @@
       fields: [
         { k: 'code', label: '物料编码', type: 'text', req: true, auto: true, w: '130px' },
         { k: 'name', label: '物料名称', type: 'text', req: true, w: '120px' },
-        { k: 'products', label: '适用产品', type: 'text', w: '150px' },
+        { k: 'products', label: '适用产品', type: 'select', dict: '产品', w: '150px' },
         { k: 'spec', label: '规格型号', type: 'text', w: '130px' },
         { k: 'unit', label: '单位', type: 'select', opts: UNITS, def: 'PCS', w: '60px' },
         { k: 'category', label: '类别', type: 'select', opts: CATS, w: '80px' },
-        { k: 'location', label: '库位', type: 'text', w: '110px' },
+        { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px' },
         { k: 'safeStock', label: '安全库存', type: 'number', w: '85px' },
         { k: 'price', label: '参考单价', type: 'number', w: '80px' },
-        { k: 'supplier', label: '默认供应商', type: 'text', w: '90px' },
+        { k: 'supplier', label: '默认供应商', type: 'ref', ref: 'supplier', w: '90px' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
     },
@@ -89,8 +89,8 @@
       fields: [
         { k: 'code', label: '仓库编码', type: 'text', req: true, auto: true, w: '120px' },
         { k: 'name', label: '仓库名称', type: 'text', req: true },
-        { k: 'location', label: '库位', type: 'text' },
-        { k: 'keeper', label: '保管员', type: 'text' },
+        { k: 'location', label: '库位', type: 'select', dict: '库位' },
+        { k: 'keeper', label: '保管员', type: 'select', dict: '人员' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
     },
@@ -104,7 +104,7 @@
         { k: 'items', label: '物料明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'qty', label: '单台用量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' },
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' },
           { k: 'loss', label: '损耗率%', type: 'number', w: '80px' },
           { k: 'remark', label: '备注', type: 'text' }
         ] },
@@ -125,7 +125,7 @@
           { k: 'code', label: '物料/产品', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' },
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' },
           { k: 'price', label: '单价', type: 'number', w: '90px' },
           { k: 'amount', label: '金额', type: 'calc', expr: 'qty*price', w: '100px' }
         ] },
@@ -148,9 +148,9 @@
         { k: 'items', label: '发货明细', type: 'items', cols: [
           { k: 'code', label: '物料/产品', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' }
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' }
         ] },
         { k: 'status', label: '状态', type: 'select', opts: FLOW_STATUS, def: '待处理' },
         { k: 'remark', label: '备注', type: 'textarea' }
@@ -169,9 +169,9 @@
         { k: 'items', label: '退货明细', type: 'items', cols: [
           { k: 'code', label: '物料/产品', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'reason', label: '退货原因', type: 'text' }
+          { k: 'reason', label: '退货原因', type: 'select', dict: '退货原因' }
         ] },
         { k: 'status', label: '状态', type: 'select', opts: FLOW_STATUS, def: '待处理' },
         { k: 'remark', label: '备注', type: 'textarea' }
@@ -189,7 +189,7 @@
         { k: 'fault', label: '故障现象', type: 'text' },
         { k: 'cause', label: '原因分析', type: 'textarea' },
         { k: 'measure', label: '纠正措施', type: 'textarea' },
-        { k: 'owner', label: '分析人', type: 'text' },
+        { k: 'owner', label: '分析人', type: 'select', dict: '人员' },
         { k: 'date', label: '分析日期', type: 'date', def: 'today' },
         { k: 'status', label: '状态', type: 'select', opts: ['待分析', '已分析', '已完成'], def: '待分析' }
       ]
@@ -203,7 +203,7 @@
         { k: 'product', label: '产品', type: 'ref', ref: 'material', req: true },
         { k: 'qty', label: '翻新数量', type: 'number' },
         { k: 'status', label: '状态', type: 'select', opts: ['待翻新', '翻新中', '已完成'] },
-        { k: 'owner', label: '负责人', type: 'text' },
+        { k: 'owner', label: '负责人', type: 'select', dict: '人员' },
         { k: 'startDate', label: '开始日期', type: 'date', def: 'today' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -218,8 +218,8 @@
         { k: 'moCode', label: '关联生产工单', type: 'ref', ref: 'mo',
           fill: { from: 'mo', items: null },
           tip: '选择生产工单后自动带出申请部门与产品需求' },
-        { k: 'dept', label: '申请部门', type: 'text' },
-        { k: 'applicant', label: '申请人', type: 'text' },
+        { k: 'dept', label: '申请部门', type: 'select', dict: '部门' },
+        { k: 'applicant', label: '申请人', type: 'select', dict: '人员' },
         { k: 'applyDate', label: '申请日期', type: 'date', def: 'today' },
         { k: 'items', label: '申请明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
@@ -246,7 +246,7 @@
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' },
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' },
           { k: 'price', label: '单价', type: 'number', w: '90px' },
           { k: 'amount', label: '金额', type: 'calc', expr: 'qty*price', w: '100px' }
         ] },
@@ -269,7 +269,7 @@
         { k: 'items', label: '收货明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '到货数量', type: 'number', w: '100px' },
           { k: 'okQty', label: '合格数量', type: 'number', w: '100px' },
           { k: 'batch', label: '批次号', type: 'text', w: '120px' }
@@ -294,13 +294,13 @@
         { k: 'items', label: '入库明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' },
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' },
           { k: 'batch', label: '批次号', type: 'text', w: '120px' }
         ] },
         { k: 'source', label: '来源单号', type: 'text' },
-        { k: 'operator', label: '经手人', type: 'text' },
+        { k: 'operator', label: '经手人', type: 'select', dict: '人员' },
         { k: 'status', label: '状态', type: 'select', opts: DOC_STATUS, def: '已审核' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -319,12 +319,12 @@
         { k: 'items', label: '出库明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' }
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' }
         ] },
         { k: 'source', label: '来源单号', type: 'text' },
-        { k: 'receiver', label: '领用人', type: 'text' },
+        { k: 'receiver', label: '领用人', type: 'select', dict: '人员' },
         { k: 'status', label: '状态', type: 'select', opts: DOC_STATUS, def: '已审核' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -339,12 +339,12 @@
         { k: 'items', label: '盘点明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'bookQty', label: '账面数', type: 'number', w: '90px' },
           { k: 'realQty', label: '实盘数', type: 'number', w: '90px' },
           { k: 'diff', label: '差异', type: 'calc', expr: 'realQty-bookQty', w: '80px' }
         ] },
-        { k: 'checker', label: '盘点人', type: 'text' },
+        { k: 'checker', label: '盘点人', type: 'select', dict: '人员' },
         { k: 'status', label: '状态', type: 'select', opts: FLOW_STATUS, def: '进行中' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -363,10 +363,10 @@
         { k: 'product', label: '生产产品', type: 'ref', ref: 'material', req: true },
         { k: 'planQty', label: '计划数量', type: 'number', req: true },
         { k: 'doneQty', label: '完成数量', type: 'number' },
-        { k: 'soCode', label: '关联订单', type: 'text' },
+        { k: 'soCode', label: '关联订单', type: 'ref', ref: 'so' },
         { k: 'startDate', label: '开工日期', type: 'date', def: 'today' },
         { k: 'dueDate', label: '完工日期', type: 'date' },
-        { k: 'line', label: '生产线别', type: 'text' },
+        { k: 'line', label: '生产线别', type: 'select', dict: '生产线别' },
         { k: 'status', label: '状态', type: 'select', opts: ['待下达', '待料', '待生产', '生产中', '已完工', '已关闭'], def: '待下达' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -383,11 +383,11 @@
         { k: 'items', label: '领料明细', type: 'items', cols: [
           { k: 'code', label: '物料', type: 'ref', ref: 'material', w: '200px' },
           { k: 'name', label: '名称', type: 'text', w: '150px', autoFrom: 'code:name' },
-          { k: 'location', label: '库位', type: 'text', w: '110px', autoFrom: 'code:location' },
+          { k: 'location', label: '库位', type: 'select', dict: '库位', dictFrom: 'warehouse.location', w: '110px', autoFrom: 'code:location' },
           { k: 'qty', label: '数量', type: 'number', w: '90px' },
-          { k: 'unit', label: '单位', type: 'text', w: '70px', autoFrom: 'code:unit' }
+          { k: 'unit', label: '单位', type: 'select', dict: '单位', w: '70px', autoFrom: 'code:unit' }
         ] },
-        { k: 'picker', label: '领料人', type: 'text' },
+        { k: 'picker', label: '领料人', type: 'select', dict: '人员' },
         { k: 'status', label: '状态', type: 'select', opts: FLOW_STATUS, def: '已完成' }
       ]
     },
@@ -404,7 +404,7 @@
         { k: 'okQty', label: '合格数量', type: 'number' },
         { k: 'inDate', label: '入库日期', type: 'date', def: 'today' },
         { k: 'warehouse', label: '入库仓库', type: 'ref', ref: 'warehouse' },
-        { k: 'location', label: '库位', type: 'text' },
+        { k: 'location', label: '库位', type: 'select', dict: '库位' },
         { k: 'status', label: '状态', type: 'select', opts: FLOW_STATUS, def: '待处理' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -564,6 +564,18 @@
   }
   function setTitle(t) { var e = $('pageTitle'); if (e) e.textContent = t; }
 
+  /* 打开「下拉选项管理」：所有下拉的选项都能在这里增/删/改/排序 */
+  ERP.openDictManager = function (dictName) {
+    if (window.FIELDS && typeof FIELDS.openDictManager === 'function') {
+      try { FIELDS.openDictManager(); } catch (e) { toast('打开失败：' + e.message); return; }
+      if (dictName && typeof FIELDS.dictOpen === 'function') {
+        try { FIELDS.dictOpen(dictName); } catch (e) {}
+      }
+    } else {
+      toast('下拉选项管理界面未加载，请刷新页面重试');
+    }
+  };
+
   ERP.openHome = function () {
     ERP.current = null;
     showEl('page-erp-home');
@@ -626,6 +638,11 @@
       statCard(running, '在产工单', '', 'mo') +
       statCard(low, '低于安全库存', low ? 'danger' : '', 'stock') +
       '</div>';
+
+    var _dn = (ERP.usedDictNames ? ERP.usedDictNames().length : 0);
+    html += '<div class="erp-toolbar">' +
+      '<span class="erp-tool" onclick="ERP.openDictManager()">⚙ 下拉选项管理</span>' +
+      '<span class="erp-tooltip">表单里所有下拉的选项都在这里维护，可增可删；共 ' + _dn + ' 组</span></div>';
 
     GROUPS.forEach(function (g) {
       var keys = (g.keys || []).concat(g.extras || []);
@@ -1131,6 +1148,61 @@
     for (var i = 0; i < arr.length; i++) if (arr[i].code === code) return arr[i];
     return null;
   }
+  /* 下拉选项：本地 opts + 全局字典(FIELDS) + 系统里已出现过的值（自动收集，选项永远够用） */
+  function dictOptions(f) {
+    var out = (f && f.opts) ? f.opts.slice() : [];
+    var name = f && f.dict;
+    if (name && window.FIELDS && typeof FIELDS.dict === 'function') {
+      (FIELDS.dict(name) || []).forEach(function (x) { if (x !== '' && out.indexOf(x) < 0) out.push(x); });
+    }
+    /* 「人员」：自动收集各单据里已经填过的人名，选过一次就能下拉选 */
+    if (name === '人员') {
+      [['warehouse', 'keeper'], ['stockIn', 'operator'], ['stockOut', 'receiver'],
+       ['stockCheck', 'checker'], ['moPick', 'picker'], ['pr', 'applicant'],
+       ['afterSale', 'owner'], ['renovate', 'owner'], ['so', 'salesman'],
+       ['po', 'buyer']].forEach(function (p) {
+        var arr = [];
+        try { arr = listOf(p[0]) || []; } catch (e) { arr = []; }
+        arr.forEach(function (r) {
+          var val = r && r[p[1]];
+          if (val && out.indexOf(String(val)) < 0) out.push(String(val));
+        });
+      });
+    }
+
+    /* dictFrom: 'material.location,warehouse.location' —— 把系统里已有的值也收进来 */
+    if (f && f.dictFrom) {
+      String(f.dictFrom).split(',').forEach(function (src) {
+        var p = String(src).trim().split('.'), key = p[0], col = p[1];
+        if (!key || !col) return;
+        var arr = [];
+        try { arr = listOf(key) || []; } catch (e) { arr = []; }
+        arr.forEach(function (r) {
+          var val = r && r[col];
+          if (val !== undefined && val !== null && String(val) !== '' && out.indexOf(String(val)) < 0) {
+            out.push(String(val));
+          }
+        });
+      });
+    }
+    return out;
+  }
+  ERP.dictOptions = dictOptions;
+
+  /* 收集全局所有「下拉选项」用到的字典名，供字典管理界面参考 */
+  function usedDictNames() {
+    var set = [];
+    function add(n) { if (n && set.indexOf(n) < 0) set.push(n); }
+    Object.keys(ENTITIES).forEach(function (k) {
+      (ENTITIES[k].fields || []).forEach(function (f) {
+        add(f.dict);
+        if (f.type === 'items') (f.cols || []).forEach(function (c) { add(c.dict); });
+      });
+    });
+    return set;
+  }
+  ERP.usedDictNames = usedDictNames;
+
   function refOptions(refKey, val) {
     var arr = listOf(refKey), h = '<option value="">— 请选择 —</option>', hit = false;
     arr.forEach(function (r) {
@@ -1156,11 +1228,13 @@
         '<span class="erp-hint">' + hint + '</span></div>';
     }
     if (f.type === 'select') {
-      var opts = f.opts || [];
+      var opts = dictOptions(f);
+      var _vv = String(v == null ? '' : v);
+      if (_vv !== '' && opts.map(String).indexOf(_vv) < 0) opts.unshift(_vv);
       inp = '<select class="erp-in" id="erpf_' + f.k + '">';
-      if (opts.indexOf(v) < 0) inp += '<option value="">' + (v ? escHtml(v) : '— 请选择 —') + '</option>';
+      inp += '<option value=""' + (_vv === '' ? ' selected' : '') + '>— 请选择 —</option>';
       opts.forEach(function (o) {
-        inp += '<option value="' + escAttr(o) + '"' + (o === v ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+        inp += '<option value="' + escAttr(o) + '"' + (String(o) === _vv ? ' selected' : '') + '>' + escHtml(o) + '</option>';
       });
       inp += '</select>';
     } else if (f.type === 'textarea') {
@@ -1176,13 +1250,26 @@
     } else {
       inp = '<input type="text" class="erp-in" id="erpf_' + f.k + '" value="' + escAttr(v) + '">';
     }
-    return '<div class="erp-f"><label>' + f.label + (f.req ? ' <i>*</i>' : '') + '</label>' + inp +
+    var _gear = f.dict
+      ? '<span class="erp-gear" title="管理「' + escAttr(f.dict) + '」的下拉选项" onclick="ERP.openDictManager(\'' + escAttr(f.dict) + '\')">⚙</span>'
+      : '';
+    return '<div class="erp-f"><label>' + f.label + (f.req ? ' <i>*</i>' : '') + _gear + '</label>' + inp +
       (f.tip ? '<span class="erp-hint">' + f.tip + '</span>' : '') + '</div>';
   }
 
   /* ---------- 明细行 ---------- */
   function itemCellHtml(c, row, i) {
     var v = row[c.k] == null ? '' : row[c.k];
+    if (c.type === 'select') {
+      var so = dictOptions(c);
+      if (v !== '' && so.indexOf(String(v)) < 0) so.unshift(String(v));
+      var sh = '<select class="erp-in sm" onchange="ERP.itemChange(' + i + ',\'' + c.k + '\',this.value,1)">';
+      sh += '<option value=""' + (v === '' ? ' selected' : '') + '>— 请选择 —</option>';
+      so.forEach(function (op) {
+        sh += '<option value="' + escAttr(op) + '"' + (String(v) === String(op) ? ' selected' : '') + '>' + escHtml(op) + '</option>';
+      });
+      return sh + '</select>';
+    }
     if (c.type === 'ref') {
       return '<select class="erp-in sm" onchange="ERP.itemChange(' + i + ',\'' + c.k + '\',this.value,1)">' +
         refOptions(c.ref, v) + '</select>';
@@ -1209,7 +1296,11 @@
     if (!f) return;
     var arr = ERP._items || [];
     var html = '<div class="erp-tablewrap"><table class="erp-table items"><thead><tr>';
-    f.cols.forEach(function (c) { html += '<th style="min-width:' + (c.w || '100px') + '">' + c.label + '</th>'; });
+    f.cols.forEach(function (c) {
+      html += '<th style="min-width:' + (c.w || '100px') + '">' + c.label +
+        (c.dict ? ' <span class="erp-gear" title="管理「' + escAttr(c.dict) + '」的下拉选项" onclick="ERP.openDictManager(\'' + escAttr(c.dict) + '\')">⚙</span>' : '') +
+        '</th>';
+    });
     html += '<th style="min-width:56px">删</th></tr></thead><tbody>';
     if (!arr.length) {
       html += '<tr><td colspan="' + (f.cols.length + 1) + '" class="erp-empty">' +
