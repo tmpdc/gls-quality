@@ -963,7 +963,7 @@ body{background:var(--nbg);color:var(--ink)}
 .btn2:hover{border-color:#cbd5e1;background:#f8fafc}
 .btn2.pri{background:var(--brand);border-color:var(--brand);color:#fff}
 .btn2.pri:hover{background:var(--brand-600)}
-.lanes{display:grid;grid-template-columns:repeat(5,minmax(172px,1fr));gap:11px;overflow-x:auto;padding-bottom:2px}
+.lanes{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:11px;overflow-x:auto;padding-bottom:2px}
 .lane{background:#f8fafc;border:1px solid var(--nline);border-radius:var(--r-m);display:flex;flex-direction:column;min-height:118px}
 .lane .lh{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--nline-2);font-size:12.5px;font-weight:700}
 .lane .lh .ct{margin-left:auto;font-size:11px;background:#fff;border:1px solid var(--nline);border-radius:9px;padding:0 7px;color:var(--ink-3)}
@@ -987,7 +987,7 @@ body{background:var(--nbg);color:var(--ink)}
 .legend .sw{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
 .legend .nm{color:var(--ink-2)}
 .legend .vl{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
-@media (max-width:1100px){.lanes{grid-template-columns:repeat(5,minmax(150px,1fr))}.board-grid>.span8,.board-grid>.span4{grid-column:span 12!important}}
+@media (max-width:1100px){.lanes{grid-template-columns:repeat(5,minmax(128px,1fr))}.board-grid>.span8,.board-grid>.span4{grid-column:span 12!important}}
 .quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 .quick-item{min-width:0!important;overflow:hidden}
 .quick-item .quick-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -996,6 +996,19 @@ body{background:var(--nbg);color:var(--ink)}
 .quick-item{padding:12px 6px!important}
 .quick-item .quick-icon{font-size:21px!important;margin-bottom:4px!important}
 .quick-item .quick-text{font-size:11.5px!important}
+}
+/* —— 窄屏抽屉（默认收起 / ☰ 滑出 / 点遮罩收起）+ 看板自适应 —— */
+@media (max-width:1400px){.board-grid>.span8,.board-grid>.span4{grid-column:span 12!important}}
+@media (max-width:768px){
+.sidebar{width:clamp(198px,64vw,252px);left:0!important;transform:translateX(-100%);transition:transform .28s ease;z-index:1300}
+.sidebar.hidden{transform:translateX(-100%)}
+.sidebar:not(.hidden){transform:translateX(0);box-shadow:0 14px 44px rgba(15,23,42,.42)}
+.main{margin-left:0!important}
+.overlay{display:block!important;z-index:1200!important;background:rgba(15,23,42,.45);opacity:0;pointer-events:none;transition:opacity .24s ease}
+.overlay.show{opacity:1;pointer-events:auto}
+.lanes{grid-template-columns:repeat(5,minmax(138px,1fr))}
+.card2-h{padding:11px 13px}
+.card2-b{padding:12px 13px}
 }
 /* —— 新版命令面板（Ctrl+K） —— */
 .cmdk-mask{position:fixed;inset:0;background:rgba(15,23,42,.44);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;backdrop-filter:blur(2px)}
@@ -2739,6 +2752,57 @@ function renderHome() {
     else if (e.key === 'Escape' && ov && ov.style.display !== 'none') close();
   });
   window.Cmdk = { open: open, close: close };
+})();
+
+/* ==================== 窄屏抽屉：默认收起 / ☰ 滑出 / 遮罩收起 ==================== */
+(function () {
+  function isM() { return (window.innerWidth || 0) <= 768; }
+  function sb() { return document.getElementById('sidebar'); }
+  function mn() { return document.getElementById('mainContent'); }
+  function ov() { return document.getElementById('overlay'); }
+  function collapse() {
+    var s = sb(), m = mn(), o = ov();
+    if (s) s.classList.add('hidden');
+    if (m) m.classList.remove('full');
+    if (o) o.classList.remove('show');
+    try { syncMenuIcon(); } catch (e) { }
+  }
+  function expand() {
+    var s = sb(), m = mn(), o = ov();
+    if (s) s.classList.remove('hidden');
+    if (m) m.classList.remove('full');
+    if (o) o.classList.add('show');
+    try { syncMenuIcon(); } catch (e) { }
+  }
+  window.__glsDrawer = { open: expand, close: collapse, isMobile: isM };
+  if (isM()) collapse();
+  var oldToggle = window.toggleSidebar;
+  window.toggleSidebar = function () {
+    if (!isM()) return oldToggle ? oldToggle.apply(this, arguments) : undefined;
+    var s = sb(); if (!s) return;
+    if (s.classList.contains('hidden')) expand(); else collapse();
+  };
+  document.addEventListener('click', function (e) {
+    if (!isM() || !e.target || !e.target.closest) return;
+    if (e.target.closest('.sidebar .nav-item')) setTimeout(collapse, 90);
+  }, true);
+  var t = null, lastM = isM();
+  function onR() {
+    clearTimeout(t);
+    t = setTimeout(function () {
+      var m = isM(); if (m === lastM) return; lastM = m;
+      if (m) collapse();
+      else {
+        var s = sb(), mm = mn(), o = ov();
+        if (s) s.classList.remove('hidden');
+        if (mm) mm.classList.remove('full');
+        if (o) o.classList.remove('show');
+        try { syncMenuIcon(); } catch (e) { }
+      }
+    }, 340);
+  }
+  window.addEventListener('resize', onR);
+  window.addEventListener('orientationchange', onR);
 })();
 
 function filterByStatus(status) {
