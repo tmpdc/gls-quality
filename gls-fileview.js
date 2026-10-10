@@ -253,12 +253,101 @@
     if (!xf || !xf.nf) return '';
     var builtin = {
       0: '', 1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00',
-      9: '0%', 10: '0.00%', 14: 'yyyy/m/d', 22: 'yyyy/m/d h:mm',
+      9: '0%', 10: '0.00%', 14: 'm/d/yy', 15: 'd-mmm-yy', 16: 'd-mmm', 17: 'mmm-yy',
+      18: 'h:mm AM/PM', 19: 'h:mm:ss AM/PM', 20: 'h:mm', 21: 'h:mm:ss', 22: 'm/d/yy h:mm',
       37: '#,##0;-#,##0', 38: '#,##0;[红色]-#,##0', 49: '@'
     };
     return st.numFmt[xf.nf] || builtin[xf.nf] || '';
   }
   FV._numFmtFor = numFmtFor;
+
+  var MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  /* 这个格式串是不是日期/时间格式（"…" 里的字面量和 \x 转义不算） */
+  function isDateFmt(f) {
+    var s = String(f || '').replace(/"[^"]*"/g, '').replace(/\\./g, '').replace(/\[[^\]]*\]/g, '');
+    return /[yMdHs]/.test(s);
+  }
+  /* 日期序列值 → 按该格自己的数字格式显示（原件 yyyy/m/d 就出 2026/3/1，yyyy年m月d日 就出 2026年3月1日） */
+  function excelDateText(num, fmt) {
+    var serial = Math.floor(num), frac = num - serial;
+    var d = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+    var Y = d.getUTCFullYear(), M = d.getUTCMonth() + 1, D = d.getUTCDate();
+    var ms = Math.round(frac * 86400000);
+    var H = Math.floor(ms / 3600000), Mi = Math.floor(ms % 3600000 / 60000), S = Math.round(ms % 60000 / 1000);
+    if (S === 60) { S = 0; Mi++; }
+    if (Mi === 60) { Mi = 0; H++; }
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    var f = String(fmt || '').split(';')[0].replace(/\[[^\]]*\]/g, '');
+    var twelve = /AM\/PM|A\/P/i.test(f);
+    var tks = [], i = 0;
+    var pushLit = function (s) {
+      if (!s) return;
+      if (tks.length && tks[tks.length - 1].k === 'lit') tks[tks.length - 1].v += s;
+      else tks.push({ k: 'lit', v: s });
+    };
+    while (i < f.length) {
+      var ch = f[i];
+      if (ch === '"') { var e = f.indexOf('"', i + 1); if (e < 0) e = f.length; pushLit(f.slice(i + 1, e)); i = e + 1; continue; }
+      if (ch === '\\' || ch === '!') { pushLit(f[i + 1] || ''); i += 2; continue; }
+      if (/^(AM\/PM)/i.test(f.slice(i))) { tks.push({ k: 'ampm' }); i += 5; continue; }
+      if (/^(A\/P)/i.test(f.slice(i))) { tks.push({ k: 'ampm' }); i += 3; continue; }
+      if (/[yYmMdDhHsS]/.test(ch)) {
+        var j = i; while (j < f.length && f[j].toLowerCase() === ch.toLowerCase()) j++;
+        tks.push({ k: ch.toLowerCase(), n: j - i }); i = j; continue;
+      }
+      pushLit(ch); i++;
+    }
+    /* m 是月还是分钟：紧跟 h 之后、或后面紧跟 s 的算分钟 */
+    for (var t = 0; t < tks.length; t++) {
+      if (tks[t].k !== 'm') continue;
+      var pv = null, nx = null;
+      for (var a = t - 1; a >= 0; a--) { if (tks[a].k !== 'lit') { pv = tks[a].k; break; } }
+      for (var b2 = t + 1; b2 < tks.length; b2++) { if (tks[b2].k !== 'lit') { nx = tks[b2].k; break; } }
+      tks[t].k = (pv === 'h' || nx === 's') ? 'mi' : 'mo';
+    }
+    var H12 = H % 12; if (twelve && H12 === 0) H12 = 12;
+    var out = '';
+    for (var q = 0; q < tks.length; q++) {
+      var k = tks[q].k, n = tks[q].n || 1;
+      if (k === 'lit') { out += tks[q].v; continue; }
+      if (k === 'ampm') { out += (H < 12 ? 'AM' : 'PM'); continue; }
+      if (k === 'y') out += (n >= 3 ? String(Y) : p2(Y % 100));
+      else if (k === 'mo') out += (n >= 3 ? MON3[M - 1] : (n === 2 ? p2(M) : String(M)));
+      else if (k === 'd') out += (n >= 2 ? p2(D) : String(D));
+      else if (k === 'h') { var hv = twelve ? H12 : H; out += (n >= 2 ? p2(hv) : String(hv)); }
+      else if (k === 'mi') out += (n >= 2 ? p2(Mi) : String(Mi));
+      else if (k === 's') out += (n >= 2 ? p2(S) : String(S));
+    }
+    return out;
+  }
+  /* 表头里带「日期 / 时间 / date」的列（0 起）；getCell(row,col) 取该格文本 */
+  function dateHeaderCols(getCell, maxR, maxC) {
+    for (var r = 0; r < Math.min(6, maxR); r++) {
+      var n = 0;
+      for (var c = 0; c < maxC; c++) { var s0 = getCell(r, c); if (s0 != null && String(s0).trim()) n++; }
+      if (n >= 3) {
+        var cols = [];
+        for (var c2 = 0; c2 < maxC; c2++) {
+          var s2 = getCell(r, c2);
+          if (s2 != null && /日期|时间|date/i.test(String(s2))) cols.push(c2);
+        }
+        return { row: r, cols: cols };
+      }
+    }
+    return { row: -1, cols: [] };
+  }
+  FV._dateHeaderCols = dateHeaderCols;
+  /* 值像 Excel 日期序列值（20000~60000 的纯数字），且这格自己没套日期格式 —— 按日期显示并注明 */
+  function serialFallback(v, f, isDateCol) {
+    if (!isDateCol || isDateFmt(f)) return null;
+    var s = String(v == null ? '' : v).trim();
+    if (!/^\d{4,6}(\.\d+)?$/.test(s)) return null;
+    var num = parseFloat(s);
+    if (!(num > 20000 && num < 60000)) return null;
+    return '<span title="原件此格未套日期格式，按日期显示">' + excelDateText(num, 'yyyy/m/d') + '</span>';
+  }
+  FV._isDateFmt = isDateFmt;
+  FV._excelDateText = excelDateText;
 
   function fmtVal(v, xf, st) {
     if (v == null || v === '') return '';
@@ -267,12 +356,7 @@
       var num = Number(v);
       if (!isNaN(num) && String(v).trim() !== '') {
         if (/%/.test(f)) return (num * 100).toFixed((f.match(/0\.(0+)/) || [0, ''])[1].length) + '%';
-        if (/[yYmMdD]/.test(f) && num > 20000 && num < 80000) {
-          var d = new Date(Date.UTC(1899, 11, 30) + num * 86400000);
-          var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
-          if (/h/.test(f)) return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate()) + ' ' + p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes());
-          return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate());
-        }
+        if (isDateFmt(f) && num > 20000 && num < 80000) return excelDateText(num, f);
         if (/#,##/.test(f)) return num.toLocaleString('en-US', { minimumFractionDigits: (f.match(/\.(0+)/) || [0, ''])[1].length });
         return String(num);
       }
@@ -364,6 +448,7 @@
       });
     });
     if (!maxC) return '<p style="color:#888">（空表）</p>';
+    var _dc = dateHeaderCols(function (r, c) { var g = grid[(r + 1) + '_' + (c + 1)]; return g ? g.v : ''; }, maxR, maxC);
     var html = ['<table class="fv-xlsx" style="border-collapse:collapse;table-layout:fixed;font-size:11pt;">'];
     html.push('<colgroup>');
     for (var c2 = 1; c2 <= maxC; c2++) {
@@ -387,7 +472,11 @@
           if (m2.rs > 1) span += ' rowspan="' + m2.rs + '"';
           if (m2.cs > 1) span += ' colspan="' + m2.cs + '"';
         }
-        var body = cell ? esc(fmtVal(cell.v, cell.xf, st)) : '';
+        var body = '';
+        if (cell) {
+          var _fb = serialFallback(cell.v, numFmtFor(cell.xf, st), _dc.cols.indexOf(cc2 - 1) >= 0);
+          body = (_fb !== null) ? _fb : esc(fmtVal(cell.v, cell.xf, st));
+        }
         html.push('<td' + span + ' style="' + css + '">' + body + '</td>');
       }
       html.push('</tr>');
@@ -552,6 +641,8 @@
         });
         var cols = ws['!cols'] || [];
         var aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '', blankrows: true });
+        var aoaRaw = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true });
+        var _dc2 = dateHeaderCols(function (r, c) { return (aoa[r] || [])[c]; }, aoa.length, rng.e.c - rng.s.c + 1);
         var h = ['<table class="fv-xlsx" style="border-collapse:collapse;table-layout:fixed;font-size:11pt;">'];
         h.push('<colgroup>');
         for (var c = rng.s.c; c <= rng.e.c; c++) {
@@ -573,6 +664,11 @@
             if (skip[(r2 + 1) + '_' + (c2 + 1)]) continue;
             var v = (aoa[r2] || [])[c2];
             var body = (v === undefined || v === null || v === '') ? '' : esc(String(v));
+            if (body) {
+              var _rv = (aoaRaw[r2] || [])[c2];
+              var _fb2 = serialFallback(_rv, '', _dc2.cols.indexOf(c2 - rng.s.c) >= 0);
+              if (_fb2 !== null && String(_rv) === String(v).trim()) body = _fb2;
+            }
             var sp = span[(r2 + 1) + '_' + (c2 + 1)];
             if (sp && sp.rs === 1 && sp.cs === 1) sp = null;
             var spanAttr = '';
