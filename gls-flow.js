@@ -1075,7 +1075,8 @@
           hs.appendChild(c);
         }
         c.setAttribute('onclick', "navigateTo('flows')");
-        c.innerHTML = '<div class="stat-num warn">' + n + '</div><div class="stat-label">流程待办</div>';
+        c.innerHTML = '<div class="kpi-t">流程待办</div><div class="stat-num purple">' + n + '</div>'
+          + '<div class="stat-label">待我处理</div><span class="kpi-ic">🔄</span>';
       }
     } catch (e) {}
   }
