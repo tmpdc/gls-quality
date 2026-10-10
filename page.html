@@ -881,6 +881,141 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .erp-tooltip{color:#98a2a8;font-size:12px}
 .erp-gear{display:inline-block;margin-left:5px;font-size:12px;color:#2e8b57;cursor:pointer;opacity:.55;transition:opacity .15s}
 .erp-gear:hover{opacity:1}
+
+/* ===================================================================
+   ▼ 新版工作台外观（与新版「质量管理工作台」视觉对齐 · 纯视觉层，不改功能）
+   =================================================================== */
+:root{
+  --brand:#1d4ed8; --brand-600:#1a44bf; --brand-50:#eef3ff; --brand-100:#dde7ff;
+  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --ink-4:#94a3b8;
+  --nline:#e6eaf2; --nline-2:#eef1f7; --nbg:#f4f6fb;
+  --ok:#16a34a; --ok-50:#e9f7ef; --warn:#e0860a; --warn-50:#fdf3e3;
+  --ndanger:#dc2626; --ndanger-50:#fdecec; --info:#0ea5e9; --purple:#7c3aed;
+  --r-m:12px; --r-l:16px; --nsh1:0 1px 2px rgba(16,24,40,.05); --nsh2:0 4px 14px rgba(16,24,40,.07);
+}
+body{background:var(--nbg);color:var(--ink)}
+
+/* —— 顶栏：白底 + 细线（新版 topbar） —— */
+.header{background:#fff;color:var(--ink);border-bottom:1px solid var(--nline);box-shadow:none;padding:11px 18px}
+.header .title{color:var(--ink);font-weight:700;font-size:16.5px}
+.header .menu-btn,.header .action-btn{color:var(--ink-2);width:34px;height:34px;border-radius:9px}
+.header .menu-btn:active,.header .action-btn:active{background:var(--nline-2)}
+.tb-search2{margin-left:auto;margin-right:10px;position:relative;width:290px;max-width:36vw;cursor:pointer}
+.tb-search2 input{width:100%;height:36px;border:1px solid var(--nline);border-radius:10px;padding:0 62px 0 32px;background:#f7f9fc;outline:none;color:var(--ink-3);font-size:13px;cursor:pointer}
+.tb-search2 .mg{position:absolute;left:10px;top:7px;font-size:14px;opacity:.55}
+.tb-search2 .kbd{position:absolute;right:8px;top:8px;font-size:10.5px;color:var(--ink-4);border:1px solid var(--nline);border-radius:5px;padding:1px 5px;background:#fff}
+@media(max-width:900px){.tb-search2{display:none}}
+
+/* —— 侧边栏：深蓝渐变（新版 sidebar） —— */
+.sidebar{background:linear-gradient(180deg,#12315e 0%,#0d2246 60%,#0b1d3a 100%)}
+.sidebar .brand{border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar .brand-name{letter-spacing:.3px}
+.sidebar .brand-sub{color:#8ba4cb}
+.sidebar .nav-section{color:#6f88ad;letter-spacing:1px}
+.sidebar .nav-item{border-left:0;border-radius:9px;margin:2px 8px;color:#c3d2e8;position:relative}
+.sidebar .nav-item:active{background:rgba(255,255,255,.07)}
+.sidebar .nav-item.active{background:linear-gradient(90deg,rgba(59,130,246,.35),rgba(59,130,246,.12));color:#fff;font-weight:600}
+.sidebar .nav-item.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#60a5fa}
+.sidebar .logout-btn{background:rgba(255,255,255,.1);border-radius:9px}
+@media (min-width:769px){:root{--sb-w:248px}}
+
+/* —— 卡片 / 按钮 / 标签：新版圆角细边 —— */
+.stat-card,.todo-card,.list-card,.chart-card,.search-box,.quick-item,.filter-tabs,.sf-bar,.sf-del-box,.erp-card,.pqs-card{border-radius:var(--r-l);border:1px solid var(--nline);box-shadow:var(--nsh1)}
+.btn,.tpl-btn,.todo-btn,.sf-btn,.erp-tool,.fv-btn,.sf-op{border-radius:9px}
+.btn-edit{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn-delete{background:#fff;border-color:#f3c3c3;color:var(--ndanger)}
+.tpl-btn{background:#fff;border:1px solid var(--nline);color:var(--ink-2);font-weight:600}
+.tpl-btn:hover{border-color:#cbd5e1;background:#f8fafc}
+.filter-tab.on,.fv-tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.fv-tab{border-radius:8px}
+.sf-btn.add,.sf-btn.primary{background:var(--brand);border-color:var(--brand)}
+.sf-btn.add:hover,.sf-btn.primary:hover{background:var(--brand-600);border-color:var(--brand-600)}
+.section-title .title-text{font-weight:700;color:var(--ink)}
+.section-title .title-icon{opacity:.95}
+
+/* —— 首页 KPI（新版 kpi 卡） —— */
+.stats-row{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.stat-card{background:#fff;text-align:left;padding:13px 14px;position:relative;overflow:hidden;transition:.18s;border-radius:var(--r-m)}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--nsh2);border-color:#d5e0f5}
+.stat-card .kpi-t{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.stat-card .stat-num{font-size:25px;font-weight:800;letter-spacing:-.5px;line-height:1.1;margin-top:5px;font-variant-numeric:tabular-nums;text-align:left}
+.stat-card .stat-label{font-size:11.5px;color:var(--ink-4);margin-top:3px;text-align:left}
+.stat-card .kpi-ic{position:absolute;right:10px;top:10px;font-size:26px;opacity:.13}
+.stat-card .stat-num.warn{color:var(--warn)}
+.stat-card .stat-num.danger{color:var(--ndanger)}
+.stat-card .stat-num.blue{color:var(--brand)}
+.stat-card .stat-num.ok{color:var(--ok)}
+.stat-card .stat-num.purple{color:var(--purple)}
+@media (max-width:768px){.stats-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* —— 新版看板：流程流转泳道 / 状态分布 —— */
+.board-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.card2{background:#fff;border:1px solid var(--nline);border-radius:var(--r-l);box-shadow:var(--nsh1);min-width:0}
+.card2-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--nline-2);flex-wrap:wrap}
+.card2-h h3{margin:0;font-size:14.5px;font-weight:700}
+.card2-h .sub{font-size:12px;color:var(--ink-4)}
+.card2-h .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card2-b{padding:14px 16px}
+.seg{display:inline-flex;background:#f1f5f9;border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;font-size:12px;color:var(--ink-3);padding:5px 11px;border-radius:7px;cursor:pointer;font-weight:600}
+.seg button.on{background:#fff;color:var(--brand);box-shadow:var(--nsh1)}
+.btn2{height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--nline);background:#fff;color:var(--ink-2);font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn2:hover{border-color:#cbd5e1;background:#f8fafc}
+.btn2.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn2.pri:hover{background:var(--brand-600)}
+.lanes{display:grid;grid-template-columns:repeat(5,minmax(172px,1fr));gap:11px;overflow-x:auto;padding-bottom:2px}
+.lane{background:#f8fafc;border:1px solid var(--nline);border-radius:var(--r-m);display:flex;flex-direction:column;min-height:118px}
+.lane .lh{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--nline-2);font-size:12.5px;font-weight:700}
+.lane .lh .ct{margin-left:auto;font-size:11px;background:#fff;border:1px solid var(--nline);border-radius:9px;padding:0 7px;color:var(--ink-3)}
+.lane .lb2{padding:8px;display:flex;flex-direction:column;gap:8px;flex:1}
+.lane .lb2 .none{color:var(--ink-4);font-size:12px;text-align:center;padding:14px 0}
+.fcard{background:#fff;border:1px solid var(--nline);border-radius:10px;padding:9px 10px;cursor:pointer;box-shadow:var(--nsh1);transition:.15s;border-left:3px solid var(--brand)}
+.fcard:hover{box-shadow:var(--nsh2);transform:translateY(-1px)}
+.fcard .ft{font-size:12.5px;font-weight:600;line-height:1.4;margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fcard .fm{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-4)}
+.fcard .fm .av2{width:17px;height:17px;border-radius:50%;background:var(--brand-100);color:var(--brand);display:grid;place-items:center;font-size:9.5px;font-weight:700;flex:0 0 17px}
+.fcard .fm .tm{margin-left:auto;white-space:nowrap}
+.fcard.od{border-left-color:var(--ndanger)}
+.fcard.od .tm{color:var(--ndanger);font-weight:700}
+.donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.donut{position:relative;width:142px;height:142px;flex:0 0 142px}
+.donut .ctr{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.donut .ctr b{font-size:23px;display:block;line-height:1.1;font-variant-numeric:tabular-nums}
+.donut .ctr span{font-size:11.5px;color:var(--ink-4)}
+.legend{flex:1;min-width:132px;display:flex;flex-direction:column;gap:9px}
+.legend .li{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.legend .sw{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
+.legend .nm{color:var(--ink-2)}
+.legend .vl{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+@media (max-width:1100px){.lanes{grid-template-columns:repeat(5,minmax(150px,1fr))}.board-grid>.span8,.board-grid>.span4{grid-column:span 12!important}}
+.quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.quick-item{min-width:0!important;overflow:hidden}
+.quick-item .quick-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:768px){
+.quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.quick-item{padding:12px 6px!important}
+.quick-item .quick-icon{font-size:21px!important;margin-bottom:4px!important}
+.quick-item .quick-text{font-size:11.5px!important}
+}
+/* —— 新版命令面板（Ctrl+K） —— */
+.cmdk-mask{position:fixed;inset:0;background:rgba(15,23,42,.44);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;backdrop-filter:blur(2px)}
+.cmdk{width:100%;max-width:620px;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(15,23,42,.34);overflow:hidden;display:flex;flex-direction:column;max-height:70vh}
+.cmdk-in{display:flex;align-items:center;gap:8px;padding:13px 15px;border-bottom:1px solid var(--nline-2)}
+.cmdk-in .mg{font-size:15px;opacity:.6}
+.cmdk-in input{flex:1;border:0;outline:none;font-size:15px;color:var(--ink);background:transparent;font-family:inherit}
+.cmdk-in .kbd{font-size:10.5px;color:var(--ink-4);border:1px solid var(--nline);border-radius:5px;padding:1px 6px}
+.cmdk-res{overflow:auto;padding:6px 0}
+.cmdk-g{padding:9px 15px 4px;font-size:11px;color:var(--ink-4);letter-spacing:.6px}
+.cmdk-i{display:flex;align-items:center;gap:10px;padding:9px 15px;cursor:pointer;font-size:13.5px;color:var(--ink-2)}
+.cmdk-i .ic2{width:22px;text-align:center;flex:0 0 22px;opacity:.85}
+.cmdk-i .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-i .ss{font-size:11px;color:var(--ink-4);white-space:nowrap;flex:0 0 auto}
+.cmdk-i.on{background:var(--brand-50)}
+.cmdk-i.on .tt{color:var(--brand)}
+.cmdk-none{padding:26px 16px;text-align:center;color:var(--ink-4);font-size:13px}
+.cmdk-foot{display:flex;gap:14px;padding:8px 15px;border-top:1px solid var(--nline-2);font-size:11px;color:var(--ink-4)}
+
+
 </style>
 <script src="system_docs.js?v=2"></script>
 <script src="knowledge_index.js?v=1"></script>
@@ -897,6 +1032,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <div class="header">
   <div class="menu-btn" onclick="toggleSidebar()">☰</div>
   <div class="title" id="pageTitle">质量管理工作台</div>
+  <div class="tb-search2" onclick="try{Cmdk.open()}catch(e){showSearch()}" title="搜模板、资料、知识点、记录（Ctrl+K）">
+    <span class="mg">🔍</span><input placeholder="搜模板、资料、知识点、记录…" readonly><span class="kbd">Ctrl K</span>
+  </div>
   <div class="actions">
     <div class="action-btn" id="scanBtn" onclick="SCAN.open()" title="扫码（快捷键 F8）">📷</div>
     <div class="action-btn" onclick="openNotices()" id="noticeBtn">🔔<span class="notice-dot" id="noticeDot" style="display:none"></span></div>
@@ -925,6 +1063,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 <div class="main" id="mainContent">
   <!-- 首页 -->
   <div class="page active" id="page-home">
+    <!-- ===== 新版看板（结合优化）：KPI 在下方 homeStats、这里是流程流转泳道 + 状态分布 ===== -->
+    <div class="board-grid">
+      <div class="card2 span8" style="grid-column:span 8">
+        <div class="card2-h">
+          <h3>🔄 流程流转看板</h3><span class="sub">按状态分泳道，点卡片直接进流程</span>
+          <div class="right">
+            <div class="seg" id="homeLaneSeg"><button class="on" data-k="all">全部</button><button data-k="mine">我经办</button><button data-k="overdue">逾期</button></div>
+            <button class="btn2 pri" onclick="try{openFlowCreate()}catch(e){}">＋ 发起流程</button>
+          </div>
+        </div>
+        <div class="card2-b"><div class="lanes" id="homeLanes"></div></div>
+      </div>
+      <div class="card2 span4" style="grid-column:span 4">
+        <div class="card2-h"><h3>📈 状态分布</h3><span class="sub">全部流程</span></div>
+        <div class="card2-b"><div class="donut-wrap" id="homeDonut"></div></div>
+      </div>
+    </div>
     <div class="todo-grid" id="homeTodo"></div>
     <div class="stats-row" id="homeStats"></div>
     <div class="home-search-entry" onclick="showSearch()">
@@ -2294,14 +2449,22 @@ function renderHome() {
   var fTodo = flows.filter(function (f) {
     return f && f.status === 'running' && (!f.assignee || f.assignee === (cur && cur.username) || isAdmin);
   }).length;
-  document.getElementById('homeStats').innerHTML = [
-    '<div class="stat-card" onclick="INSP.openApprove()"><div class="stat-num warn">' + appr.length + '</div><div class="stat-label">流转审批待办</div></div>',
-    '<div class="stat-card" onclick="INSP.openMrb()"><div class="stat-num danger">' + mrb.length + '</div><div class="stat-label">不合格评审待办</div></div>',
-    '<div class="stat-card" onclick="INSP.openList()"><div class="stat-num">' + total + '</div><div class="stat-label">检验单总数</div></div>',
-    '<div class="stat-card" onclick="INSP.openList()"><div class="stat-num blue">' + monthList.length + '</div><div class="stat-label">本月检验</div></div>',
-    '<div class="stat-card" onclick="INSP.openHome()"><div class="stat-num">' + rate + '%</div><div class="stat-label">检验合格率</div></div>',
-    '<div class="stat-card" id="homeFlowStat" onclick="goFlowPage()"><div class="stat-num warn">' + fTodo + '</div><div class="stat-label">流程待办</div></div>'
-  ].join('');
+  var _kpi = [
+    { v: appr.length, t: '流转审批待办', s: '检验单待审批', ic: '📝', c: 'warn', fn: 'INSP.openApprove()' },
+    { v: mrb.length, t: '不合格评审', s: 'MRB 待评审', ic: '⚠️', c: 'danger', fn: 'INSP.openMrb()' },
+    { v: total, t: '检验单总数', s: '全部检验记录', ic: '📋', c: '', fn: 'INSP.openList()' },
+    { v: monthList.length, t: '本月检验', s: ym, ic: '📅', c: 'blue', fn: 'INSP.openList()' },
+    { v: rate + '%', t: '检验合格率', s: '合格 ' + passN + ' / ' + total + ' 单', ic: '✅', c: 'ok', fn: 'INSP.openHome()' },
+    { v: fTodo, t: '流程待办', s: '待我处理', ic: '🔄', c: 'purple', fn: 'goFlowPage()' }
+  ];
+  document.getElementById('homeStats').innerHTML = _kpi.map(function (k, i) {
+    return '<div class="stat-card"' + (i === 5 ? ' id="homeFlowStat"' : '') + ' onclick="' + k.fn + '">'
+      + '<div class="kpi-t">' + k.t + '</div>'
+      + '<div class="stat-num ' + k.c + '">' + k.v + '</div>'
+      + '<div class="stat-label">' + k.s + '</div>'
+      + '<span class="kpi-ic">' + k.ic + '</span></div>';
+  }).join('');
+  try { if (window.renderHomeBoard) renderHomeBoard(); } catch (e) {}
 
   // ===== C. 快捷入口 =====
   var quicks = [
@@ -2349,6 +2512,234 @@ function renderHome() {
     document.getElementById('recentList').innerHTML = lh;
   }
 }
+
+/* ==================== 新版看板：流程流转泳道 / 状态分布（结合优化） ==================== */
+(function () {
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function me() { try { return (JSON.parse(localStorage.getItem('gls_current_user') || 'null') || {}).username || ''; } catch (e) { return ''; } }
+  function flows() {
+    try { if (window.glsFlow && glsFlow.getFlows) return glsFlow.getFlows() || []; } catch (e) { }
+    try { return (appData && appData.flows) || []; } catch (e) { return []; }
+  }
+  function nodeName(f) {
+    try { var n = f.graph.nodes[f.curId]; if (n && n.name) return n.name; } catch (e) { }
+    return f && f.status === 'done' ? '已办结' : '—';
+  }
+  function stayH(f) { var t = (f && (f.updatedAt || f.createdAt)) || 0; return t ? Math.max(0, (Date.now() - t) / 3600000) : 0; }
+  function human(h) { if (!h) return '—'; if (h < 1) return '刚刚'; if (h < 24) return Math.round(h) + ' 小时'; return Math.floor(h / 24) + ' 天'; }
+  function isOd(f) { return f && f.status === 'running' && stayH(f) > 72; }
+  var laneK = 'all';
+
+  function laneOf(f) {
+    if (f.status === 'done') return 3;
+    if (f.status === 'terminated') return 4;
+    if (!f.assignee) return 0;
+    return f.assignee === me() ? 1 : 2;
+  }
+  var LANES = [
+    { t: '待接收', ic: '📥', c: '#64748b' },
+    { t: '我经办', ic: '👤', c: '#1d4ed8' },
+    { t: '进行中', ic: '🔄', c: '#0ea5e9' },
+    { t: '已办结', ic: '✅', c: '#16a34a' },
+    { t: '已终止', ic: '⛔', c: '#dc2626' }
+  ];
+
+  window.renderHomeBoard = function () {
+    var box = document.getElementById('homeLanes');
+    if (!box) return;
+    var all = flows(), u = me();
+    var list = all.filter(function (f) {
+      if (laneK === 'mine') return f.status === 'running' && (!f.assignee || f.assignee === u);
+      if (laneK === 'overdue') return isOd(f);
+      return true;
+    });
+    var groups = [[], [], [], [], []];
+    list.forEach(function (f) { groups[laneOf(f)].push(f); });
+    groups.forEach(function (g) { g.sort(function (a, b) { return stayH(b) - stayH(a); }); });
+    box.innerHTML = LANES.map(function (L, i) {
+      var cards = groups[i].map(function (f) {
+        var od = isOd(f), who = f.assignee ? String(f.assignee).slice(0, 1) : '·';
+        return '<div class="fcard' + (od ? ' od' : '') + '" onclick="try{openFlow(\'' + esc(f.id) + '\')}catch(e){}">'
+          + '<div class="ft">' + esc(f.title || '未命名流程') + '</div>'
+          + '<div class="fm"><span class="av2">' + esc(who) + '</span><span>当前：' + esc(nodeName(f)) + '</span>'
+          + '<span class="tm">' + (f.status === 'running' ? human(stayH(f)) : '') + '</span></div></div>';
+      }).join('');
+      return '<div class="lane"><div class="lh"><span>' + L.ic + '</span><span>' + L.t + '</span>'
+        + '<span class="ct">' + groups[i].length + '</span></div><div class="lb2">'
+        + (cards || '<div class="none">暂无</div>') + '</div></div>';
+    }).join('');
+
+    var dn = document.getElementById('homeDonut');
+    if (dn) {
+      var cnt = [
+        { n: '进行中', v: all.filter(function (f) { return f.status === 'running'; }).length, c: '#1d4ed8' },
+        { n: '已办结', v: all.filter(function (f) { return f.status === 'done'; }).length, c: '#16a34a' },
+        { n: '已终止', v: all.filter(function (f) { return f.status === 'terminated'; }).length, c: '#dc2626' }
+      ];
+      var tot = cnt.reduce(function (a, b) { return a + b.v; }, 0), R = 52, C = 2 * Math.PI * R, off = 0, segs = '';
+      cnt.forEach(function (p) {
+        var len = tot ? C * p.v / tot : 0;
+        segs += '<circle r="' + R + '" cx="71" cy="71" fill="none" stroke="' + p.c + '" stroke-width="17" stroke-dasharray="' + len + ' ' + (C - len) + '" stroke-dashoffset="' + (-off) + '" transform="rotate(-90 71 71)"></circle>';
+        off += len;
+      });
+      dn.innerHTML = '<div class="donut"><svg viewBox="0 0 142 142" width="142" height="142">'
+        + '<circle r="' + R + '" cx="71" cy="71" fill="none" stroke="#f1f5f9" stroke-width="17"></circle>' + segs + '</svg>'
+        + '<div class="ctr"><b>' + tot + '</b><span>流程总数</span></div></div>'
+        + '<div class="legend">' + cnt.map(function (p) {
+          return '<div class="li"><span class="sw" style="background:' + p.c + '"></span><span class="nm">' + p.n + '</span><span class="vl">' + p.v + '</span></div>';
+        }).join('') + '</div>';
+    }
+  };
+
+  document.addEventListener('click', function (e) {
+    var seg = document.getElementById('homeLaneSeg');
+    if (!seg || !seg.contains(e.target)) return;
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function (b) { b.classList.remove('on'); });
+    e.target.classList.add('on');
+    laneK = e.target.getAttribute('data-k') || 'all';
+    try { window.renderHomeBoard(); } catch (err) { }
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'k') {
+      e.preventDefault();
+      try { showSearch(); } catch (err) { }
+    }
+  });
+})();
+
+/* ==================== 新版命令面板（Ctrl+K / 顶栏搜索） ==================== */
+(function () {
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function hub(sec, fb) { try { return (window.DATAHUB && DATAHUB.get(sec)) || fb; } catch (e) { return fb; } }
+  var built = false, ov = null, inp = null, resEl = null, rows = [], sel = 0;
+
+  function srcPages() {
+    return [
+      { g: '页面', ic: '🏠', t: '工作台首页', s: 'KPI · 流程泳道 · 待办', fn: function () { navigateTo('home'); } },
+      { g: '页面', ic: '🔄', t: '流程中心', s: '全部流程与审批', fn: function () { navigateTo('flows'); } },
+      { g: '页面', ic: '🧠', t: '模板中心', s: '模板 / 导入', fn: function () { navigateTo('templates'); } },
+      { g: '页面', ic: '📊', t: '数据看板', s: '统计与图表', fn: function () { navigateTo('dashboard'); } },
+      { g: '页面', ic: '👤', t: '账号与权限管理', s: '超管后台', fn: function () { location.href = 'account-admin/index.html'; } }
+    ];
+  }
+  function srcModules() {
+    var out = [];
+    try { (MODULES || []).forEach(function (m) { out.push({ g: '模块', ic: m.icon || '📁', t: m.name, s: m.desc || '', fn: function () { navigateTo('module', m.id); } }); }); } catch (e) { }
+    return out;
+  }
+  function srcDocs() {
+    var out = [];
+    try {
+      var L = (window.GLS_SYSFILES || {}).levels || {};
+      ['1', '2', '3', '4'].forEach(function (lv) {
+        (L[lv] || []).forEach(function (it) {
+          if (!it || !it.n) return;
+          out.push({
+            g: '体系文件', ic: '📄', t: it.n, s: (lv === '1' ? '一级' : lv === '2' ? '二级' : lv === '3' ? '三级' : '四级'),
+            fn: function () { try { sfOpenFile(it.n, it.p, lv, it.k); } catch (e) { } }
+          });
+        });
+      });
+    } catch (e) { }
+    return out;
+  }
+  function srcInsp() {
+    var out = [];
+    try {
+      (hub('inspect', {}).inspections || []).forEach(function (r) {
+        out.push({ g: '检验记录', ic: '📋', t: (r.no || '') + ' · ' + (r.matName || ''), s: r.date || '', fn: function () { INSP.viewDetail(r._id); } });
+      });
+    } catch (e) { }
+    return out;
+  }
+  function srcFlows() {
+    var out = [];
+    try {
+      var fs = (window.glsFlow && glsFlow.getFlows()) || [];
+      fs.forEach(function (f) {
+        var st = f.status === 'done' ? '已办结' : f.status === 'terminated' ? '已终止' : '进行中';
+        out.push({ g: '流程', ic: '⚡', t: f.title || '未命名流程', s: st, fn: function () { openFlow(f.id); } });
+      });
+    } catch (e) { }
+    return out;
+  }
+
+  function build() {
+    if (built) return;
+    built = true;
+    ov = document.createElement('div');
+    ov.className = 'cmdk-mask';
+    ov.innerHTML = '<div class="cmdk"><div class="cmdk-in"><span class="mg">🔍</span>'
+      + '<input id="cmdkInput" placeholder="搜模块、体系文件、检验记录、流程…（↑↓ 选择，Enter 打开）" autocomplete="off">'
+      + '<span class="kbd">Esc</span></div><div class="cmdk-res" id="cmdkRes"></div>'
+      + '<div class="cmdk-foot"><span>↑↓ 选择</span><span>Enter 打开</span><span>Esc 关闭</span></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    inp = ov.querySelector('#cmdkInput'); resEl = ov.querySelector('#cmdkRes');
+    inp.addEventListener('input', function () { search(inp.value); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+      else if (e.key === 'Enter') { e.preventDefault(); run(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+  }
+  function close() { if (ov) ov.style.display = 'none'; }
+  function open() {
+    build(); ov.style.display = 'flex'; inp.value = ''; search(''); setTimeout(function () { inp.focus(); }, 30);
+  }
+  function score(t, q) {
+    t = String(t || '').toLowerCase();
+    if (!q) return 1;
+    var i = t.indexOf(q);
+    if (i === 0) return 100; if (i > 0) return 60 - Math.min(i, 40);
+    return 0;
+  }
+  function search(q) {
+    q = String(q || '').trim().toLowerCase();
+    var all = (window.__cmdkCache || (window.__cmdkCache = srcPages().concat(srcModules(), srcDocs(), srcInsp(), srcFlows())));
+    var hit = [];
+    for (var i = 0; i < all.length && hit.length < 46; i++) {
+      var it = all[i], sc = Math.max(score(it.t, q), q ? score(it.s, q) * 0.6 : 1);
+      if (sc > 0) hit.push({ it: it, sc: sc });
+    }
+    if (q) hit.sort(function (a, b) { return b.sc - a.sc; });
+    var groups = [], seen = {};
+    hit.forEach(function (h) {
+      var g = h.it.g;
+      if (!seen[g]) { seen[g] = { g: g, arr: [] }; groups.push(seen[g]); }
+      if (seen[g].arr.length < 6) seen[g].arr.push(h.it);
+    });
+    if (!groups.length) { resEl.innerHTML = '<div class="cmdk-none">没找到匹配项</div>'; rows = []; sel = 0; return; }
+    var h2 = '', k = 0; rows = [];
+    groups.forEach(function (G) {
+      h2 += '<div class="cmdk-g">' + esc(G.g) + '</div>';
+      G.arr.forEach(function (it) {
+        h2 += '<div class="cmdk-i" data-i="' + k + '"><span class="ic2">' + esc(it.ic || '•') + '</span>'
+          + '<span class="tt">' + esc(it.t) + '</span><span class="ss">' + esc(it.s || '') + '</span></div>';
+        rows.push(it); k++;
+      });
+    });
+    resEl.innerHTML = h2; sel = 0; paint();
+  }
+  function paint() {
+    var els = resEl.querySelectorAll('.cmdk-i');
+    for (var i = 0; i < els.length; i++) els[i].classList.toggle('on', i === sel);
+    if (els[sel]) { try { els[sel].scrollIntoView({ block: 'nearest' }); } catch (e) { } }
+  }
+  function move(d) { if (!rows.length) return; sel = (sel + d + rows.length) % rows.length; paint(); }
+  function run() { var it = rows[sel]; if (!it) return; close(); try { it.fn(); } catch (e) { } }
+  resEl = null;
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest ? e.target.closest('.cmdk-i') : null;
+    if (el && el.parentNode && el.parentNode.className === 'cmdk-res') { var i = +el.getAttribute('data-i'); if (rows[i]) { close(); try { rows[i].fn(); } catch (err) { } } }
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'k') { e.preventDefault(); open(); }
+    else if (e.key === 'Escape' && ov && ov.style.display !== 'none') close();
+  });
+  window.Cmdk = { open: open, close: close };
+})();
 
 function filterByStatus(status) {
   // 跳转到异常处理模块并筛选
@@ -5299,7 +5690,7 @@ window.onerror = function(msg, url, line, col, error) {
 };
 </script>
 <script src="gls-erp.js?v=20"></script>
-<script src="gls-flow.js?v=4"></script>
+<script src="gls-flow.js?v=5"></script>
 <script src="gls-erp-core.js?v=26"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="xlsx.full.min.js?v=1"></script>
