@@ -3104,7 +3104,18 @@ function sfFvRender(fid) {
       box.innerHTML = '<div class="fv-note">原文件已不在本机浏览器里（换过浏览器或被清理过）。<br>可点「✏️ 编辑内容」手动录入，或重新上传一次。</div>';
       return null;
     }
-    return FV.render(rec).then(function (r) {
+    var _rp = (rec.snap && rec.snapKind === 'html')
+      ? Promise.resolve({ kind: 'html', html: rec.snap })
+      : FV.render(rec).then(function (r0) {
+          try {
+            if (r0 && r0.kind === 'html' && r0.html && r0.html.length <= 3000000) {
+              rec.snap = r0.html; rec.snapKind = 'html'; rec.snapAt = Date.now();
+              FV.put(rec);
+            }
+          } catch (e) { }
+          return r0;
+        });
+    return _rp.then(function (r) {
       var b = document.getElementById('sfFvBox');
       if (!b) return;
       var bar = '<div class="fv-bar">'
@@ -3265,9 +3276,10 @@ function sfSaveItem(mode, key) {
     var _fid = FV.uid();
     ov.fileIds = ov.fileIds || {};
     ov.fileIds[name] = { fid: _fid, fn: _pf.name };
-    FV.put({ id: _fid, name: _pf.name, type: _pf.type || '', size: _pf.size, mtime: Date.now(),
-             ext: (_pf.name.split('.').pop() || '').toLowerCase(), blob: _pf })
-      .then(function () { sfToast('原文件已原样存入本机：' + _pf.name); })
+    sfNormStore(_fid, _pf)
+      .then(function (res) {
+        sfToast('原文件已按原样存入：' + _pf.name + (res && res.info ? '（' + res.info + '）' : ''), !!(res && res.ok));
+      })
       .catch(function (e) { sfToast('原文件保存失败：' + ((e && e.message) || e), false); });
   }
   sfSaveOv(ov); sfCloseDlg();
@@ -3709,11 +3721,10 @@ function sfFallbackOpen(name, path, lv) {
   sfShowLocal(name, path, lv);
 }
 
-/* 日期序列值（Excel 1900 制）→ 2026-03-01 */
+/* 日期序列值（Excel 1900 制）→ 2026/3/1（跟原件自己的 yyyy/m/d 样式一致） */
 function sfSerialDate(n) {
   var d = new Date(Date.UTC(1899, 11, 30) + Math.round(Number(n)) * 86400000);
-  var m = d.getUTCMonth() + 1, dd = d.getUTCDate();
-  return d.getUTCFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (dd < 10 ? '0' : '') + dd;
+  return d.getUTCFullYear() + '/' + (d.getUTCMonth() + 1) + '/' + d.getUTCDate();
 }
 
 /* 全文视图按原件规则还原：整行合并的标题行合并回去、日期列把序列值变日期
@@ -3949,16 +3960,56 @@ function sfShowLocal(name, path, lv) {
   document.body.appendChild(d);
 }
 
+/* 上传即调节好：原文件存下来的同时就解析一遍，把「原样画面」存成快照；
+   以后点开 / 打印直接用快照，不再临时猜格式；解析不了当场就说清楚 */
+function sfSnapInfo(r) {
+  if (!r) return '';
+  if (r.kind === 'html') {
+    var box = document.createElement('div'); box.innerHTML = r.html || '';
+    var tb = box.getElementsByTagName('table')[0];
+    if (tb) {
+      var rows = tb.rows.length, cols = 0, mg = box.querySelectorAll('td[colspan],td[rowspan]').length;
+      var c0 = tb.rows[0];
+      if (c0) for (var c = 0; c < c0.cells.length; c++) cols += (c0.cells[c].colSpan || 1);
+      return '表格 ' + rows + ' 行 × ' + cols + ' 列' + (mg ? '，含合并单元格 ' + mg + ' 处' : '');
+    }
+    return ((box.textContent || '').replace(/\s+/g, '').length) + ' 字';
+  }
+  if (r.kind === 'pdf') return 'PDF 按原样内嵌显示';
+  if (r.kind === 'img') return '图片按原样显示';
+  return '';
+}
+function sfNormStore(fid, file) {
+  var rec = { id: fid, name: file.name, type: file.type || '', size: file.size, mtime: Date.now(),
+              ext: (file.name.split('.').pop() || '').toLowerCase(), blob: file };
+  return FV.put(rec).then(function () {
+    return FV.render(rec).then(function (r) {
+      var info = sfSnapInfo(r);
+      try {
+        if (r && r.kind === 'html' && r.html && r.html.length <= 3000000) {
+          rec.snap = r.html; rec.snapKind = 'html'; rec.snapAt = Date.now();
+          FV.put(rec);
+          return { ok: true, info: info };
+        }
+        rec.snapKind = (r && r.kind) || 'other'; rec.snapAt = Date.now();
+        FV.put(rec);
+        return { ok: false, info: info || '这种格式浏览器不能还原画面，原文件已原样存好' };
+      } catch (e) { return { ok: true, info: info }; }
+    }).catch(function (e) {
+      return { ok: false, info: '解析不了（原文件已原样存好，可下载用 WPS 打开）' };
+    });
+  });
+}
+
 /* 在这个弹窗里直接补上原文件（1:1 原样存本机，随即可看可打印） */
 function sfLocalPick(name, lv, inp) {
   var f = inp && inp.files && inp.files[0];
   if (!f) return;
   var fid = FV.uid();
   sfSetFileId(name, fid, f.name);
-  FV.put({ id: fid, name: f.name, type: f.type || '', size: f.size, mtime: Date.now(),
-           ext: (f.name.split('.').pop() || '').toLowerCase(), blob: f })
-    .then(function () {
-      sfToast('原文件已原样存入本机：' + f.name);
+  sfNormStore(fid, f)
+    .then(function (res) {
+      sfToast('原文件已按原样存入：' + f.name + (res && res.info ? '（' + res.info + '）' : ''), !!(res && res.ok));
       var o = document.getElementById('sfLocalDlg'); if (o) o.remove();
       sfOpenSysDoc(name, { h: '' }, lv);
       try { sfRefresh(); } catch (e) { }
@@ -5262,7 +5313,7 @@ window.onerror = function(msg, url, line, col, error) {
 <script src="gls-live-notify.js?v=1"></script>
   <script src="gls-smartimport.js?v=4"></script>
   <script src="gls-backup.js?v=2"></script>
-<script src="gls-fileview.js?v=3"></script>
+<script src="gls-fileview.js?v=4"></script>
 <script>setTimeout(function(){var l=document.getElementById('glsLoader');if(l&&l.style.display!=='none')l.style.display='none';},15000);</script>
 <script>
 /* 所有依赖脚本（INSP/ERP/PQS 等）已同步加载完毕，直接初始化 */
