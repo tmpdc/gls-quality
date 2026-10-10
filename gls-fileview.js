@@ -629,7 +629,9 @@
         + '若要在网页里看内容，建议在 WPS 里另存为 <b>.xlsx</b> 再上传。</div>');
     }
     return blob.arrayBuffer().then(function (ab) {
-      var wb = XLSX.read(new Uint8Array(ab), { type: 'array', cellStyles: false, cellDates: true });
+      var wb;
+      try { wb = XLSX.read(new Uint8Array(ab), { type: 'array', cellStyles: true, cellDates: true }); }
+      catch (e) { wb = XLSX.read(new Uint8Array(ab), { type: 'array', cellStyles: false, cellDates: true }); }
       var names = wb.SheetNames || [];
       if (!names.length) return '<p style="color:#888">未找到工作表</p>';
       var panes = names.map(function (nm, i) {
