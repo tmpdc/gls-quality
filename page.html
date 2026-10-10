@@ -5302,7 +5302,13 @@ window.onerror = function(msg, url, line, col, error) {
 <script src="gls-flow.js?v=4"></script>
 <script src="gls-erp-core.js?v=26"></script>
 <script src="pqs-data.js?v=2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="xlsx.full.min.js?v=1"></script>
+<script>/* 站内没起来才去 CDN 兜底（国内 CDN 时常不通） */
+if (typeof window.XLSX === 'undefined') {
+  var _xs = document.createElement('script');
+  _xs.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  document.head.appendChild(_xs);
+}</script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="gls-inspect.js?v=8"></script>
 <script src="gls-pqs.js?v=2"></script>
