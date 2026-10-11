@@ -1010,6 +1010,16 @@ body{background:var(--nbg);color:var(--ink)}
 .card2-h{padding:11px 13px}
 .card2-b{padding:12px 13px}
 }
+/* —— 流转醒目层：当前环节色块 / 详情横幅 / 关联业务信息 —— */
+.flow-card .fc-node{font-weight:700;color:#1d4ed8;background:#eaf1ff;padding:2px 10px;border-radius:999px;display:inline-block;font-size:13px}
+.fh-cur{font-size:15px;background:#eef4ff;border-left:4px solid #1d4ed8;color:#1e2a44;padding:12px 14px;border-radius:10px}
+.fh-cur b{font-size:20px;color:#1d4ed8}
+.fh-cur-dot{background:#1d4ed8;width:9px;height:9px;box-shadow:0 0 0 4px rgba(29,78,216,.18)}
+.fh-item{border:1px solid #e3e9f5;border-radius:10px;padding:11px 13px;margin-top:10px;background:#fbfcff}
+.fh-item-h{font-weight:700;font-size:13px;color:#1e2a44;margin-bottom:8px}
+.fh-item-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:5px 16px;font-size:12.5px;color:#3c4657}
+.fh-item-k{color:#8a94a6;margin-right:6px}
+.fbox-s{font-size:13px;color:#33405c}
 /* —— 新版命令面板（Ctrl+K） —— */
 .cmdk-mask{position:fixed;inset:0;background:rgba(15,23,42,.44);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:12vh 16px 16px;backdrop-filter:blur(2px)}
 .cmdk{width:100%;max-width:620px;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(15,23,42,.34);overflow:hidden;display:flex;flex-direction:column;max-height:70vh}
@@ -5754,7 +5764,7 @@ window.onerror = function(msg, url, line, col, error) {
 };
 </script>
 <script src="gls-erp.js?v=20"></script>
-<script src="gls-flow.js?v=5"></script>
+<script src="gls-flow.js?v=6"></script>
 <script src="gls-erp-core.js?v=26"></script>
 <script src="pqs-data.js?v=2"></script>
 <script src="xlsx.full.min.js?v=1"></script>
