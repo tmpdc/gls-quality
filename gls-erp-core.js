@@ -383,12 +383,14 @@
     /* ---------- 生产 ---------- */
     mo: {
       key: 'mo', name: '生产工单', icon: '🏭', group: '生产管理', prefix: 'MO',
-      desc: '工单下达、数量、进度',
+      desc: '工单下达、数量、进度、优先级（黑湖小工单式）',
       fields: [
         { k: 'code', label: '工单号', type: 'text', req: true, auto: true, w: '140px' },
         { k: 'product', label: '生产产品', type: 'ref', ref: 'material', req: true },
         { k: 'planQty', label: '计划数量', type: 'number', req: true },
         { k: 'doneQty', label: '完成数量', type: 'number' },
+        { k: 'curProcess', label: '当前工序', type: 'text', tip: '由报工自动推进，也可手动调整' },
+        { k: 'priority', label: '优先级', type: 'select', opts: ['普通', '加急', '已暂停'], def: '普通', w: '90px' },
         { k: 'soCode', label: '关联订单', type: 'ref', ref: 'so' },
         { k: 'startDate', label: '开工日期', type: 'date', def: 'today' },
         { k: 'dueDate', label: '完工日期', type: 'date' },
@@ -396,6 +398,64 @@
         { k: 'status', label: '状态', type: 'select', opts: ['待下达', '待料', '待生产', '生产中', '已完工', '已关闭'], def: '待下达' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
+    },
+    process: {
+      key: 'process', name: '工序路线', icon: '🧭', group: '生产管理', prefix: 'PC',
+      desc: '产品工艺路线：工序顺序、工价（黑湖式：计件/计时）',
+      fields: [
+        { k: 'code', label: '路线编号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'product', label: '产品', type: 'ref', ref: 'material', req: true, w: '170px' },
+        { k: 'seq', label: '工序序号', type: 'number', req: true, w: '70px', tip: '1=第一道，报工按此顺序校验前序完工' },
+        { k: 'name', label: '工序名称', type: 'text', req: true, w: '120px' },
+        { k: 'line', label: '生产线别', type: 'select', dict: '生产线别', w: '90px' },
+        { k: 'stdHours', label: '标准工时(分/件)', type: 'number', w: '100px' },
+        { k: 'priceType', label: '工资类型', type: 'select', opts: ['计件', '计时'], def: '计件', w: '80px' },
+        { k: 'price', label: '工价/时薪(元)', type: 'number', w: '90px', tip: '计件=每件元；计时=每小时元' },
+        { k: 'isInsp', label: '检验工序', type: 'select', opts: ['否', '是'], def: '否', w: '80px' },
+        { k: 'remark', label: '备注', type: 'textarea' }
+      ]
+    },
+    dispatch: {
+      key: 'dispatch', name: '派工任务', icon: '📋', group: '生产管理', prefix: 'DP',
+      desc: '班组长派工：工单+工序+员工+计划数（黑湖式快速派发）',
+      fields: [
+        { k: 'code', label: '派工单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'moCode', label: '关联工单', type: 'ref', ref: 'mo', req: true,
+          fill: { from: 'mo', items: null, map: { product: 'product', planQty: 'planQty', curProcess: 'curProcess' } },
+          tip: '选择生产工单后自动带出产品与计划数量' },
+        { k: 'process', label: '工序', type: 'text', w: '110px', tip: '手工填或按工序路线' },
+        { k: 'worker', label: '派工员工', type: 'select', dict: '人员', req: true },
+        { k: 'planQty', label: '派工数量', type: 'number', req: true },
+        { k: 'dispatchDate', label: '派工日期', type: 'date', def: 'today' },
+        { k: 'status', label: '状态', type: 'select', opts: ['待开工', '进行中', '已完工'], def: '待开工' },
+        { k: 'remark', label: '备注', type: 'textarea' }
+      ]
+    },
+    workReport: {
+      key: 'workReport', name: '生产报工', icon: '🔨', group: '生产管理', prefix: 'WR', view: 'workreport',
+      desc: '黑湖式扫码报工：按工单+工序报工，自动校验前序完工/防超额，联动工单进度与绩效',
+      fields: [
+        { k: 'code', label: '报工单号', type: 'text', req: true, auto: true, w: '140px' },
+        { k: 'moCode', label: '工单号', type: 'ref', ref: 'mo', req: true },
+        { k: 'process', label: '工序', type: 'text', req: true, w: '110px' },
+        { k: 'product', label: '产品', type: 'text', w: '140px' },
+        { k: 'worker', label: '报工人', type: 'select', dict: '人员', req: true },
+        { k: 'rptDate', label: '报工日期', type: 'date', def: 'today' },
+        { k: 'okQty', label: '合格数量', type: 'number', req: true, w: '90px' },
+        { k: 'badQty', label: '不良数量', type: 'number', w: '90px' },
+        { k: 'hours', label: '工时(时)', type: 'number', w: '80px' },
+        { k: 'priceType', label: '工资类型', type: 'select', opts: ['计件', '计时'], w: '80px' },
+        { k: 'price', label: '工价快照(元)', type: 'number', w: '90px', tip: '提交时自动取自工序路线，留痕不变' },
+        { k: 'remark', label: '备注', type: 'textarea' }
+      ]
+    },
+    payroll: {
+      key: 'payroll', name: '绩效工资', icon: '💰', group: '生产管理', prefix: 'PY', view: 'payroll',
+      desc: '黑湖式绩效工资：按报工数据自动汇总计件/计时工资（只读）'
+    },
+    moboard: {
+      key: 'moboard', name: '生产看板', icon: '🖥️', group: '生产管理', prefix: '', view: 'moboard',
+      desc: '黑湖式生产进度看板：泳道展示、交期预警、当前工序'
     },
     moPick: {
       key: 'moPick', name: '生产领料', icon: '📤', group: '生产管理', prefix: 'PK',
@@ -449,7 +509,7 @@
     { name: '销售管理', icon: '📝', keys: ['so', 'soShip', 'soReturn'] },
     { name: '采购管理', icon: '🛒', keys: ['pr', 'po', 'poRecv'] },
     { name: '仓储管理', icon: '🏬', keys: ['stockIn', 'stockOut', 'stockCheck'], extras: ['stock'] },
-    { name: '生产管理', icon: '🏭', keys: ['mo', 'moPick', 'moIn'] },
+    { name: '生产管理', icon: '🏭', keys: ['moboard', 'mo', 'process', 'dispatch', 'workReport', 'moPick', 'moIn', 'payroll'] },
     { name: '品质检验', icon: '🔬', custom: [
       { name: '进料检验', desc: 'IQC 来料检验记录', icon: '📥', click: "BIZFLOW_UI.goInsp('IQC')" },
       { name: '首件检验', desc: 'FIRST 首件确认', icon: '✅', click: "BIZFLOW_UI.goInsp('FIRST')" },
@@ -759,6 +819,9 @@
       if (window.echarts) setTimeout(function () { ERP.renderCharts(); }, 80);
       return;
     }
+    if (ent.view === 'moboard') { box.innerHTML = barHtml(ent) + ERP.moBoardView(); return; }
+    if (ent.view === 'workreport') { box.innerHTML = barHtml(ent) + ERP.workReportView(); return; }
+    if (ent.view === 'payroll') { box.innerHTML = barHtml(ent) + ERP.payrollView(); return; }
 
     var rows = listOf(key), kw = (ERP.kw || '').trim();
     if (kw) {
@@ -834,6 +897,401 @@
     }
     html += '</tbody></table></div>';
     box.innerHTML = html;
+  };
+
+  /* ==================== 黑湖式生产管理：看板 / 报工 / 绩效（与现有 ERP 数据融合） ==================== */
+  function today() {
+    var d = new Date();
+    var p2 = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+  }
+  /* 工序路线：按产品返回按 seq 排序的工序列表（数据源：工序路线模块，界面可增删改） */
+  function routeOf(product) {
+    var arr = listOf('process') || [];
+    var out = [];
+    arr.forEach(function (p) {
+      if (String(p.product || '').trim() === String(product || '').trim()) out.push(p);
+    });
+    out.sort(function (a, b) { return num(a.seq) - num(b.seq); });
+    return out;
+  }
+  /* 某工单某工序累计合格数（以报工记录为唯一事实） */
+  function procDone(moCode, procName) {
+    var sum = 0;
+    (listOf('workReport') || []).forEach(function (r) {
+      if (String(r.moCode || '') === String(moCode || '') && String(r.process || '') === String(procName || '')) sum += num(r.okQty);
+    });
+    return sum;
+  }
+  function moFind(code) {
+    var arr = listOf('mo') || [];
+    for (var i = 0; i < arr.length; i++) if (String(arr[i].code || '').toLowerCase() === String(code || '').toLowerCase()) return arr[i];
+    return null;
+  }
+  function matName(code) {
+    var arr = listOf('material') || [];
+    for (var i = 0; i < arr.length; i++) if (String(arr[i].code || '').toLowerCase() === String(code || '').toLowerCase()) return arr[i].name || code;
+    return code;
+  }
+  function personOpts() {
+    var arr = [];
+    try { arr = ERP.dictOptions ? ERP.dictOptions({ dict: '人员' }) : []; } catch (e) { arr = []; }
+    var h = '<option value="">选择报工人…</option>';
+    arr.forEach(function (x) { h += '<option value="' + escAttr(x) + '">' + escHtml(x) + '</option>'; });
+    return h;
+  }
+  /* 按报工记录重算工单：完成数 / 当前工序 / 状态（黑湖式：报工联动进度） */
+  ERP.recalcMo = function (moCode) {
+    var mo = moFind(moCode);
+    if (!mo) return;
+    var route = routeOf(mo.product);
+    if (!route.length) {
+      var s = 0;
+      (listOf('workReport') || []).forEach(function (r) { if (String(r.moCode || '') === String(moCode || '')) s += num(r.okQty); });
+      mo.doneQty = s;
+      if (mo.status !== '已完工' && mo.status !== '已关闭') mo.status = (s >= num(mo.planQty)) ? '已完工' : (s > 0 ? '生产中' : mo.status);
+      mo.curProcess = '';
+      return;
+    }
+    var plan = num(mo.planQty);
+    mo.doneQty = procDone(moCode, route[route.length - 1].name);
+    var next = '';
+    route.forEach(function (p) { if (!next && procDone(moCode, p.name) < plan) next = p.name; });
+    mo.curProcess = next;
+    if (!next) mo.status = '已完工';
+    else if (mo.status === '待下达' || mo.status === '待料' || mo.status === '待生产') mo.status = '生产中';
+  };
+  function dueState(mo) {
+    if (!mo || !mo.dueDate) return '';
+    if (mo.status === '已完工' || mo.status === '已关闭') return '';
+    var diff = Math.ceil((new Date(mo.dueDate) - new Date()) / 86400000);
+    if (diff < 0) return 'over';
+    if (diff <= 2) return 'soon';
+    return '';
+  }
+  function dueTag(mo) {
+    var st = dueState(mo);
+    if (st === 'over') return '<span class="erp-tag" style="background:#fee2e2;color:#b91c1c">逾期</span>';
+    if (st === 'soon') return '<span class="erp-tag" style="background:#fef3c7;color:#b45309">临期</span>';
+    return '';
+  }
+  function priTag(mo) {
+    var p = mo.priority || '普通';
+    if (p === '加急') return '<span class="erp-tag" style="background:#ffedd5;color:#c2410c">加急</span>';
+    if (p === '已暂停') return '<span class="erp-tag" style="background:#f3f4f6;color:#6b7280">已暂停</span>';
+    return '<span class="erp-tag" style="background:#e8f5ec;color:#1f5a38">普通</span>';
+  }
+  /* 缺料计算：BOM 应领（计划×单台用量）vs 已领（生产领料单累计） */
+  function matMiss(mo) {
+    var need = {}, picked = {};
+    if (!mo) return [];
+    var plan = num(mo.planQty);
+    (listOf('bom') || []).forEach(function (b) {
+      if (String(b.product || '').trim() !== String(mo.product || '').trim()) return;
+      (b.items || []).forEach(function (it) {
+        if (!it || !it.code) return;
+        need[it.code] = (need[it.code] || 0) + num(it.qty) * plan;
+      });
+    });
+    (listOf('moPick') || []).forEach(function (pk) {
+      if (String(pk.moCode || '') !== String(mo.code || '')) return;
+      (pk.items || []).forEach(function (it) {
+        if (!it || !it.code) return;
+        picked[it.code] = (picked[it.code] || 0) + num(it.qty);
+      });
+    });
+    var miss = [];
+    Object.keys(need).forEach(function (c) {
+      var n = need[c], g = picked[c] || 0;
+      if (g < n) miss.push({ code: c, name: matName(c), need: n, got: g });
+    });
+    return miss;
+  }
+  /* ---------- 生产看板（黑湖式泳道 + 交期预警） ---------- */
+  ERP.moBoardView = function () {
+    var mos = listOf('mo') || [];
+    var lanes = ['待下达', '待料', '待生产', '生产中', '已完工', '已关闭'];
+    var doing = 0, over = 0, urgent = 0, reports = 0;
+    mos.forEach(function (m) {
+      if (m.status && m.status !== '已完工' && m.status !== '已关闭') doing++;
+      if ((m.priority || '') === '加急' && m.status !== '已完工' && m.status !== '已关闭') urgent++;
+      if (dueState(m) === 'over') over++;
+    });
+    try { reports = (listOf('workReport') || []).length; } catch (e) {}
+    function statCard(label, val, color) {
+      return '<div style="flex:1;min-width:130px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">' +
+        '<div style="font-size:12px;color:#6b7280">' + label + '</div>' +
+        '<div style="font-size:24px;font-weight:800;color:' + color + '">' + val + '</div></div>';
+    }
+    var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
+      statCard('在制工单', doing, '#1d4ed8') +
+      statCard('逾期工单', over, '#dc2626') +
+      statCard('加急工单', urgent, '#ea580c') +
+      statCard('累计报工', reports, '#16a34a') +
+      '</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">';
+    lanes.forEach(function (lane) {
+      var inLane = [];
+      mos.forEach(function (m) { if (m.status === lane) inLane.push(m); });
+      html += '<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<b style="font-size:14px;color:#111827">' + lane + '</b>' +
+        '<span style="background:#eef2f7;border-radius:10px;padding:1px 9px;font-size:12px;color:#4b5563">' + inLane.length + '</span></div>';
+      if (!inLane.length) html += '<div class="erp-empty" style="padding:14px 0">暂无</div>';
+      inLane.forEach(function (m) {
+        var plan = num(m.planQty), done = num(m.doneQty);
+        var pct = plan ? Math.min(100, Math.round(done / plan * 100)) : 0;
+        html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:8px">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">' +
+          '<b style="font-size:13px;color:#111827">' + escHtml(m.code || '') + '</b>' +
+          '<span>' + priTag(m) + dueTag(m) + '</span></div>';
+        html += '<div style="font-size:12px;color:#374151;margin-top:3px">' + escHtml(matName(m.product)) + '</div>';
+        html += '<div style="margin-top:6px;height:6px;background:#eef2f7;border-radius:3px;overflow:hidden">' +
+          '<div style="height:100%;width:' + pct + '%;background:' + (pct >= 100 ? '#16a34a' : pct >= 50 ? '#eab308' : '#3b82f6') + '"></div></div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:11.5px;color:#6b7280;margin-top:4px">' +
+          '<span>完成 ' + done + ' / ' + plan + '</span><span>' + pct + '%</span></div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:11.5px;color:#6b7280;margin-top:2px">' +
+          '<span>当前工序：' + escHtml(m.curProcess || '—') + '</span>' +
+          (m.dueDate ? '<span>交期 ' + escHtml(m.dueDate) + '</span>' : '<span></span>') + '</div>';
+        html += '<div style="display:flex;gap:6px;margin-top:8px">' +
+          '<span class="erp-op" onclick="ERP.openMoEdit(\'' + m.id + '\')">编辑</span>' +
+          '<span class="erp-op" style="background:#1f5a38;color:#fff" onclick="ERP.openWorkReport(\'' + m.code + '\')">报工</span>' +
+          '</div></div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  };
+  ERP.openMoNew = function () { ERP.current = 'mo'; ERP.openForm(); };
+  ERP.openMoEdit = function (id) { ERP.current = 'mo'; ERP.openForm(id); };
+  ERP.gotoMoList = function () { ERP.openList('mo'); };
+  /* ---------- 报工台（黑湖式：选工单→选工序→报工→联动） ---------- */
+  ERP.openWorkReport = function (moCode) {
+    ERP.current = 'workReport';
+    ERP.wrMo = moCode || ERP.wrMo || '';
+    ERP.renderList();
+  };
+  ERP.wrSetMo = function (code) {
+    ERP.wrMo = code;
+    var mo = moFind(code);
+    var pc = $('wrProduct');
+    if (pc) pc.value = mo ? (mo.product || '') : '';
+    var sel = $('wrProcess');
+    if (sel) {
+      var h = '<option value="">选择工序…</option>';
+      if (mo) {
+        routeOf(mo.product).forEach(function (p) {
+          h += '<option value="' + escAttr(p.name) + '" data-price="' + escAttr(p.price) + '" data-ptype="' + escAttr(p.priceType) + '">' +
+            escHtml(p.name) + '（' + escHtml(p.priceType || '') + ' ' + escHtml(p.price || '') + '元）</option>';
+        });
+      }
+      sel.innerHTML = h;
+    }
+  };
+  ERP.wrSetProcess = function () {
+    var sel = $('wrProcess');
+    if (!sel || !sel.selectedOptions || !sel.selectedOptions[0]) return;
+    var opt = sel.selectedOptions[0];
+    var pt = $('wrPriceType'), pv = $('wrPrice');
+    var ptype = opt.getAttribute('data-ptype'), price = opt.getAttribute('data-price');
+    if (pt) pt.value = ptype || '';
+    if (pv) pv.value = price || '';
+  };
+  ERP.submitWorkReport = function () {
+    var moCode = ($('wrMo') || {}).value || '';
+    var process = ($('wrProcess') || {}).value || '';
+    var worker = ($('wrWorker') || {}).value || '';
+    var okQty = num(($('wrOk') || {}).value);
+    var badQty = num(($('wrBad') || {}).value);
+    var hours = num(($('wrHours') || {}).value);
+    var rptDate = ($('wrDate') || {}).value || today();
+    var remark = ($('wrRemark') || {}).value || '';
+    if (!moCode || !process) { toast('请选择工单和工序', false); return; }
+    if (!worker) { toast('请选择报工人', false); return; }
+    if (okQty <= 0 && badQty <= 0) { toast('请填写报工数量', false); return; }
+    var mo = moFind(moCode);
+    if (!mo) { toast('工单不存在', false); return; }
+    var route = routeOf(mo.product);
+    var p = null;
+    route.forEach(function (x) { if (x.name === process) p = x; });
+    if (!p) { toast('该产品未配置工序「' + process + '」，请先在「工序路线」里添加', false); return; }
+    var plan = num(mo.planQty);
+    /* 防超额 */
+    var done = procDone(moCode, process);
+    if (done + okQty > plan) { toast('报工超量：该工序已完成 ' + done + ' 件，本次最多报 ' + Math.max(0, plan - done), false); return; }
+    /* 前序完工校验（黑湖式：前道完工才能报后道） */
+    var seq = num(p.seq);
+    if (seq > 1) {
+      var missPrev = '';
+      route.forEach(function (x) {
+        if (num(x.seq) < seq && procDone(moCode, x.name) < plan) missPrev = x.name;
+      });
+      if (missPrev) { toast('前序工序「' + missPrev + '」尚未完工，不能报「' + process + '」', false); return; }
+    }
+    var d = getData();
+    if (!d.workReport) d.workReport = [];
+    d.workReport.push({
+      id: uid('wr'),
+      code: nextCode(ENTITIES.workReport),
+      moCode: moCode, process: process, product: mo.product || '',
+      worker: worker, rptDate: rptDate,
+      okQty: okQty, badQty: badQty, hours: hours,
+      priceType: p.priceType || '', price: num(p.price) || '',
+      remark: remark
+    });
+    /* 联动：工单进度 / 当前工序 / 状态 */
+    ERP.recalcMo(moCode);
+    save();
+    toast('报工成功：' + process + ' +' + okQty + ' 合格');
+    ERP.wrMo = moCode;
+    ERP.renderList();
+  };
+  ERP.delWorkReport = function (id) {
+    var arr = listOf('workReport') || [], idx = -1, moCode = '';
+    for (var i = 0; i < arr.length; i++) if (arr[i].id === id) { idx = i; moCode = arr[i].moCode || ''; break; }
+    if (idx < 0) return;
+    if (!confirm('删除该报工记录？工单进度与绩效将按剩余记录自动重算。')) return;
+    var d = getData();
+    if (d.workReport) d.workReport.splice(idx, 1);
+    if (moCode) ERP.recalcMo(moCode);
+    save();
+    ERP.renderList();
+    toast('已删除并重算工单进度');
+  };
+  /* ---------- 报工台视图 ---------- */
+  ERP.workReportView = function () {
+    var mos = listOf('mo') || [];
+    var html = '<div style="display:grid;grid-template-columns:minmax(320px,460px) 1fr;gap:16px;align-items:start">';
+    html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">';
+    html += '<div style="font-size:15px;font-weight:700;color:#111827">🛠 现场报工</div>';
+    html += '<div style="font-size:12px;color:#6b7280;margin:4px 0 12px">选工单 → 选工序 → 填数量提交；自动校验前序完工、防超额，联动工单进度与绩效工资</div>';
+    html += '<label style="font-size:12.5px;color:#374151">工单</label>' +
+      '<select id="wrMo" style="width:100%;margin-bottom:8px;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" onchange="ERP.wrSetMo(this.value)">' +
+      '<option value="">选择工单…</option>';
+    mos.forEach(function (m) {
+      if (m.status === '已完工' || m.status === '已关闭') return;
+      html += '<option value="' + escAttr(m.code) + '"' + (ERP.wrMo === m.code ? ' selected' : '') + '>' +
+        escHtml(m.code) + '　' + escHtml(matName(m.product)) + '（' + escHtml(m.status || '') + '）</option>';
+    });
+    html += '</select>';
+    var preMo = ERP.wrMo ? moFind(ERP.wrMo) : null;
+    var preRoute = preMo ? routeOf(preMo.product) : [];
+    var preProc = preMo ? (preMo.curProcess || (preRoute.length ? preRoute[0].name : '')) : '';
+    var preP = null;
+    preRoute.forEach(function (pp) { if (pp.name === preProc) preP = pp; });
+    html += '<label style="font-size:12.5px;color:#374151">产品</label>' +
+      '<input id="wrProduct" style="width:100%;margin-bottom:8px;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" readonly value="' + escAttr(preMo ? preMo.product : '') + '" placeholder="选择工单后自动带出">';
+    html += '<label style="font-size:12.5px;color:#374151">工序（按该产品工序路线，默认当前工序）</label>' +
+      '<select id="wrProcess" style="width:100%;margin-bottom:8px;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" onchange="ERP.wrSetProcess()"><option value="">选择工序…</option>';
+    preRoute.forEach(function (p) {
+      html += '<option value="' + escAttr(p.name) + '" data-price="' + escAttr(p.price) + '" data-ptype="' + escAttr(p.priceType) + '"' +
+        (preProc === p.name ? ' selected' : '') + '>' +
+        escHtml(p.name) + '（' + escHtml(p.priceType || '') + ' ' + escHtml(p.price || '') + '元）</option>';
+    });
+    html += '</select>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+      '<div style="flex:1"><label style="font-size:12.5px;color:#374151">工资类型</label><input id="wrPriceType" style="width:100%;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" readonly value="' + escAttr(preP ? preP.priceType : '') + '" placeholder="自动"></div>' +
+      '<div style="flex:1"><label style="font-size:12.5px;color:#374151">工价/时薪(元)</label><input id="wrPrice" style="width:100%;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" readonly value="' + escAttr(preP ? preP.price : '') + '" placeholder="自动"></div>' +
+      '</div>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+      '<div style="flex:1"><label style="font-size:12.5px;color:#374151">合格数量</label><input id="wrOk" type="number" style="width:100%;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></div>' +
+      '<div style="flex:1"><label style="font-size:12.5px;color:#374151">不良数量</label><input id="wrBad" type="number" style="width:100%;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></div>' +
+      '</div>';
+    html += '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+      '<div style="flex:1"><label style="font-size:12.5px;color:#374151">报工人</label><select id="wrWorker" style="width:100%;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">' + personOpts() + '</select></div>' +
+      '<div style="flex:1"><label style="font-size:12.5px;color:#374151">工时(时)</label><input id="wrHours" type="number" style="width:100%;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></div>' +
+      '</div>';
+    html += '<label style="font-size:12.5px;color:#374151">报工日期</label><input id="wrDate" type="date" style="width:100%;margin-bottom:8px;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" value="' + today() + '">';
+    html += '<label style="font-size:12.5px;color:#374151">备注</label><input id="wrRemark" style="width:100%;margin-bottom:12px;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">';
+    html += '<div class="erp-btn primary" style="width:100%;text-align:center;justify-content:center" onclick="ERP.submitWorkReport()">✓ 提交报工</div>';
+    if (ERP.wrMo) {
+      var miss = matMiss(moFind(ERP.wrMo));
+      if (miss.length) {
+        html += '<div style="margin-top:12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;font-size:12.5px;color:#b91c1c">' +
+          '<b>⚠ 物料缺口</b>（BOM 应领 vs 已领）：' +
+          miss.map(function (m) { return escHtml(m.name) + ' 差 ' + (m.need - m.got); }).join('；') + '</div>';
+      }
+    }
+    html += '</div>';
+    /* 右：报工记录（留痕） */
+    html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">';
+    var wr = listOf('workReport') || [];
+    html += '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:8px">报工记录（' + wr.length + ' 条，留痕可查）</div>';
+    html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
+      '<th style="min-width:110px">单号</th><th>工单</th><th>工序</th><th>产品</th><th>报工人</th><th>日期</th><th>合格</th><th>不良</th><th>工时</th><th>工价</th><th>工资</th><th>操作</th>' +
+      '</tr></thead><tbody>';
+    if (!wr.length) html += '<tr><td colspan="12" class="erp-empty">暂无报工记录</td></tr>';
+    wr.slice().reverse().forEach(function (r) {
+      var wage = r.priceType === '计时' ? num(r.hours) * num(r.price) : num(r.okQty) * num(r.price);
+      html += '<tr><td>' + escHtml(r.code) + '</td><td>' + escHtml(r.moCode) + '</td><td>' + escHtml(r.process) + '</td>' +
+        '<td>' + escHtml(matName(r.product)) + '</td><td>' + escHtml(r.worker) + '</td><td>' + escHtml(r.rptDate) + '</td>' +
+        '<td>' + escHtml(r.okQty) + '</td><td>' + escHtml(r.badQty) + '</td><td>' + escHtml(r.hours) + '</td>' +
+        '<td>' + escHtml(r.priceType || '') + ' ' + escHtml(r.price || '') + '</td><td>' + money(wage) + '</td>' +
+        '<td class="erp-ops"><span class="erp-op danger" onclick="ERP.delWorkReport(\'' + r.id + '\')">删除</span></td></tr>';
+    });
+    html += '</tbody></table></div></div></div>';
+    return html;
+  };
+  /* ---------- 绩效工资（黑湖式：按报工自动汇总，只读） ---------- */
+  ERP.payrollView = function () {
+    var wr = listOf('workReport') || [];
+    var byWorker = {}, byMo = {}, byProc = {};
+    var total = 0, piece = 0, timed = 0;
+    wr.forEach(function (r) {
+      var wage = r.priceType === '计时' ? num(r.hours) * num(r.price) : num(r.okQty) * num(r.price);
+      total += wage;
+      if (r.priceType === '计时') timed += wage; else piece += wage;
+      var w = byWorker[r.worker] = byWorker[r.worker] || { qty: 0, wage: 0, n: 0 };
+      w.qty += num(r.okQty) + num(r.badQty); w.wage += wage; w.n++;
+      var m = byMo[r.moCode] = byMo[r.moCode] || { qty: 0, wage: 0, n: 0 };
+      m.qty += num(r.okQty); m.wage += wage; m.n++;
+      var p = byProc[r.process] = byProc[r.process] || { qty: 0, wage: 0, n: 0 };
+      p.qty += num(r.okQty); p.wage += wage; p.n++;
+    });
+    function stat(label, val, color) {
+      return '<div style="flex:1;min-width:140px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">' +
+        '<div style="font-size:12px;color:#6b7280">' + label + '</div>' +
+        '<div style="font-size:22px;font-weight:800;color:' + color + '">' + val + '</div></div>';
+    }
+    var html = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
+      stat('应发工资合计(元)', money(total), '#111827') +
+      stat('计件工资(元)', money(piece), '#1d4ed8') +
+      stat('计时工资(元)', money(timed), '#ea580c') +
+      stat('报工记录数', wr.length, '#16a34a') +
+      '</div>';
+    function aggTable(title, obj, qtyLabel) {
+      var keys = Object.keys(obj).sort(function (a, b) { return obj[b].wage - obj[a].wage; });
+      var h = '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:14px">' +
+        '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:8px">' + title + '（' + keys.length + '）</div>';
+      h += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr><th>' + qtyLabel + '</th><th>完工数量</th><th>报工次数</th><th>工资合计(元)</th></tr></thead><tbody>';
+      if (!keys.length) h += '<tr><td colspan="4" class="erp-empty">暂无数据</td></tr>';
+      keys.forEach(function (k) {
+        var o = obj[k];
+        h += '<tr><td>' + escHtml(k) + '</td><td>' + o.qty + '</td><td>' + o.n + '</td><td>' + money(o.wage) + '</td></tr>';
+      });
+      h += '</tbody></table></div></div>';
+      return h;
+    }
+    html += aggTable('按报工人汇总', byWorker, '报工人');
+    html += aggTable('按工单汇总', byMo, '工单号');
+    html += aggTable('按工序汇总', byProc, '工序');
+    html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">' +
+      '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:8px">报工明细（' + wr.length + ' 条，最多显示 200 条）</div>';
+    html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
+      '<th>单号</th><th>工单</th><th>工序</th><th>报工人</th><th>日期</th><th>合格</th><th>不良</th><th>工时</th><th>工价</th><th>工资(元)</th>' +
+      '</tr></thead><tbody>';
+    var show = wr.slice(-200).reverse();
+    if (!show.length) html += '<tr><td colspan="10" class="erp-empty">暂无报工记录</td></tr>';
+    show.forEach(function (r) {
+      var wage = r.priceType === '计时' ? num(r.hours) * num(r.price) : num(r.okQty) * num(r.price);
+      html += '<tr><td>' + escHtml(r.code) + '</td><td>' + escHtml(r.moCode) + '</td><td>' + escHtml(r.process) + '</td>' +
+        '<td>' + escHtml(r.worker) + '</td><td>' + escHtml(r.rptDate) + '</td><td>' + escHtml(r.okQty) + '</td>' +
+        '<td>' + escHtml(r.badQty) + '</td><td>' + escHtml(r.hours) + '</td>' +
+        '<td>' + escHtml(r.priceType || '') + ' ' + escHtml(r.price || '') + '</td><td>' + money(wage) + '</td></tr>';
+    });
+    html += '</tbody></table></div></div>';
+    return html;
   };
 
   /* ---------- 物料档案：产品归集（一个物料可挂在多个产品下） ---------- */
@@ -964,7 +1422,9 @@
     var kw = escAttr(ERP.kw || '');
     return '<div class="erp-bar">' +
       '<div class="erp-btn back" onclick="ERP.openHome()">← 返回</div>' +
-      (ent.view ? '' :
+      (ent.view === 'moboard' ? '<div class="erp-btn primary" onclick="ERP.openMoNew()">＋ 新建工单</div>' :
+        ent.view === 'workreport' ? '<div class="erp-btn primary" onclick="ERP.openWorkReport()">＋ 新建报工</div>' :
+        ent.view === 'payroll' ? '' :
         '<input class="erp-search" id="erpKw" placeholder="搜索本模块…" value="' + kw + '" oninput="ERP.doSearch(this.value)">' +
         '<div class="erp-btn primary" onclick="ERP.openForm()">＋ 新增</div>') +
       '<div class="erp-btn" onclick="ERP.exportCurrent()">⬇ 导出 Excel</div>' +
