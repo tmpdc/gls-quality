@@ -170,10 +170,24 @@
     if (opts.silent !== true) SCAN.renderResult(code, res);
 
     if (res.kind === 'erp') {
+      /* 一次性回调模式：其他模块（如报工台）扫码后直接回填，不跳转 */
+      if (SCAN._cb) {
+        var cb = SCAN._cb;
+        SCAN._cb = null;
+        SCAN.close();
+        cb(res);
+        return;
+      }
       gotoErp(res.key);
       SCAN.highlightRow(res.row);
       toast('已定位：' + (res.ent ? res.ent.name : '') + ' ' + (res.row.code || ''));
     } else if (res.kind === 'open') {
+      if (SCAN._cb) {
+        SCAN._cb = null;
+        SCAN.close();
+        toast('未找到编号 ' + code + '，请先确认工单已建档');
+        return;
+      }
       gotoErp(res.key);
       toast('已打开：' + res.label + '（未找到编号 ' + code + '）');
     }
