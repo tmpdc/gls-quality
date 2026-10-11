@@ -1143,9 +1143,129 @@
     /* 联动：工单进度 / 当前工序 / 状态 */
     ERP.recalcMo(moCode);
     save();
-    toast('报工成功：' + process + ' +' + okQty + ' 合格');
+    var mrbRec = null;
+    if (badQty > 0) {
+      var lastWr = d.workReport[d.workReport.length - 1];
+      if (lastWr) mrbRec = ERP.autoMrbFromWorkReport(lastWr);
+    }
+    toast('报工成功：' + process + ' +' + okQty + ' 合格' + (mrbRec ? '；不良 ' + badQty + ' 件已生成评审单 ' + mrbRec.no : ''));
     ERP.wrMo = moCode;
     ERP.renderList();
+  };
+  /* ---------- 报工扫码：扫码枪 / 摄像头 / 二维码 ---------- */
+  ERP.wrScanEnter = function (e) {
+    if (e.key !== 'Enter') return;
+    var v = (($('wrScanCode') || {}).value || '').trim();
+    if (!v) return;
+    e.preventDefault();
+    ERP.pickMoByCode(v);
+  };
+  ERP.pickMoByCode = function (raw) {
+    var code = String(raw || '').trim();
+    if (!code) { toast('没有扫到内容', false); return; }
+    var mos = listOf('mo') || [];
+    var hit = null;
+    mos.forEach(function (m) {
+      if (m.status === '已完工' || m.status === '已关闭') return;
+      if (String(m.code).toUpperCase() === code.toUpperCase()) hit = m;
+    });
+    if (!hit) {
+      mos.forEach(function (m) {
+        if (hit || m.status === '已完工' || m.status === '已关闭') return;
+        if (String(m.code).toUpperCase().indexOf(code.toUpperCase()) >= 0) hit = m;
+      });
+    }
+    var inp = $('wrScanCode');
+    if (inp) inp.value = '';
+    if (!hit) { toast('未找到工单 ' + code + '，请确认工单已建档且未完工', false); return; }
+    ERP.wrMo = hit.code;
+    ERP.renderList();
+    toast('已选中工单：' + hit.code + '　' + matName(hit.product));
+  };
+  ERP.scanMo = function () {
+    if (typeof SCAN === 'undefined') { toast('扫码组件未加载', false); return; }
+    SCAN._cb = function (res) {
+      var row = res && res.row;
+      if (row && row.code) ERP.pickMoByCode(row.code);
+      else toast('扫到的内容不是有效工单', false);
+    };
+    SCAN.open();
+    toast('扫码后自动选中工单');
+  };
+  function nowT() {
+    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  /* 打印工单二维码（新窗口自动调起打印） */
+  ERP.printMoQR = function () {
+    var mo = ERP.wrMo ? moFind(ERP.wrMo) : null;
+    if (!mo) { toast('请先选择工单再打印二维码', false); return; }
+    if (typeof QRCode === 'undefined') { toast('二维码组件未加载', false); return; }
+    var holder = document.createElement('div');
+    try { new QRCode(holder, { text: mo.code, width: 220, height: 220 }); } catch (e) { toast('二维码生成失败', false); return; }
+    var canvas = holder.querySelector('canvas');
+    var dataUrl = canvas ? canvas.toDataURL('image/png') : '';
+    if (!dataUrl) { toast('二维码生成失败', false); return; }
+    var w = window.open('', '_blank');
+    if (!w) { toast('浏览器拦截了新窗口，请允许弹出', false); return; }
+    var label = escHtml(mo.code) + '　' + escHtml(matName(mo.product)) + '　计划 ' + num(mo.planQty) + ' 件';
+    w.document.write(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>工单二维码 ' + escHtml(mo.code) + '</title>' +
+      '<style>body{font-family:"Microsoft YaHei",sans-serif;text-align:center;padding:24px}' +
+      'h2{margin:10px 0 4px;font-size:22px;letter-spacing:1px}' +
+      '.sub{font-size:15px;color:#555;margin-bottom:14px}' +
+      '.qr{border:1px dashed #bbb;display:inline-block;padding:12px;background:#fff}' +
+      '.foot{margin-top:14px;font-size:12px;color:#999}' +
+      '.pbtn{margin-top:16px;padding:10px 26px;font-size:15px;cursor:pointer}' +
+      '@media print{body{padding:8px}.pbtn,.foot{display:none}}' +
+      '</style></head><body>' +
+      '<div class="qr"><img src="' + dataUrl + '" style="width:190px;height:190px"></div>' +
+      '<h2>' + escHtml(mo.code) + '</h2>' +
+      '<div class="sub">' + label + '</div>' +
+      '<button class="pbtn" onclick="window.print()">🖨 打印</button>' +
+      '<div class="foot">GREENIS 格丽思 · 质量工作台自动生成</div>' +
+      '</body></html>');
+    w.document.close();
+    setTimeout(function () { try { w.print(); } catch (e) {} }, 350);
+  };
+  /* 不良数回写：报工不良自动生成检验不合格记录，进入 MRB 评审 */
+  ERP.autoMrbFromWorkReport = function (wr) {
+    try {
+      if (!window.INSP || !window.DATAHUB) return null;
+      var idb = INSP._db();
+      if (!idb || !idb.inspections) return null;
+      var type = 'PATROL';
+      var prefix = type + '-' + today().replace(/-/g, '') + '-';
+      var max = 0;
+      idb.inspections.forEach(function (r) {
+        if (r.no && r.no.indexOf(prefix) === 0) {
+          var n = parseInt(r.no.slice(prefix.length), 10);
+          if (!isNaN(n) && n > max) max = n;
+        }
+      });
+      var rec = {
+        _id: 'in' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        no: prefix + String(max + 1).padStart(3, '0'),
+        type: type, date: today(),
+        matCode: wr.product || '', matName: matName(wr.product) || wr.product || '',
+        supplier: '', batch: String(wr.moCode || ''),
+        qty: String(num(wr.badQty)),
+        standard: '生产报工不良自动转入', measured: '', result: 'fail',
+        inspector: wr.worker || '', status: '待评审', approver: '', approveNote: '', approvedAt: '',
+        flowTo: '', flowNote: '报工 ' + (wr.code || '') + ' 不良 ' + num(wr.badQty) + ' 件，自动进入不合格评审',
+        flowId: '', flowNo: '', createdAt: nowT(),
+        srcWr: wr.id || ''
+      };
+      var lk = null;
+      try { lk = (window.BIZFLOW && BIZFLOW.linkInspSubmit) ? BIZFLOW.linkInspSubmit(rec) : null; } catch (e) { lk = null; }
+      if (lk && lk.ok) {
+        rec.flowId = lk.flowId; rec.flowNo = lk.flowNo;
+        rec.flowNote = '报工 ' + (wr.code || '') + ' 不良 ' + num(wr.badQty) + ' 件，已进入不合格评审；流程单 ' + lk.flowNo + ' 现在 ' + (lk.dest || '');
+      }
+      idb.inspections.push(rec);
+      DATAHUB.set('inspect', idb);
+      return rec;
+    } catch (e) { return null; }
   };
   ERP.delWorkReport = function (id) {
     var arr = listOf('workReport') || [], idx = -1, moCode = '';
@@ -1154,6 +1274,21 @@
     if (!confirm('删除该报工记录？工单进度与绩效将按剩余记录自动重算。')) return;
     var d = getData();
     if (d.workReport) d.workReport.splice(idx, 1);
+    /* 同步移除该报工自动生成的不合格评审记录（留痕记入检验流转日志） */
+    try {
+      if (window.INSP) {
+        var idb = INSP._db();
+        if (idb && idb.inspections) {
+          var before = idb.inspections.length;
+          idb.inspections = idb.inspections.filter(function (x) { return x.srcWr !== id; });
+          if (idb.inspections.length !== before && window.DATAHUB && DATAHUB.set) {
+            idb.flowLog = idb.flowLog || [];
+            idb.flowLog.push({ at: nowT(), no: moCode || '', act: '报工删除，同步移除自动生成的不合格记录（' + (before - idb.inspections.length) + ' 条）' });
+            DATAHUB.set('inspect', idb);
+          }
+        }
+      }
+    } catch (e) {}
     if (moCode) ERP.recalcMo(moCode);
     save();
     ERP.renderList();
@@ -1166,7 +1301,13 @@
     html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">';
     html += '<div style="font-size:15px;font-weight:700;color:#111827">🛠 现场报工</div>';
     html += '<div style="font-size:12px;color:#6b7280;margin:4px 0 12px">选工单 → 选工序 → 填数量提交；自动校验前序完工、防超额，联动工单进度与绩效工资</div>';
-    html += '<label style="font-size:12.5px;color:#374151">工单</label>' +
+    html += '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+      '<input id="wrScanCode" placeholder="🔍 扫码枪扫工单号后回车（MO-…）" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" autocomplete="off" onkeydown="ERP.wrScanEnter(event)" onfocus="this.select()">' +
+      '<span class="erp-btn" style="white-space:nowrap;padding:8px 12px;font-size:12.5px" onclick="ERP.scanMo()">📷 摄像头/扫码</span>' +
+      '<span class="erp-btn" style="white-space:nowrap;padding:8px 12px;font-size:12.5px" onclick="ERP.printMoQR()">🏷 工单二维码</span>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:#9aa3af;margin-bottom:8px">扫码枪：光标停在输入框直接扫，自动带回工单；摄像头/手动扫到的工单也会自动选中。二维码可打印后贴在工单/流转卡上。</div>' +
+      '<label style="font-size:12.5px;color:#374151">工单</label>' +
       '<select id="wrMo" style="width:100%;margin-bottom:8px;padding:7px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px" onchange="ERP.wrSetMo(this.value)">' +
       '<option value="">选择工单…</option>';
     mos.forEach(function (m) {
