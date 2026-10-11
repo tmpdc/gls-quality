@@ -215,6 +215,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .pie-chart { display: flex; align-items: center; justify-content: center; padding: 20px 0; }
 .echart-box { height: 260px; width: 100%; margin-top: 8px; }
 @media (max-width: 640px) { .echart-box { height: 220px; } }
+
+.dept-biz-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+@media (max-width: 900px) { .dept-biz-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .dept-biz-grid { grid-template-columns: 1fr; } }
+.dept-biz-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 10px 10px 6px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+.dept-biz-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.dept-biz-name { font-weight: 700; font-size: 14px; color: #1f2329; }
+.dept-biz-total { font-size: 12px; color: #1e40af; background: #eef2ff; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.dept-biz-chart { height: 190px; width: 100%; }
+@media (max-width: 640px) { .dept-biz-chart { height: 170px; } }
+.dept-biz-empty { color: #999; font-size: 12px; padding: 6px 2px; }
+
 .pie-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px; }
 .pie-legend-item { display: flex; align-items: center; font-size: 12px; color: #555; }
 .pie-legend-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
@@ -1164,6 +1176,10 @@ body{background:var(--nbg);color:var(--ink)}
       <div id="deptChartPeople" class="echart-box"></div>
       <div id="deptChartFlow" class="echart-box"></div>
       <div id="deptChartTodo" class="echart-box"></div>
+    <div class="chart-card">
+      <div class="chart-title">🏭 部门·环节全景 <span class="tag">按部门自动采集</span></div>
+      <div id="deptBizGrid" class="dept-biz-grid"></div>
+    </div>
     </div>
   </div>
 
@@ -5815,6 +5831,7 @@ function renderDashboard() {
   });
   document.getElementById('statusLegend').innerHTML = legendHtml;
   try { renderDeptCharts(); } catch (e) { console.error('部门图表渲染失败:', e); }
+  try { renderDeptBizCharts(); } catch (e) { console.error('部门环节看板渲染失败:', e); }
 }
 
 /* ==================== 各部门可视化图表（ECharts） ==================== */
@@ -5943,9 +5960,173 @@ function renderDeptCharts() {
   if (!window._deptResizeBound) {
     window._deptResizeBound = true;
     window.addEventListener('resize', function () {
-      Object.keys(_deptCharts).forEach(function (k) { try { _deptCharts[k].resize(); } catch (e) {} });
+      Object.keys(_deptCharts).forEach(function (k) { try { _deptCharts[k].resize(); } catch (e) {} });Object.keys(_deptCharts).forEach(function (k) { try { _deptCharts[k].resize(); } catch (e) {} });
+      Object.keys(_deptBizCharts).forEach(function (k) { try { _deptBizCharts[k].resize(); } catch (e) {} });
     });
   }
+}
+
+
+/* ==================== 部门·环节全景看板（按部门自动采集，环节表可改） ==================== */
+var GLS_DEPT_SECTORS = {
+  '管理层': [
+    { label: '系统账号', src: 'accounts' },
+    { label: '流程流转', src: 'flows' },
+    { label: '待办通知', src: 'notices' }
+  ],
+  '品质部': [
+    { label: '来料检验单', src: 'incoming', biz: true },
+    { label: '过程检验单', src: 'production', biz: true },
+    { label: '成品检验单', src: 'inspection', biz: true },
+    { label: '异常处理单', src: 'abnormal', biz: true },
+    { label: '检验标准', src: 'pqs.doc' },
+    { label: '检验参数', src: 'pqs.param' },
+    { label: '安全参数', src: 'pqs.safety' },
+    { label: '抽样方案', src: 'pqs.sampling' }
+  ],
+  '生产部': [
+    { label: '生产工单', src: 'production', biz: true },
+    { label: '工序工艺', src: 'pqs.process' },
+    { label: '产品SOP', src: 'pqs.product' }
+  ],
+  '仓储部': [
+    { label: '物料档案', src: 'pqs.material', sub: 'cls' },
+    { label: '库存账', src: 'erp.stock' },
+    { label: '入库单', src: 'erp.stockIn' },
+    { label: '出库单', src: 'erp.stockOut' },
+    { label: '盘点单', src: 'erp.stockCheck' }
+  ],
+  '采购部': [
+    { label: '供应商档案', src: 'pqs.supplier', sub: 'type' },
+    { label: '采购申请', src: 'erp.pr' },
+    { label: '采购订单', src: 'erp.po' },
+    { label: '采购收货', src: 'erp.poRecv' }
+  ],
+  '销售部': [
+    { label: '销售订单', src: 'erp.so' },
+    { label: '出货单', src: 'shipping', biz: true },
+    { label: '客户档案', src: 'erp.customer' },
+    { label: '售后单', src: 'erp.afterSale' }
+  ],
+  '研发部': [
+    { label: '研发项目', src: 'rd', biz: true },
+    { label: '产品开发', src: 'pqs.product' },
+    { label: 'BOM清单', src: 'erp.bom' }
+  ],
+  '技术部': [
+    { label: '检验参数', src: 'pqs.param' },
+    { label: '工艺安全', src: 'pqs.safety' },
+    { label: '测量器具', src: 'pqs.material.tool' }
+  ]
+};
+var _deptBizCharts = {};
+function _deptBizSource(src) {
+  try {
+    if (src === 'accounts') return _deptAccounts();
+    if (src === 'flows') return _deptFlows();
+    if (src === 'notices') { var n = DATAHUB.get('notices'); return Array.isArray(n) ? n : []; }
+    if (src.indexOf('pqs.') === 0) {
+      var p = DATAHUB.get('pqs') || {};
+      if (src === 'pqs.material.tool') {
+        return Array.isArray(p.material) ? p.material.filter(function (m) { return m && m.tool; }) : [];
+      }
+      var k = src.slice(4);
+      return Array.isArray(p[k]) ? p[k] : [];
+    }
+    if (src.indexOf('erp.') === 0) {
+      var e = DATAHUB.get('erp') || {};
+      var k2 = src.slice(4);
+      return Array.isArray(e[k2]) ? e[k2] : [];
+    }
+    var a = appData[src];
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+}
+function _deptBizCount(items, bizOnly) {
+  if (!bizOnly) return items.length;
+  var n = 0;
+  for (var i = 0; i < items.length; i++) if (String((items[i] && items[i].id) || '').indexOf('tpl_') !== 0) n++;
+  return n;
+}
+function _deptBizData() {
+  var out = {};
+  Object.keys(GLS_DEPT_SECTORS).forEach(function (dept) {
+    var dd = { total: 0, items: [] };
+    GLS_DEPT_SECTORS[dept].forEach(function (s) {
+      var items = _deptBizSource(s.src);
+      var value = _deptBizCount(items, !!s.biz), subData = null;
+      if (s.sub && items.length) {
+        var m = {};
+        for (var i = 0; i < items.length; i++) {
+          var v = items[i] && items[i][s.sub];
+          if (v) m[v] = (m[v] || 0) + 1;
+        }
+        subData = Object.keys(m).map(function (k) { return { name: k, value: m[k] }; });
+      }
+      dd.items.push({ label: s.label || s.src, value: value, subData: subData });
+      dd.total += value;
+    });
+    out[dept] = dd;
+  });
+  return out;
+}
+function renderDeptBizCharts() {
+  if (typeof window.echarts === 'undefined') return;
+  var grid = document.getElementById('deptBizGrid');
+  if (!grid) return;
+  var data = _deptBizData();
+  var ORDER = ['管理层', '品质部', '生产部', '仓储部', '采购部', '销售部', '研发部', '技术部'];
+  var depts = [];
+  ORDER.forEach(function (d) { if (data[d]) depts.push(d); });
+  Object.keys(data).forEach(function (d) { if (depts.indexOf(d) < 0) depts.push(d); });
+  grid.innerHTML = '';
+  depts.forEach(function (d, di) {
+    var dd = data[d];
+    var card = document.createElement('div');
+    card.className = 'dept-biz-card';
+    var chartId = 'deptBizChart_' + di;
+    card.innerHTML = '<div class="dept-biz-head"><span class="dept-biz-name">' + d + '</span>' +
+      '<span class="dept-biz-total">' + dd.total + ' 项</span></div>' +
+      '<div id="' + chartId + '" class="dept-biz-chart"></div>';
+    grid.appendChild(card);
+    var labels = dd.items.map(function (it) { return it.label; });
+    var values = dd.items.map(function (it) { return it.value; });
+    var items = dd.items.map(function (it) {
+      var o = { value: it.value, name: it.label };
+      if (it.subData) o.subData = it.subData;
+      return o;
+    });
+    _deptBizCharts[chartId] = (function (id) {
+      var dom = document.getElementById(id);
+      if (!dom) return null;
+      var inst = (typeof echarts !== 'undefined') ? echarts.init(dom) : null;
+      if (!inst) return null;
+      inst.setOption({
+        title: { show: false },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
+          formatter: function (ps) {
+            var p = ps[0], t = p.name + '：' + p.value + ' 项';
+            if (p.data && p.data.subData && p.data.subData.length) {
+              var parts = [];
+              p.data.subData.slice(0, 8).forEach(function (s) { parts.push(s.name + ' ' + s.value); });
+              if (p.data.subData.length > 8) parts.push('…共' + p.data.subData.length + '类');
+              t += '<br/>分类：' + parts.join('、');
+            }
+            return t;
+          }
+        },
+        grid: { left: 10, right: 26, top: 8, bottom: 4, containLabel: true },
+        xAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 10 } },
+        yAxis: { type: 'category', data: labels, axisLabel: { fontSize: 11 } },
+        series: [{
+          type: 'bar', barWidth: 12, data: items,
+          itemStyle: { color: function (p) { return p.value > 0 ? '#1e40af' : '#e8e8e8'; }, borderRadius: 3 },
+          label: { show: true, position: 'right', fontSize: 10, color: '#333' }
+        }]
+      }, true);
+      return inst;
+    })(chartId);
+  });
 }
 
 // ==================== Toast ====================
