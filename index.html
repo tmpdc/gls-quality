@@ -746,8 +746,8 @@ function ensureSuperAdmin() {
   try {
     var arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     if (!Array.isArray(arr)) arr = [];
+    var hasNew = arr.some(function (a) { return a && a.username === 'tmpdc031'; });
     var filtered = arr.filter(function (a) { return a && a.username !== 'admin'; });
-    var hasNew = filtered.some(function (a) { return a && a.username === 'tmpdc031'; });
     if (!hasNew) {
       filtered.unshift({ id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' });
     }
@@ -777,8 +777,8 @@ function initDefaultAccounts() {
         if (a.role === 'viewer') a.role = 'guest';
         if (a.role === 'deptmgr') a.role = 'deptmgr';
       });
-      const filtered = arr.filter(function (a) { return a && a.username !== 'tmpdc031'; });
-      const hasNew = filtered.some(function (a) { return a && a.username === 'tmpdc031'; });
+      const hasNew = arr.some(function (a) { return a && a.username === 'tmpdc031'; });
+      const filtered = arr.filter(function (a) { return a && a.username !== 'admin'; });
       if (!hasNew) {
         filtered.unshift({ id: 1, username: 'tmpdc031', password: 'gw123456', realname: '系统管理员', role: 'admin', dept: '管理层', phone: '', email: 'tmpdc031@gls.com', status: 'active', createdAt: '2026-01-01 00:00:00', lastLogin: '' });
       }
@@ -848,7 +848,19 @@ function doLogin() {
   if (!username) { showLoginError('请输入账号'); return; }
   if (!password) { showLoginError('请输入密码'); return; }
 
-  const accounts = getAccounts();
+  let accounts = getAccounts();
+  // 中央数据可能还是旧版账号库（缺超管）：登录前兜底，把超管账号库强制合并进中央数据
+  if (!accounts.some(function (a) { return a && a.username === 'tmpdc031'; })) {
+    try {
+      var ensured = ensureSuperAdmin();
+      if (Array.isArray(ensured) && ensured.length) {
+        var c = readCentral();
+        c.accounts = ensured;
+        writeCentral(c);
+      }
+    } catch (e) {}
+    accounts = getAccounts();
+  }
   const account = accounts.find(a => a.username === username);
 
   if (!account) {
