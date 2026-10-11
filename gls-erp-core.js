@@ -959,7 +959,7 @@
     route.forEach(function (p) { if (!next && procDone(moCode, p.name) < plan) next = p.name; });
     mo.curProcess = next;
     if (!next) mo.status = '已完工';
-    else if (mo.status === '待下达' || mo.status === '待料' || mo.status === '待生产') mo.status = '生产中';
+    else mo.status = '生产中';
   };
   function dueState(mo) {
     if (!mo || !mo.dueDate) return '';
