@@ -383,7 +383,7 @@
     /* ---------- 生产 ---------- */
     mo: {
       key: 'mo', name: '生产工单', icon: '🏭', group: '生产管理', prefix: 'MO',
-      desc: '工单下达、数量、进度、优先级（黑湖小工单式）',
+      desc: '工单下达、数量、进度、优先级',
       fields: [
         { k: 'code', label: '工单号', type: 'text', req: true, auto: true, w: '140px' },
         { k: 'product', label: '生产产品', type: 'ref', ref: 'material', req: true },
@@ -401,7 +401,7 @@
     },
     process: {
       key: 'process', name: '工序路线', icon: '🧭', group: '生产管理', prefix: 'PC',
-      desc: '产品工艺路线：工序顺序、工价（黑湖式：计件/计时）',
+      desc: '产品工艺路线：工序顺序、工价（计件/计时）',
       fields: [
         { k: 'code', label: '路线编号', type: 'text', req: true, auto: true, w: '140px' },
         { k: 'product', label: '产品', type: 'ref', ref: 'material', req: true, w: '170px' },
@@ -417,7 +417,7 @@
     },
     dispatch: {
       key: 'dispatch', name: '派工任务', icon: '📋', group: '生产管理', prefix: 'DP',
-      desc: '班组长派工：工单+工序+员工+计划数（黑湖式快速派发）',
+      desc: '班组长派工：工单+工序+员工+计划数（快速派发）',
       fields: [
         { k: 'code', label: '派工单号', type: 'text', req: true, auto: true, w: '140px' },
         { k: 'moCode', label: '关联工单', type: 'ref', ref: 'mo', req: true,
@@ -433,7 +433,7 @@
     },
     workReport: {
       key: 'workReport', name: '生产报工', icon: '🔨', group: '生产管理', prefix: 'WR', view: 'workreport',
-      desc: '黑湖式扫码报工：按工单+工序报工，自动校验前序完工/防超额，联动工单进度与绩效',
+      desc: '扫码报工：按工单+工序报工，自动校验前序完工/防超额，联动工单进度与绩效',
       fields: [
         { k: 'code', label: '报工单号', type: 'text', req: true, auto: true, w: '140px' },
         { k: 'moCode', label: '工单号', type: 'ref', ref: 'mo', req: true },
@@ -451,11 +451,11 @@
     },
     payroll: {
       key: 'payroll', name: '绩效工资', icon: '💰', group: '生产管理', prefix: 'PY', view: 'payroll',
-      desc: '黑湖式绩效工资：按报工数据自动汇总计件/计时工资（只读）'
+      desc: '绩效工资：按报工数据自动汇总计件/计时工资（只读）'
     },
     moboard: {
       key: 'moboard', name: '生产看板', icon: '🖥️', group: '生产管理', prefix: '', view: 'moboard',
-      desc: '黑湖式生产进度看板：泳道展示、交期预警、当前工序'
+      desc: '生产进度看板：泳道展示、交期预警、当前工序'
     },
     moPick: {
       key: 'moPick', name: '生产领料', icon: '📤', group: '生产管理', prefix: 'PK',
@@ -901,7 +901,7 @@
     box.innerHTML = html;
   };
 
-  /* ==================== 黑湖式生产管理：看板 / 报工 / 绩效（与现有 ERP 数据融合） ==================== */
+  /* ==================== 生产管理：看板 / 报工 / 绩效（与现有 ERP 数据融合） ==================== */
   function today() {
     var d = new Date();
     var p2 = function (n) { return n < 10 ? '0' + n : '' + n; };
@@ -942,7 +942,7 @@
     arr.forEach(function (x) { h += '<option value="' + escAttr(x) + '">' + escHtml(x) + '</option>'; });
     return h;
   }
-  /* 按报工记录重算工单：完成数 / 当前工序 / 状态（黑湖式：报工联动进度） */
+  /* 按报工记录重算工单：完成数 / 当前工序 / 状态（报工联动进度） */
   ERP.recalcMo = function (moCode) {
     var mo = moFind(moCode);
     if (!mo) return;
@@ -1009,7 +1009,7 @@
     });
     return miss;
   }
-  /* ---------- 生产看板（黑湖式泳道 + 交期预警） ---------- */
+  /* ---------- 生产看板（泳道 + 交期预警） ---------- */
   ERP.moBoardView = function () {
     var mos = listOf('mo') || [];
     var lanes = ['待下达', '待料', '待生产', '生产中', '已完工', '已关闭'];
@@ -1069,7 +1069,7 @@
   ERP.openMoNew = function () { ERP.current = 'mo'; ERP.openForm(); };
   ERP.openMoEdit = function (id) { ERP.current = 'mo'; ERP.openForm(id); };
   ERP.gotoMoList = function () { ERP.openList('mo'); };
-  /* ---------- 报工台（黑湖式：选工单→选工序→报工→联动） ---------- */
+  /* ---------- 报工台（选工单→选工序→报工→联动） ---------- */
   ERP.openWorkReport = function (moCode) {
     ERP.current = 'workReport';
     ERP.wrMo = moCode || ERP.wrMo || '';
@@ -1123,7 +1123,7 @@
     /* 防超额 */
     var done = procDone(moCode, process);
     if (done + okQty > plan) { toast('报工超量：该工序已完成 ' + done + ' 件，本次最多报 ' + Math.max(0, plan - done), false); return; }
-    /* 前序完工校验（黑湖式：前道完工才能报后道） */
+    /* 前序完工校验（前道完工才能报后道） */
     var seq = num(p.seq);
     if (seq > 1) {
       var missPrev = '';
@@ -1379,7 +1379,7 @@
     html += '</tbody></table></div></div></div>';
     return html;
   };
-  /* ---------- 绩效工资（黑湖式：按报工自动汇总，只读） ---------- */
+  /* ---------- 绩效工资（按报工自动汇总，只读） ---------- */
   ERP.payrollView = function () {
     var wr = listOf('workReport') || [];
     var byWorker = {}, byMo = {}, byProc = {};
