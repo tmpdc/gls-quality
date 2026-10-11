@@ -203,19 +203,30 @@
   }
 
   /* ---- 权限 / 待办 ---- */
+  function userDeptMatch(f, u) {
+    var n = curNode(f);
+    if (!n || !n.dept) return true;
+    var depts = String(n.dept).split(/[\/、,，|]/);
+    for (var i = 0; i < depts.length; i++) {
+      if (depts[i].trim() && u.dept === depts[i].trim()) return true;
+    }
+    return false;
+  }
+
   function canHandle(f) {
     if (!f || f.status !== 'running') return false;
     var u = curUser();
-    if (!f.assignee) return true;
-    if (f.assignee === u.username) return true;
-    return isAdmin();
+    if (isAdmin()) return true;
+    if (f.assignee) return f.assignee === u.username;
+    return userDeptMatch(f, u);
   }
 
   function isMyTodo(f) {
     if (!f || f.status !== 'running') return false;
     var u = curUser();
-    if (!f.assignee) return true;
-    return f.assignee === u.username || isAdmin();
+    if (isAdmin()) return true;
+    if (f.assignee) return f.assignee === u.username;
+    return userDeptMatch(f, u);
   }
 
   function countTodo() {
@@ -493,6 +504,39 @@
     renderFlowDetail();
   };
 
+  var ITEM_KEY_CN = {
+    name: '名称', spec: '规格型号', model: '型号', qty: '数量', batch: '批次号',
+    supplier: '供应商', inspectResult: '检验结论', result: '检验结论', inspector: '检验人',
+    dept: '部门', status: '状态', date: '日期', type: '类型', code: '编号',
+    material: '物料', unit: '单位', warehouse: '库位', location: '库位'
+  };
+  function itemInfoHtml(f) {
+    if (!f.itemId || !f.moduleId) return '';
+    try {
+      var arr = (typeof appData !== 'undefined' && appData[f.moduleId]) || [];
+      var it = arr.filter(function (x) { return x && x.id === f.itemId; })[0];
+      if (!it) return '';
+      var rows = '', cnt = 0;
+      var skip = { id: 1, process: 1, desc: 1, description: 1, isTemplate: 1, isKnowledge: 1,
+        flowStatus: 1, createdAt: 1, updatedAt: 1, _mg: 1 };
+      for (var k in it) {
+        if (!Object.prototype.hasOwnProperty.call(it, k)) continue;
+        if (skip[k]) continue;
+        var v = it[k];
+        if (v == null || v === '') continue;
+        if (typeof v === 'string' && v.length > 140) continue;
+        if (typeof v === 'object') continue;
+        if (cnt >= 16) break;
+        var cn = ITEM_KEY_CN[k] || k;
+        rows += '<span><span class="fh-item-k">' + escHtml(cn) + '</span>' + escHtml(String(v)) + '</span>';
+        cnt++;
+      }
+      if (!rows) return '';
+      return '<div class="fh-item"><div class="fh-item-h">📋 关联业务信息（' + escHtml(moduleName(f.moduleId)) + '）</div>' +
+        '<div class="fh-item-grid">' + rows + '</div></div>';
+    } catch (e) { return ''; }
+  }
+
   function renderFlowDetail() {
     var f = findFlow(curFlowId);
     var headEl = $('flowHead'), tlEl = $('flowTimeline'), actEl = $('flowActions');
@@ -501,6 +545,7 @@
     var st = STATUS_MAP[f.status] || STATUS_MAP.running;
     var n = curNode(f);
     var u = curUser();
+    var itemHtml = itemInfoHtml(f);
 
     headEl.innerHTML =
       '<div class="fh-title">' + escHtml(f.title) + '</div>' +
@@ -512,7 +557,8 @@
         (f.priority === 'urgent' ? '<span class="fc-late">紧急</span>' : '') +
       '</div>' +
       (f.remark ? '<div class="fh-remark">' + escHtml(f.remark) + '</div>' : '') +
-      (f.itemId ? '<div class="fh-link" onclick="jumpToItem()">↗ 查看关联业务卡片</div>' : '') +
+      (f.itemId ? '<div class="fh-link" onclick="jumpToItem()">↗ 打开业务卡片</div>' : '') +
+      itemHtml +
       (n && f.status === 'running'
         ? '<div class="fh-cur"><span class="fh-cur-dot"></span>当前节点：<b>' + escHtml(n.name) + '</b>' +
           (n.dept ? ' · ' + escHtml(n.dept) : '') + ' · 处理人 ' + escHtml(userLabel(f.assignee)) + '</div>'
@@ -669,27 +715,65 @@
     return null;
   }
 
+  function doneFlow(f, lastNode, opinion, action, label, actor) {
+    f.visited = f.visited || [];
+    if (lastNode && f.visited.indexOf(lastNode.id) < 0) f.visited.push(lastNode.id);
+    pushRec(f, lastNode, null, opinion, action, label, actor || curUser().username);
+    f.status = 'done';
+    f.curId = '';
+    f.reviewCtx = null;
+    try {
+      if (f.itemId && typeof appData !== 'undefined' && appData[f.moduleId]) {
+        var it = appData[f.moduleId].filter(function (x) { return x.id === f.itemId; })[0];
+        if (it) { it.status = 'done'; it.flowStatus = 'done'; }
+      }
+    } catch (e) {}
+    f.updatedAt = Date.now();
+    notify(f.initiator, '【流程办结】' + f.title,
+      '流程已办结，最后环节：' + (lastNode ? lastNode.name : ''), f.id);
+    saveFlows(); renderFlowDetail(); refreshBadges(); refreshNoticeBadge();
+    toast('流程已办结');
+  }
+
   function commit(f, fromNode, toId, opinion, nextUser, action, label) {
     var u = curUser();
     var toNode = nodeOf(f, toId);
     f.visited = f.visited || [];
     if (fromNode && f.visited.indexOf(fromNode.id) < 0) f.visited.push(fromNode.id);
-    pushRec(f, fromNode, toNode, opinion, action, label, u.username);
 
-    if (!toNode) {
-      f.status = 'done';
-      f.curId = '';
-      f.reviewCtx = null;
-      try {
-        if (f.itemId && typeof appData !== 'undefined' && appData[f.moduleId]) {
-          var it = appData[f.moduleId].filter(function (x) { return x.id === f.itemId; })[0];
-          if (it) { it.status = 'done'; it.flowStatus = 'done'; }
+    if (!toNode) { doneFlow(f, fromNode, opinion, action, label, u.username); return; }
+
+    // 终节点：流转到即自动办结（无需再点一次）
+    if (toNode.type === 'end') {
+      pushRec(f, fromNode, toNode, opinion, action, label, u.username);
+      doneFlow(f, toNode, opinion, action, label, u.username);
+      return;
+    }
+
+    // 自动节点：自动执行并继续流转，直到落到非 auto 节点
+    if (toNode.type === 'auto') {
+      var cur = toNode, curFrom = fromNode, nx = toNode.next, guard2 = 0;
+      while (cur && guard2++ < 40) {
+        f.visited.push(cur.id);
+        var nxt = nodeOf(f, nx);
+        pushRec(f, curFrom, nxt, '', 'auto', '自动执行', '系统自动');
+        if (!nxt) break;
+        if (nxt.type === 'end') {
+          f.curId = nxt.id;
+          doneFlow(f, nxt, '', 'approve', '', u.username);
+          return;
         }
-      } catch (e) {}
+        if (nxt.type !== 'auto') { cur = nxt; break; }
+        curFrom = cur; cur = nxt; nx = nxt.next;
+      }
+      f.curId = cur.id;
+      f.assignee = nextUser || leaderOfNode(f, cur) || f.assignee || u.username;
+      f.reviewCtx = null;
+      notifyNode(f, cur, curFrom ? curFrom.name : '自动执行');
     } else {
+      pushRec(f, fromNode, toNode, opinion, action, label, u.username);
       f.curId = toNode.id;
-      var _autoLd = leaderOfNode(f, toNode);
-      f.assignee = nextUser || _autoLd || f.assignee || u.username;
+      f.assignee = nextUser || leaderOfNode(f, toNode) || f.assignee || u.username;
       if (toNode.type === 'review') {
         var ok = okTargetOf(f, fromNode);
         f.reviewCtx = {
@@ -700,19 +784,14 @@
       } else {
         f.reviewCtx = null;
       }
+      notifyNode(f, toNode, fromNode ? fromNode.name : '');
     }
     f.updatedAt = Date.now();
-    if (toNode) {
-      notifyNode(f, toNode, fromNode ? fromNode.name : '');
-    } else {
-      notify(f.initiator, '【流程办结】' + f.title,
-        '流程已办结，最后环节：' + (fromNode ? fromNode.name : ''), f.id);
-    }
     saveFlows();
     renderFlowDetail();
     refreshBadges();
     refreshNoticeBadge();
-    toast(toNode ? ('已流转到「' + toNode.name + '」') : '流程已办结');
+    toast('已流转到「' + (curNode(f) ? curNode(f).name : '') + '」');
   }
 
   function guard() {
@@ -907,7 +986,7 @@
   };
 
   function assigneeOptions() {
-    var opts = '', u = curUser();
+    var opts = '<option value="">自动指派该环节部门领导</option>', u = curUser();
     activeAccounts().forEach(function (a) {
       opts += '<option value="' + escAttr(a.username) + '"' + (a.username === u.username ? ' selected' : '') + '>' +
         escHtml((a.realname || a.username) + (a.dept ? '（' + a.dept + '）' : '')) + '</option>';
@@ -943,7 +1022,8 @@
       '<div class="fm-row"><div class="fm-label">流程名称</div>' +
         '<input id="fmTitle" class="fm-input" value="' + escHtml(pending.title) + '"></div>' +
       (pending.itemName ? '<div class="fm-row"><div class="fm-label">关联业务卡片</div><div class="fm-static">' + escHtml(pending.itemName) + '</div></div>' : '') +
-      '<div class="fm-row"><div class="fm-label">当前节点处理人</div>' +
+      '<div class="fm-row"><div class="fm-label">当前节点处理人' +
+        '<span class="fm-tip">留空则自动指派该环节部门领导</span></div>' +
         '<select id="fmAssignee" class="fm-input">' + assigneeOptions() + '</select></div>' +
       '<div class="fm-row"><div class="fm-label">备注（可选）</div>' +
         '<textarea id="fmRemark" class="fm-input" rows="2" placeholder="如订单号、机型、批量…"></textarea></div>' +
@@ -958,7 +1038,7 @@
   global.submitFlowCreate = function () {
     if (!pending) return;
     var title = ($('fmTitle') && $('fmTitle').value || '').trim() || pending.title;
-    var assignee = ($('fmAssignee') && $('fmAssignee').value) || curUser().username;
+    var assignee = ($('fmAssignee') && $('fmAssignee').value) || '';
     var remark = ($('fmRemark') && $('fmRemark').value || '').trim();
     var g = pending.graph;
 
@@ -990,7 +1070,7 @@
       itemId: pending.itemId || '',
       graph: g,
       curId: g.start,
-      assignee: assignee,
+      assignee: assignee || leaderOfDept((g.nodes[g.start] || {}).dept) || u.username,
       initiator: u.username,
       status: 'running',
       priority: '',
