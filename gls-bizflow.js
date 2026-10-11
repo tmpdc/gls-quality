@@ -1135,7 +1135,7 @@
     if (el) el.classList.add('active');
     var items = document.querySelectorAll('.sidebar .nav-item');
     for (i = 0; i < items.length; i++) items[i].classList.remove('active');
-    var t = $('pageTitle'); if (t) t.textContent = '业务流转';
+    var t = $('pageTitle'); if (t) t.textContent = '部门待办 · 流转';
     var f = $('fabAdd'); if (f) f.style.display = 'none';
     var s = $('searchBtn'); if (s) s.style.display = 'none';
     window.scrollTo(0, 0);
@@ -1918,8 +1918,8 @@
     var n = 0;
     try { n = updateBadge(); } catch (e) {}
     var html = '<div class="nav-item" data-bizflow="1" onclick="BIZFLOW_UI.openHome()">'
-      + '<span class="nav-icon">🔄</span><span class="nav-text">业务流转</span>'
-      + (n > 0 ? '<span class="nav-badge" id="bizNavBadge" style="background:#dc2626">' + n + '</span>' : '<span class="nav-badge" id="bizNavBadge" style="display:none"></span>')
+      + '<span class="nav-icon">📌</span><span class="nav-text">部门待办</span>'
+      + (n > 0 ? '<span class="nav-badge" id="bizNavBadge" style="display:inline-block;min-width:24px;height:24px;line-height:24px;padding:0 8px;border-radius:12px;background:#dc2626;color:#fff;font-size:13px;font-weight:800;box-shadow:0 2px 8px rgba(220,38,38,.45)">' + n + '</span>' : '<span class="nav-badge" id="bizNavBadge" style="display:none"></span>')
       + '</div>';
     if (sec) sec.insertAdjacentHTML('afterend', html);
     else nav.insertAdjacentHTML('afterbegin', html);
