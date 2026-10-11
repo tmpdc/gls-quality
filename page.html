@@ -213,6 +213,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .chart-label { font-size: 10px; color: #999; text-align: center; flex: 1; }
 
 .pie-chart { display: flex; align-items: center; justify-content: center; padding: 20px 0; }
+.echart-box { height: 260px; width: 100%; margin-top: 8px; }
+@media (max-width: 640px) { .echart-box { height: 220px; } }
 .pie-legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px; }
 .pie-legend-item { display: flex; align-items: center; font-size: 12px; color: #555; }
 .pie-legend-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
@@ -1156,6 +1158,12 @@ body{background:var(--nbg);color:var(--ink)}
     <div class="chart-card">
       <div class="chart-title">状态分布</div>
       <div class="pie-legend" id="statusLegend"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🏢 各部门可视化 <span class="tag">人员 · 流程 · 待办</span></div>
+      <div id="deptChartPeople" class="echart-box"></div>
+      <div id="deptChartFlow" class="echart-box"></div>
+      <div id="deptChartTodo" class="echart-box"></div>
     </div>
   </div>
 
@@ -5806,6 +5814,138 @@ function renderDashboard() {
     legendHtml += `<div class="pie-legend-item"><span class="pie-legend-dot" style="background:${statusColors[s.id]}"></span>${s.name} ${count}条</div>`;
   });
   document.getElementById('statusLegend').innerHTML = legendHtml;
+  try { renderDeptCharts(); } catch (e) { console.error('部门图表渲染失败:', e); }
+}
+
+/* ==================== 各部门可视化图表（ECharts） ==================== */
+var _deptCharts = {};
+function _deptAccounts() {
+  try { var c = JSON.parse(localStorage.getItem('gls_quality_data_v2') || '{}'); if (Array.isArray(c.accounts)) return c.accounts; } catch (e) {}
+  try { return JSON.parse(localStorage.getItem('gls_accounts') || '[]'); } catch (e) { return []; }
+}
+function _deptFlows() {
+  try { if (window.glsFlow && glsFlow.getFlows) { var f = glsFlow.getFlows(); if (Array.isArray(f)) return f; } } catch (e) {}
+  try { return (appData && Array.isArray(appData.flows)) ? appData.flows : []; } catch (e) { return []; }
+}
+function _deptCatalog() {
+  var list = [];
+  try { if (window.BIZFLOW && Array.isArray(BIZFLOW.FLOW_BIZ)) list = list.concat(BIZFLOW.FLOW_BIZ); } catch (e) {}
+  try { if (window.BIZFLOW && Array.isArray(BIZFLOW.FLOW_AFTER)) list = list.concat(BIZFLOW.FLOW_AFTER); } catch (e) {}
+  return list;
+}
+function _deptOfNodeName(nodeName, catalog) {
+  for (var i = 0; i < catalog.length; i++) if (catalog[i].name === nodeName && catalog[i].dept) return catalog[i].dept;
+  return '';
+}
+function _deptOfFlow(f, catalog, acctMap) {
+  var g = (f && f.graph && f.graph.nodes) ? f.graph.nodes : null;
+  var key = f.curId;
+  if (!key && g) { var ids = Object.keys(g); key = ids.length ? ids[ids.length - 1] : ''; }
+  var n = (g && key && g[key]) ? g[key] : null;
+  if (n && n.dept) return n.dept;
+  if (n && n.name) { var d = _deptOfNodeName(n.name, catalog); if (d) return d; }
+  if (f.assignee) { var a = acctMap[f.assignee]; if (a && a.dept) return a.dept; }
+  return '';
+}
+function _echart(elId, option) {
+  var dom = document.getElementById(elId);
+  if (!dom) return;
+  var inst = _deptCharts[elId];
+  if (!inst) {
+    inst = (typeof echarts !== 'undefined') ? echarts.init(dom) : null;
+    _deptCharts[elId] = inst;
+  }
+  if (inst) inst.setOption(option, true);
+}
+function renderDeptCharts() {
+  if (typeof window.echarts === 'undefined') return;
+  var accts = _deptAccounts(), flows = _deptFlows(), catalog = _deptCatalog();
+  var acctMap = {};
+  accts.forEach(function (a) { if (a && a.username) acctMap[a.username] = a; });
+  var deptSet = {};
+  accts.forEach(function (a) { var d = (a && a.dept) || ''; if (d) deptSet[d] = 1; });
+  catalog.forEach(function (n) { if (n && n.dept) deptSet[n.dept] = 1; });
+  var ORDER = ['管理层', '品质部', '生产部', '仓储部', '采购部', '销售部', '研发部', '技术部'];
+  var depts = Object.keys(deptSet).sort(function (a, b) {
+    var ia = ORDER.indexOf(a), ib = ORDER.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0) return -1;
+    if (ib >= 0) return 1;
+    return a.localeCompare(b, 'zh');
+  });
+  var GREEN = '#2d7a4f', ORANGE = '#fa8c16', BLUE = '#1890ff', RED = '#ff4d4f';
+
+  // 图1：部门人员分布（环形饼图）
+  var cnt = {};
+  accts.forEach(function (a) { var d = (a && a.dept) || '未设部门'; cnt[d] = (cnt[d] || 0) + 1; });
+  var pData = Object.keys(cnt).map(function (d) { return { name: d, value: cnt[d] }; })
+    .sort(function (a, b) { return b.value - a.value; });
+  _echart('deptChartPeople', {
+    title: { text: '部门人员分布', left: 12, top: 6, textStyle: { fontSize: 13, fontWeight: 600 } },
+    tooltip: { trigger: 'item', formatter: '{b}：{c} 人（{d}%）' },
+    legend: { bottom: 0, left: 'center', type: 'scroll', textStyle: { fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['42%', '66%'], center: ['50%', '48%'],
+      label: { show: true, formatter: '{b}\n{c}人', fontSize: 11 },
+      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      data: pData.length ? pData : [{ name: '暂无人员', value: 0, itemStyle: { color: '#eee' } }]
+    }]
+  });
+
+  // 图2：各部门流程流转量（分组柱状图：进行中/已办结/终止）
+  var run = {}, done = {}, term = {};
+  depts.forEach(function (d) { run[d] = 0; done[d] = 0; term[d] = 0; });
+  flows.forEach(function (f) {
+    var d = _deptOfFlow(f, catalog, acctMap);
+    if (!d) return;
+    if (f.status === 'done') done[d] = (done[d] || 0) + 1;
+    else if (f.status === 'terminated') term[d] = (term[d] || 0) + 1;
+    else run[d] = (run[d] || 0) + 1;
+  });
+  _echart('deptChartFlow', {
+    title: { text: '各部门流程流转量', left: 12, top: 6, textStyle: { fontSize: 13, fontWeight: 600 } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { top: 4, right: 10, data: ['进行中', '已办结', '终止'], textStyle: { fontSize: 11 } },
+    grid: { left: 8, right: 12, top: 44, bottom: 4, containLabel: true },
+    xAxis: { type: 'category', data: depts, axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 10 } },
+    series: [
+      { name: '进行中', type: 'bar', stack: 't', data: depts.map(function (d) { return run[d]; }), itemStyle: { color: ORANGE } },
+      { name: '已办结', type: 'bar', stack: 't', data: depts.map(function (d) { return done[d]; }), itemStyle: { color: GREEN } },
+      { name: '终止', type: 'bar', stack: 't', data: depts.map(function (d) { return term[d]; }), itemStyle: { color: '#bfbfbf' } }
+    ]
+  });
+
+  // 图3：各部门待办（横向条形图）
+  var todo = {};
+  depts.forEach(function (d) { todo[d] = 0; });
+  flows.forEach(function (f) {
+    if (f.status !== 'running') return;
+    var d = _deptOfFlow(f, catalog, acctMap);
+    if (d) todo[d] = (todo[d] || 0) + 1;
+  });
+  var tArr = depts.map(function (d) { return { name: d, value: todo[d] }; });
+  _echart('deptChartTodo', {
+    title: { text: '各部门待办（进行中流程）', left: 12, top: 6, textStyle: { fontSize: 13, fontWeight: 600 } },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 12, right: 30, top: 34, bottom: 4, containLabel: true },
+    xAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'category', data: tArr.map(function (t) { return t.name; }), axisLabel: { fontSize: 11 } },
+    series: [{
+      name: '待办', type: 'bar', barWidth: 14,
+      itemStyle: { color: function (p) { return p.value > 0 ? RED : '#e8e8e8'; }, borderRadius: 3 },
+      label: { show: true, position: 'right', fontSize: 11, color: '#333' },
+      data: tArr.map(function (t) { return t.value; })
+    }]
+  });
+
+  // 窗口自适应（只注册一次）
+  if (!window._deptResizeBound) {
+    window._deptResizeBound = true;
+    window.addEventListener('resize', function () {
+      Object.keys(_deptCharts).forEach(function (k) { try { _deptCharts[k].resize(); } catch (e) {} });
+    });
+  }
 }
 
 // ==================== Toast ====================
@@ -5861,7 +6001,7 @@ if (typeof window.XLSX === 'undefined') {
   _xs.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   document.head.appendChild(_xs);
 }</script>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="./echarts.min.js"></script>
 <script src="gls-inspect.js?v=8"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
