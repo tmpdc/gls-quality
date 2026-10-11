@@ -890,6 +890,8 @@
         html += '<td class="erp-ops">' +
           ((key === 'so' || key === 'soReturn') && !r.flowStatus ?
             '<span class="erp-op" onclick="ERP.startFlow(\'' + r.id + '\')">发起流程</span>' : '') +
+          (key === 'mo' && r.code ?
+            '<span class="erp-op" onclick="ERP.printMoQrByCode(\'' + escAttr(r.code) + '\')">🏷 二维码</span>' : '') +
           '<span class="erp-op" onclick="ERP.openForm(\'' + r.id + '\')">编辑</span>' +
           '<span class="erp-op danger" onclick="ERP.delRow(\'' + r.id + '\')">删除</span>' +
           '</td></tr>';
@@ -1054,6 +1056,7 @@
           '<span>当前工序：' + escHtml(m.curProcess || '—') + '</span>' +
           (m.dueDate ? '<span>交期 ' + escHtml(m.dueDate) + '</span>' : '<span></span>') + '</div>';
         html += '<div style="display:flex;gap:6px;margin-top:8px">' +
+          '<span class="erp-op" onclick="ERP.printMoQrByCode(\'' + escAttr(m.code) + '\')">🏷 二维码</span>' +
           '<span class="erp-op" onclick="ERP.openMoEdit(\'' + m.id + '\')">编辑</span>' +
           '<span class="erp-op" style="background:#1f5a38;color:#fff" onclick="ERP.openWorkReport(\'' + m.code + '\')">报工</span>' +
           '</div></div>';
@@ -1196,10 +1199,10 @@
     var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
-  /* 打印工单二维码（新窗口自动调起打印） */
-  ERP.printMoQR = function () {
-    var mo = ERP.wrMo ? moFind(ERP.wrMo) : null;
-    if (!mo) { toast('请先选择工单再打印二维码', false); return; }
+  /* 打印工单二维码（新窗口自动调起打印；按工单号通用，任何入口都可调） */
+  ERP.printMoQrByCode = function (code) {
+    var mo = moFind(code || '');
+    if (!mo) { toast('未找到工单 ' + code, false); return; }
     if (typeof QRCode === 'undefined') { toast('二维码组件未加载', false); return; }
     var holder = document.createElement('div');
     try { new QRCode(holder, { text: mo.code, width: 220, height: 220 }); } catch (e) { toast('二维码生成失败', false); return; }
@@ -1228,6 +1231,8 @@
     w.document.close();
     setTimeout(function () { try { w.print(); } catch (e) {} }, 350);
   };
+  /* 报工台按钮兼容：打印当前已选工单 */
+  ERP.printMoQR = function () { ERP.printMoQrByCode(ERP.wrMo || ''); };
   /* 不良数回写：报工不良自动生成检验不合格记录，进入 MRB 评审 */
   ERP.autoMrbFromWorkReport = function (wr) {
     try {
@@ -2128,8 +2133,13 @@
         '<div id="erpItemsBox"></div></div>';
     }
     var _ft = $('erpModal') ? $('erpModal').querySelector('.modal-footer') : null;
-    if (_ft) _ft.innerHTML = '<button class="btn btn-cancel" onclick="ERP.closeForm()">取消</button>' +
-      '<button class="btn btn-save" onclick="ERP.saveForm()">保存</button>';
+    if (_ft) {
+      var _qrBtn = (key === 'mo' && !ERP._isNew && rec.code)
+        ? '<button class="btn" onclick="ERP.printMoQrByCode(\'' + escAttr(rec.code) + '\')">🏷 二维码</button>'
+        : '';
+      _ft.innerHTML = _qrBtn + '<button class="btn btn-cancel" onclick="ERP.closeForm()">取消</button>' +
+        '<button class="btn btn-save" onclick="ERP.saveForm()">保存</button>';
+    }
     var t = $('erpFormTitle');
     if (t) t.textContent = (ERP._isNew ? '新增' : '编辑') + ' · ' + ent.name;
     var b = $('erpFormBody');
