@@ -1159,28 +1159,9 @@ body{background:var(--nbg);color:var(--ink)}
     </div>
   </div>
 
-  <!-- 数据看板 -->
+  <!-- 数据看板：部门数据看板（自动提取检验记录生成详细数据可视化） -->
   <div class="page" id="page-dashboard">
-    <div class="stats-row" id="dashboardStats"></div>
-    <div class="chart-card">
-      <div class="chart-title">各模块数据量 <span class="tag">实时统计</span></div>
-      <div class="chart-area" id="dashboardChart"></div>
-      <div class="chart-labels" id="dashboardChartLabels"></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">状态分布</div>
-      <div class="pie-legend" id="statusLegend"></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">🏢 各部门可视化 <span class="tag">人员 · 流程 · 待办</span></div>
-      <div id="deptChartPeople" class="echart-box"></div>
-      <div id="deptChartFlow" class="echart-box"></div>
-      <div id="deptChartTodo" class="echart-box"></div>
-    <div class="chart-card">
-      <div class="chart-title">🏭 部门·环节全景 <span class="tag">按部门自动采集</span></div>
-      <div id="deptBizGrid" class="dept-biz-grid"></div>
-    </div>
-    </div>
+    <div id="glsDashRoot"></div>
   </div>
 
   <!-- 全局搜索页 -->
@@ -2241,7 +2222,7 @@ function navigateTo(page, moduleId = null, itemId = null) {
     document.getElementById('searchBtn').style.display = 'none';
     if (moduleId !== 'knowledge') renderDetail();
   } else if (page === 'dashboard') {
-    document.getElementById('pageTitle').textContent = '数据看板';
+    document.getElementById('pageTitle').textContent = '部门数据看板';
     document.getElementById('fabAdd').style.display = 'none';
     document.getElementById('searchBtn').style.display = 'none';
     renderDashboard();
@@ -2399,7 +2380,7 @@ function renderSidebar() {
     html += `<div class="nav-item" onclick="navigateTo('module', '${id}')"><span class="nav-icon">${m.icon}</span><span class="nav-text">${m.name}</span>${count > 0 ? `<span class="nav-badge">${count}</span>` : ''}</div>`;
   });
   html += '<div class="nav-section">数据分析</div>';
-  html += '<div class="nav-item" onclick="navigateTo(\'dashboard\')"><span class="nav-icon">📊</span><span class="nav-text">数据看板</span></div>';
+  html += '<div class="nav-item" onclick="navigateTo(\'dashboard\')"><span class="nav-icon">📊</span><span class="nav-text">部门数据看板</span></div>';
   nav.innerHTML = html;
 }
 
@@ -5790,8 +5771,11 @@ function saveForm() {
 
 // ==================== 数据看板 ====================
 function renderDashboard() {
-  // 统计
+  /* 质量数据看板：自动提取检验记录生成详细数据可视化（合格率/不良率/供应商/物料/趋势） */
+  try { if (window.GLS_DASH && typeof GLS_DASH.render === 'function') { GLS_DASH.render(); return; } } catch (e) {}
+  // 兜底统计（GLS_DASH 未加载时；容器不存在则静默跳过，避免白屏）
   let total = 0, pending = 0, doing = 0, done = 0, urgent = 0;
+  const _el = function (id) { return document.getElementById(id); };
   MODULES.forEach(m => {
     appData[m.id].forEach(item => {
       total++;
@@ -5802,7 +5786,8 @@ function renderDashboard() {
     });
   });
   
-  document.getElementById('dashboardStats').innerHTML = `
+  if (!_el('dashboardStats') || !_el('dashboardChart') || !_el('dashboardChartLabels') || !_el('statusLegend')) { return; }
+  _el('dashboardStats').innerHTML = `
     <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">总记录</div></div>
     <div class="stat-card"><div class="stat-num warn">${pending}</div><div class="stat-label">待处理</div></div>
     <div class="stat-card"><div class="stat-num blue">${doing}</div><div class="stat-label">进行中</div></div>
@@ -5819,8 +5804,8 @@ function renderDashboard() {
     chartHtml += `<div class="chart-bar" style="height:${height}px"><span class="bar-value">${count}</span></div>`;
     labelsHtml += `<div class="chart-label">${m.name.slice(0,2)}</div>`;
   });
-  document.getElementById('dashboardChart').innerHTML = chartHtml;
-  document.getElementById('dashboardChartLabels').innerHTML = labelsHtml;
+  _el('dashboardChart').innerHTML = chartHtml;
+  _el('dashboardChartLabels').innerHTML = labelsHtml;
   
   // 状态分布
   const statusColors = { pending: '#fa8c16', doing: '#1890ff', done: '#2d7a4f', urgent: '#ff4d4f' };
@@ -5829,7 +5814,7 @@ function renderDashboard() {
     const count = { pending, doing, done, urgent }[s.id];
     legendHtml += `<div class="pie-legend-item"><span class="pie-legend-dot" style="background:${statusColors[s.id]}"></span>${s.name} ${count}条</div>`;
   });
-  document.getElementById('statusLegend').innerHTML = legendHtml;
+  _el('statusLegend').innerHTML = legendHtml;
   try { renderDeptCharts(); } catch (e) { console.error('部门图表渲染失败:', e); }
   try { renderDeptBizCharts(); } catch (e) { console.error('部门环节看板渲染失败:', e); }
 }
@@ -6183,6 +6168,7 @@ if (typeof window.XLSX === 'undefined') {
   document.head.appendChild(_xs);
 }</script>
 <script src="./echarts.min.js"></script>
+<script src="gls-dash.js?v=2"></script>
 <script src="gls-inspect.js?v=8"></script>
 <script src="gls-pqs.js?v=2"></script>
 <script src="gls-datahub.js?v=2"></script>
