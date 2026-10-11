@@ -2353,15 +2353,45 @@ function canPerm(p) { return GLSP.can(p); }
 function renderSidebar() {
   const nav = document.getElementById('sidebarNav');
   let html = '<div class="nav-item active" onclick="navigateTo(\'home\')"><span class="nav-icon">🏠</span><span class="nav-text">首页</span></div>';
+  /* ===== 质量管理：真实业务入口（检验类已并入检验工作台；异常接 MRB 评审） ===== */
   html += '<div class="nav-section">质量管理</div>';
-  MODULES.forEach(m => {
-    if (!canModule(m.id)) return;
-    const count = appData[m.id].length;
-    html += `<div class="nav-item" onclick="navigateTo('module', '${m.id}')"><span class="nav-icon">${m.icon}</span><span class="nav-text">${m.name}</span>${count > 0 ? `<span class="nav-badge">${count}</span>` : ''}</div>`;
+  if (canModule('incoming') || canModule('production') || canModule('inspection') || canModule('shipping')) {
+    html += '<div class="nav-item" onclick="gotoInspWorkbench()"><span class="nav-icon">🔬</span><span class="nav-text">检验工作台</span><span class="nav-badge" style="background:#2563eb">4类</span></div>';
+  }
+  ['suppliers', 'abnormal', 'risk', 'rd'].forEach(id => {
+    const m = MODULES.find(x => x.id === id);
+    if (!m || !canModule(id)) return;
+    const count = appData[id].length;
+    const click = id === 'abnormal' ? 'gotoMrbWorkbench()' : `navigateTo('module', '${id}')`;
+    const label = id === 'abnormal' ? '异常处理 · 评审' : m.name;
+    html += `<div class="nav-item" onclick="${click}"><span class="nav-icon">${m.icon}</span><span class="nav-text">${label}</span>${count > 0 ? `<span class="nav-badge">${count}</span>` : ''}</div>`;
+  });
+  /* ===== 品质资料库：体系文件 / 知识查询 / 培训管理 ===== */
+  html += '<div class="nav-section">品质资料库</div>';
+  ['documents', 'knowledge', 'training'].forEach(id => {
+    const m = MODULES.find(x => x.id === id);
+    if (!m || !canModule(id)) return;
+    const count = appData[id].length;
+    html += `<div class="nav-item" onclick="navigateTo('module', '${id}')"><span class="nav-icon">${m.icon}</span><span class="nav-text">${m.name}</span>${count > 0 ? `<span class="nav-badge">${count}</span>` : ''}</div>`;
   });
   html += '<div class="nav-section">数据分析</div>';
   html += '<div class="nav-item" onclick="navigateTo(\'dashboard\')"><span class="nav-icon">📊</span><span class="nav-text">数据看板</span></div>';
   nav.innerHTML = html;
+}
+
+/* 检验工作台（四类合一：来料 / 首件 / 巡检 / 成品）入口 */
+function gotoInspWorkbench() {
+  if (window.INSP && typeof INSP.openHome === 'function') {
+    try { INSP.openHome(); return; } catch (e) {}
+  }
+  navigateTo('module', 'incoming');
+}
+/* 异常处理：不合格品评审（MRB 多部门会签 + 留痕 + 8D 闭环）工作台 */
+function gotoMrbWorkbench() {
+  if (window.BIZFLOW_UI && typeof BIZFLOW_UI.openHome === 'function') {
+    try { BIZFLOW_UI.openHome(); return; } catch (e) {}
+  }
+  navigateTo('module', 'abnormal');
 }
 
 function glsSbWidth() {
@@ -2816,10 +2846,9 @@ function renderHome() {
 })();
 
 function filterByStatus(status) {
-  // 跳转到异常处理模块并筛选
-  navigateTo('module', 'abnormal');
+  // 异常处理已业务化：跳转到不合格品评审（MRB）工作台
+  gotoMrbWorkbench();
   currentFilter = status;
-  renderModuleList();
 }
 
 // ==================== 模块列表 ====================
@@ -4607,6 +4636,28 @@ function sfPrintDoc() {
   setTimeout(function () { w.print(); }, 400);
 }
 
+/* 列表项字段摘要：按模块取关键字段拼成一行，替代知识文章描述 */
+const _SUM_KEYS = {
+  suppliers: ['code', 'material', 'supType', 'grade'],
+  rd: ['code', 'stage', 'owner'],
+  risk: ['riskType', 'riskLevel'],
+  abnormal: ['no', 'handle'],
+  incoming: ['batch', 'qty', 'result'],
+  production: ['wo', 'product', 'result'],
+  inspection: ['product', 'result', 'qty'],
+  shipping: ['no', 'customer', 'qty']
+};
+function itemSummary(item, mid) {
+  const keys = _SUM_KEYS[mid] || [];
+  const parts = [];
+  (keys || []).forEach(k => {
+    const v = item[k];
+    if (v !== '' && v != null && String(v).trim()) parts.push(String(v));
+  });
+  if (parts.length) return parts.join(' · ');
+  return item.description || '暂无描述';
+}
+
 function renderModuleList() {
   const container = document.getElementById('moduleListContainer');
   const searchText = document.getElementById('moduleSearchInput').value.toLowerCase();
@@ -4718,7 +4769,7 @@ function renderModuleList() {
         <div class="item-icon ${currentModule.color}">${currentModule.icon}</div>
         <div class="item-content">
           <div class="item-title">${item.name}</div>
-          <div class="item-desc">${item.description || '暂无描述'}</div>
+          <div class="item-desc">${itemSummary(item, currentModule.id)}</div>
         </div>
         <span class="item-status ${status.color}">${status.name}</span>
         <span class="item-arrow">›</span>
@@ -4912,6 +4963,25 @@ function renderDetail() {
   }
 
   let html = '';
+  /* —— 记录单（可填写）：字段/下拉来自「配置项目」，点保存落库 —— */
+  if (window.FIELDS) {
+    try {
+      const fForm = FIELDS.render(currentModule.id, item);
+      if (fForm) {
+        html += `
+      <div class="detail-section">
+        <div class="section-head"><span class="icon">📋</span><span class="name">记录单（可填写 · 项目与下拉可在「配置项目」增减）</span></div>
+        <div class="section-content" id="detailFieldsForm">${fForm}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 13px;border-top:1px solid #f0f0f0;">
+          <span class="btn" style="padding:6px 14px;background:#2563eb;color:#fff;border-radius:7px;cursor:pointer;font-size:13px;" onclick="saveDetailFields()">💾 保存记录</span>
+          <span class="btn" style="padding:6px 14px;background:#f3f4f6;color:#374151;border-radius:7px;cursor:pointer;font-size:13px;" onclick="FIELDS.openDesigner(currentModule.id)">⚙ 配置项目/下拉</span>
+          <span class="btn" style="padding:6px 14px;background:#fff;color:#6b7280;border:1px solid #d1d5db;border-radius:7px;cursor:pointer;font-size:13px;" onclick="window.print()">🖨 打印</span>
+        </div>
+      </div>
+      `;
+      }
+    } catch (e) {}
+  }
   sections.forEach(s => {
     const content = item[s.key] || autoFill(s, item);
     html += `
@@ -4926,6 +4996,23 @@ function renderDetail() {
   });
   document.getElementById('detailSections').innerHTML = html;
   if (window.glsFixTableWidth) glsFixTableWidth(document.getElementById('detailSections'));
+}
+
+/* 保存详情页记录单：字段收集 + 校验 + 合并回记录 */
+function saveDetailFields() {
+  if (!window.FIELDS || !currentItem || !currentModule) return;
+  const d = FIELDS.collect(currentModule.id);
+  const vd = FIELDS.validate(currentModule.id, d);
+  if (!vd.ok) { showToast(vd.msg, 'error'); return; }
+  const idx = appData[currentModule.id].findIndex(x => x.id === currentItem.id);
+  if (idx > -1) {
+    appData[currentModule.id][idx] = Object.assign({}, appData[currentModule.id][idx], d, { updatedAt: Date.now() });
+    saveData();
+    showToast('记录已保存', 'success');
+    renderDetail();
+  } else {
+    showToast('记录不存在，请刷新', 'error');
+  }
 }
 
 // ===== 各模块"本卡档案明细"字段库（项目|内容） =====
