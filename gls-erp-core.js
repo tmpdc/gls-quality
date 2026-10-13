@@ -130,7 +130,7 @@
         { k: 'org', label: '检定 / 校准机构', type: 'text', w: '150px' },
         { k: 'cert', label: '证书编号', type: 'text', w: '130px' },
         { k: 'result', label: '检定结论', type: 'select', dict: '检定结论', w: '90px' },
-        { k: 'status', label: '设备状态', type: 'select', dict: '设备状态', def: '在用', w: '90px' },
+        { k: 'status', label: '设备状态', type: 'select', dict: '设备状态', opts: ['在用', '故障', '维修中', '停用'], def: '在用', w: '90px' },
         { k: 'location', label: '存放位置', type: 'text', w: '120px' },
         { k: 'owner', label: '使用部门', type: 'select', dict: '部门', w: '100px' },
         { k: 'keeper', label: '责任人', type: 'select', dict: '人员', w: '90px' },
@@ -394,7 +394,9 @@
         { k: 'soCode', label: '关联订单', type: 'ref', ref: 'so' },
         { k: 'startDate', label: '开工日期', type: 'date', def: 'today' },
         { k: 'dueDate', label: '完工日期', type: 'date' },
-        { k: 'line', label: '生产线别', type: 'select', dict: '生产线别' },
+        { k: 'line', label: '生产线别', type: 'select', dict: '生产线别', w: '90px' },
+        { k: 'team', label: '生产组', type: 'select', dict: '生产组', dictFrom: 'mo.team,workReport.team', w: '100px', tip: '下拉可管理；排产甘特按产线×组排布' },
+        { k: 'shift', label: '班次', type: 'select', opts: ['白班', '中班', '晚班', '全天'], def: '白班', w: '80px' },
         { k: 'status', label: '状态', type: 'select', opts: ['待下达', '待料', '待生产', '生产中', '已完工', '已关闭'], def: '待下达' },
         { k: 'remark', label: '备注', type: 'textarea' }
       ]
@@ -500,6 +502,27 @@
     report: {
       key: 'report', name: '统计报表', icon: '📈', group: '报表中心', view: 'report',
       desc: '库存结存、销售订单、采购到货、生产进度汇总'
+    },
+
+    /* ---------- 生产增强：甘特 / 出勤 / 异常预警（MES 一屏能力） ---------- */
+    gantt: {
+      key: 'gantt', name: '排产甘特', icon: '📅', group: '生产管理', view: 'gantt',
+      desc: '排产甘特：生产线×生产组×日期时间轴，状态着色（今日视图）'
+    },
+    attendance: {
+      key: 'attendance', name: '出勤登记', icon: '🧑‍🤝‍🧑', group: '生产管理', prefix: 'AT',
+      desc: '每日出勤登记：正常 / 请假 / 迟到 / 早退（绩效看板自动统计在岗）',
+      fields: [
+        { k: 'code', label: '登记号', type: 'text', req: true, auto: true, w: '130px' },
+        { k: 'attDate', label: '日期', type: 'date', def: 'today', w: '110px' },
+        { k: 'worker', label: '人员', type: 'select', dict: '人员', req: true, w: '120px' },
+        { k: 'status', label: '出勤状态', type: 'select', opts: ['正常', '请假', '迟到', '早退'], def: '正常', w: '100px' },
+        { k: 'remark', label: '备注', type: 'textarea' }
+      ]
+    },
+    alertview: {
+      key: 'alertview', name: '异常预警', icon: '🚨', group: '生产管理', view: 'alertview',
+      desc: '统一异常预警：物料缺口 / 交期临期 / 任务延期 / 设备故障 / 质量异常，带处理状态'
     }
   };
 
@@ -509,7 +532,7 @@
     { name: '销售管理', icon: '📝', keys: ['so', 'soShip', 'soReturn'] },
     { name: '采购管理', icon: '🛒', keys: ['pr', 'po', 'poRecv'] },
     { name: '仓储管理', icon: '🏬', keys: ['stockIn', 'stockOut', 'stockCheck'], extras: ['stock'] },
-    { name: '生产管理', icon: '🏭', keys: ['moboard', 'mo', 'process', 'dispatch', 'workReport', 'moPick', 'moIn', 'payroll'] },
+    { name: '生产管理', icon: '🏭', keys: ['moboard', 'gantt', 'mo', 'process', 'dispatch', 'workReport', 'moPick', 'moIn', 'payroll', 'attendance', 'alertview'] },
     { name: '品质检验', icon: '🔬', custom: [
       { name: '进料检验', desc: 'IQC 来料检验记录', icon: '📥', click: "BIZFLOW_UI.goInsp('IQC')" },
       { name: '首件检验', desc: 'FIRST 首件确认', icon: '✅', click: "BIZFLOW_UI.goInsp('FIRST')" },
@@ -822,6 +845,8 @@
     if (ent.view === 'moboard') { box.innerHTML = barHtml(ent) + ERP.moBoardView(); return; }
     if (ent.view === 'workreport') { box.innerHTML = barHtml(ent) + ERP.workReportView(); return; }
     if (ent.view === 'payroll') { box.innerHTML = barHtml(ent) + ERP.payrollView(); return; }
+    if (ent.view === 'gantt') { box.innerHTML = barHtml(ent) + ERP.ganttView(); return; }
+    if (ent.view === 'alertview') { box.innerHTML = barHtml(ent) + ERP.alertView(); return; }
 
     var rows = listOf(key), kw = (ERP.kw || '').trim();
     if (kw) {
@@ -1138,6 +1163,7 @@
       id: uid('wr'),
       code: nextCode(ENTITIES.workReport),
       moCode: moCode, process: process, product: mo.product || '',
+      line: mo.line || '', team: mo.team || '',
       worker: worker, rptDate: rptDate,
       okQty: okQty, badQty: badQty, hours: hours,
       priceType: p.priceType || '', price: num(p.price) || '',
@@ -1382,7 +1408,7 @@
   /* ---------- 绩效工资（按报工自动汇总，只读） ---------- */
   ERP.payrollView = function () {
     var wr = listOf('workReport') || [];
-    var byWorker = {}, byMo = {}, byProc = {};
+    var byWorker = {}, byMo = {}, byProc = {}, byTeam = {}, byLine = {};
     var total = 0, piece = 0, timed = 0;
     wr.forEach(function (r) {
       var wage = r.priceType === '计时' ? num(r.hours) * num(r.price) : num(r.okQty) * num(r.price);
@@ -1394,7 +1420,24 @@
       m.qty += num(r.okQty); m.wage += wage; m.n++;
       var p = byProc[r.process] = byProc[r.process] || { qty: 0, wage: 0, n: 0 };
       p.qty += num(r.okQty); p.wage += wage; p.n++;
+      var tk = String(r.team || '').trim() || '（未分组）';
+      var t = byTeam[tk] = byTeam[tk] || { qty: 0, wage: 0, n: 0 };
+      t.qty += num(r.okQty); t.wage += wage; t.n++;
+      var lk = String(r.line || '').trim() || '（未排线）';
+      var l = byLine[lk] = byLine[lk] || { qty: 0, wage: 0, n: 0 };
+      l.qty += num(r.okQty); l.wage += wage; l.n++;
     });
+    /* 出勤统计（今日，数据源：出勤登记模块，界面可增删改） */
+    var att = listOf('attendance') || [];
+    var ta = {}, attCnt = 0;
+    att.forEach(function (a) {
+      if (String(a.attDate || '') !== today()) return;
+      attCnt++;
+      var st = a.status || '正常';
+      ta[st] = (ta[st] || 0) + 1;
+    });
+    var attNormal = ta['正常'] || 0;
+    var attRate = attCnt ? Math.round(attNormal / attCnt * 100) : 0;
     function stat(label, val, color) {
       return '<div style="flex:1;min-width:140px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">' +
         '<div style="font-size:12px;color:#6b7280">' + label + '</div>' +
@@ -1405,6 +1448,9 @@
       stat('计件工资(元)', money(piece), '#1d4ed8') +
       stat('计时工资(元)', money(timed), '#ea580c') +
       stat('报工记录数', wr.length, '#16a34a') +
+      stat('今日出勤登记(人)', attCnt, '#7c3aed') +
+      stat('正常出勤(人)', attNormal + (attCnt ? '（' + attRate + '%）' : ''), '#16a34a') +
+      stat('请假/迟到/早退', (ta['请假'] || 0) + ' / ' + (ta['迟到'] || 0) + ' / ' + (ta['早退'] || 0), '#ea580c') +
       '</div>';
     function aggTable(title, obj, qtyLabel) {
       var keys = Object.keys(obj).sort(function (a, b) { return obj[b].wage - obj[a].wage; });
@@ -1420,6 +1466,8 @@
       return h;
     }
     html += aggTable('按报工人汇总', byWorker, '报工人');
+    html += aggTable('按生产组汇总', byTeam, '生产组');
+    html += aggTable('按生产线汇总', byLine, '生产线');
     html += aggTable('按工单汇总', byMo, '工单号');
     html += aggTable('按工序汇总', byProc, '工序');
     html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">' +
@@ -1437,6 +1485,199 @@
         '<td>' + escHtml(r.priceType || '') + ' ' + escHtml(r.price || '') + '</td><td>' + money(wage) + '</td></tr>';
     });
     html += '</tbody></table></div></div>';
+    return html;
+  };
+
+  /* ---------- 排产甘特：生产线 × 生产组 × 日期时间轴（MES 一屏） ---------- */
+  ERP.ganttView = function () {
+    var mos = listOf('mo') || [];
+    var t = today();
+    var p2x = function (n) { return n < 10 ? '0' + n : '' + n; };
+    function dstr(d) {
+      return d.getFullYear() + '-' + p2x(d.getMonth() + 1) + '-' + p2x(d.getDate());
+    }
+    function addDays(d0, n) { var d = new Date(d0); d.setDate(d.getDate() + n); return d; }
+    /* 时间轴：最早开工 ~ 最晚完工（未关闭工单），保底今天±3，最多 14 天 */
+    var minD = null, maxD = null;
+    mos.forEach(function (m) {
+      if (m.status === '已关闭') return;
+      var s = m.startDate || t, e = m.dueDate || s;
+      if (!minD || s < minD) minD = s;
+      if (!maxD || e > maxD) maxD = e;
+    });
+    if (!minD) minD = t;
+    if (!maxD) maxD = t;
+    var d0 = addDays(new Date(minD), -1), d1 = addDays(new Date(maxD), 1);
+    if ((d1 - d0) / 86400000 > 14) d1 = addDays(d0, 13);
+    var days = [];
+    for (var dd = new Date(d0); dd <= d1; dd = addDays(dd, 1)) days.push(dstr(dd));
+    var total = days.length;
+    function pos(m) {
+      var s = m.startDate || t, e = m.dueDate || s;
+      var i0 = days.indexOf(s), i1 = days.indexOf(e);
+      if (i0 < 0) i0 = 0;
+      if (i1 < 0) i1 = total - 1;
+      if (i1 < i0) i1 = i0;
+      return { left: (i0 / total) * 100, width: ((i1 - i0 + 1) / total) * 100 };
+    }
+    function barColor(m) {
+      var st = m.status || '';
+      if (st === '已完工') return '#16a34a';
+      if (st === '生产中') return '#3b82f6';
+      if (st === '待生产') return '#9ca3af';
+      if (st === '待料') return '#ea580c';
+      if (st === '待下达') return '#cbd5e1';
+      if (st === '已关闭') return '#6b7280';
+      if (st === '已暂停') return '#eab308';
+      return '#64748b';
+    }
+    /* 按生产线分组（界面维护的字典 + 工单上已填值） */
+    var lines = {}, order = [];
+    var active = 0, urgent = 0, overdue = 0, teams = {};
+    mos.forEach(function (m) {
+      if (m.status === '已关闭') return;
+      active++;
+      if ((m.priority || '') === '加急') urgent++;
+      if (m.dueDate && m.dueDate < t) overdue++;
+      if (m.team) teams[m.team] = 1;
+      var L = String(m.line || '').trim() || '未排线';
+      if (!lines[L]) { lines[L] = []; order.push(L); }
+      lines[L].push(m);
+    });
+    function stat(label, val, color) {
+      return '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px">' +
+        '<div style="font-size:12px;color:#6b7280">' + label + '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:' + color + '">' + val + '</div></div>';
+    }
+    var html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">' +
+      stat('在制工单(张)', active, '#1d4ed8') +
+      stat('生产线(条)', order.length, '#111827') +
+      stat('生产组(个)', Object.keys(teams).length, '#111827') +
+      stat('加急(张)', urgent, '#c2410c') +
+      stat('已逾期(张)', overdue, '#dc2626') +
+      '</div>';
+    /* 图例 */
+    html += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#374151;margin-bottom:10px">' +
+      ['已完工', '生产中', '待生产', '待料', '待下达', '已暂停', '逾期'].map(function (s2, i) {
+        var cols = ['#16a34a', '#3b82f6', '#9ca3af', '#ea580c', '#cbd5e1', '#eab308', '#dc2626'];
+        return '<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:' + cols[i] + ';display:inline-block"></span>' + s2 + '</span>';
+      }).join('') +
+      '</div>';
+    if (!order.length) {
+      html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:26px;text-align:center;color:#6b7280">暂无排产工单。先在「生产工单」里建单并填生产线/生产组/计划日期，这里自动生成时间轴。</div>';
+      return html;
+    }
+    /* 甘特表：表头日期 + 每产线一组 */
+    html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;overflow-x:auto">';
+    html += '<div style="min-width:' + Math.max(total * 52 + 300, 780) + 'px">';
+    /* 表头 */
+    html += '<div style="display:flex;font-size:11.5px;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:6px;margin-bottom:6px">' +
+      '<div style="flex:0 0 300px;font-weight:700;color:#111827">工单（产线 / 生产组 / 班次）</div>';
+    days.forEach(function (d) {
+      var cls = d === t ? 'background:#dbeafe;border-radius:6px;' : '';
+      html += '<div style="flex:1;text-align:center;' + cls + '">' + escHtml(d.slice(5)) + '</div>';
+    });
+    html += '</div>';
+    order.forEach(function (L) {
+      var ms = lines[L];
+      html += '<div style="margin-top:10px">';
+      html += '<div style="font-size:12.5px;font-weight:700;color:#14506e;margin-bottom:4px">🏭 ' + escHtml(L) + '（' + ms.length + ' 单）</div>';
+      ms.forEach(function (m) {
+        var p = pos(m);
+        var done = num(m.doneQty), plan = num(m.planQty);
+        var pct = plan ? Math.round(done / plan * 100) : 0;
+        var od = m.dueDate && m.dueDate < t && m.status !== '已完工' && m.status !== '已关闭';
+        var bc = barColor(m);
+        var lab = escHtml(m.code) + '　' + escHtml(matName(m.product)) + '　' +
+          escHtml(String(m.team || '')) + (m.shift ? '·' + escHtml(m.shift) : '') + '　' + done + '/' + plan + '（' + pct + '%）';
+        html += '<div style="display:flex;align-items:center;margin:3px 0">' +
+          '<div style="flex:0 0 300px;font-size:11.5px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + lab + '</div>' +
+          '<div style="position:relative;flex:1;height:26px">' +
+          '<div style="position:absolute;left:' + p.left + '%;width:' + p.width + '%;top:0;bottom:0;background:' + bc + ';border-radius:6px;' +
+          (od ? 'outline:2px solid #dc2626;' : '') +
+          ';padding:0 8px;color:#fff;font-size:11px;display:flex;align-items:center;white-space:nowrap;overflow:hidden">' +
+          escHtml(m.code) + (od ? ' ⚠逾期' : '') + '</div>' +
+          '</div></div>';
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  };
+
+  /* ---------- 统一异常预警：物料缺口 / 交期临期 / 任务延期 / 设备故障 / 质量异常 ---------- */
+  ERP.alertView = function () {
+    var items = [], t = today();
+    function add(type, color, content, time, status, jump) {
+      items.push({ type: type, color: color, content: content, time: time || '-', status: status || '未处理', jump: jump || '' });
+    }
+    /* 1) 物料缺口（BOM 应领 vs 已领） */
+    (listOf('mo') || []).forEach(function (m) {
+      if (m.status === '已完工' || m.status === '已关闭') return;
+      var miss = matMiss(m);
+      if (miss.length) {
+        add('物料缺口', '#b45309', m.code + ' ' + matName(m.product) + '：' +
+          miss.map(function (x) { return x.name + ' 差 ' + (x.need - x.got); }).join('，'),
+          m.startDate || t, '未处理', 'mo');
+      }
+    });
+    /* 2) 交期临期 / 任务延期 */
+    (listOf('mo') || []).forEach(function (m) {
+      if (m.status === '已完工' || m.status === '已关闭' || !m.dueDate) return;
+      var diff = Math.ceil((new Date(m.dueDate) - new Date()) / 86400000);
+      if (diff < 0) add('任务延期', '#dc2626', m.code + ' 已逾期 ' + (-diff) + ' 天（交期 ' + m.dueDate + '）', m.dueDate, '未处理', 'mo');
+      else if (diff <= 2) add('交期临期', '#ea580c', m.code + ' 距交期 ' + diff + ' 天（' + m.dueDate + '）', m.dueDate, '未处理', 'mo');
+    });
+    /* 3) 设备故障 / 维修 */
+    (listOf('equip') || []).forEach(function (e) {
+      var st = String(e.status || '').trim();
+      if (st === '故障') add('设备故障', '#dc2626', (e.code || '') + ' ' + (e.name || '') + '：故障', '-', '未处理', 'equip');
+      else if (st === '维修中') add('设备维修', '#ea580c', (e.code || '') + ' ' + (e.name || '') + '：维修中', '-', '处理中', 'equip');
+    });
+    /* 4) 质量异常：不合格评审单（未评审 / 评审中） */
+    try {
+      if (window.INSP && typeof INSP._db === 'function') {
+        var idb = INSP._db();
+        if (idb && idb.inspections) idb.inspections.forEach(function (r) {
+          var st = String(r.status || '');
+          if (st === '待评审') add('质量异常', '#dc2626', (r.no || '') + ' ' + (r.matName || r.matCode || '') + ' 待评审', r.date || '-', '未处理', 'mrb');
+          else if (st === '评审中') add('质量异常', '#ea580c', (r.no || '') + ' ' + (r.matName || '') + ' 评审中', r.date || '-', '处理中', 'mrb');
+        });
+      }
+    } catch (e) {}
+    /* 汇总卡 */
+    function cnt(type) { return items.filter(function (x) { return x.type === type; }).length; }
+    var typeNames = ['物料缺口', '任务延期', '交期临期', '设备故障', '设备维修', '质量异常'];
+    var typeCols = ['#b45309', '#dc2626', '#ea580c', '#dc2626', '#ea580c', '#dc2626'];
+    var unDone = items.filter(function (x) { return x.status !== '已关闭'; }).length;
+    var html = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">' +
+      '<div style="flex:1;min-width:130px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px"><div style="font-size:12px;color:#6b7280">待处理预警(条)</div><div style="font-size:22px;font-weight:800;color:#dc2626">' + unDone + '</div></div>';
+    typeNames.forEach(function (nm, i) {
+      html += '<div style="flex:1;min-width:110px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px"><div style="font-size:12px;color:#6b7280">' + nm + '</div><div style="font-size:20px;font-weight:800;color:' + typeCols[i] + '">' + cnt(nm) + '</div></div>';
+    });
+    html += '</div>';
+    /* 列表 */
+    html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px">' +
+      '<div style="font-size:14px;font-weight:700;color:#111827;margin-bottom:8px">预警明细（' + items.length + ' 条）</div>';
+    if (!items.length) {
+      html += '<div style="padding:22px;text-align:center;color:#6b7280">当前无预警。物料缺口自动比对 BOM 与领料；交期/任务按工单完工日期；设备故障在「设备台账」把状态改为故障/维修中；质量异常自动接入不合格评审单。</div>';
+    } else {
+      html += '<div class="erp-tablewrap"><table class="erp-table"><thead><tr>' +
+        '<th style="min-width:80px">类型</th><th>内容</th><th style="min-width:90px">发生时间</th><th style="min-width:90px">状态</th><th style="min-width:60px">处理</th>' +
+        '</tr></thead><tbody>';
+      items.forEach(function (it) {
+        var stColor = it.status === '未处理' ? '#dc2626' : (it.status === '处理中' ? '#b45309' : '#16a34a');
+        var stBg = it.status === '未处理' ? '#fee2e2' : (it.status === '处理中' ? '#fef3c7' : '#e8f5ec');
+        html += '<tr><td><span class="erp-tag" style="background:' + stBg + ';color:' + stColor + '">' + escHtml(it.type) + '</span></td>' +
+          '<td>' + escHtml(it.content) + '</td><td>' + escHtml(it.time) + '</td>' +
+          '<td><span class="erp-tag" style="background:' + stBg + ';color:' + stColor + '">' + escHtml(it.status) + '</span></td>' +
+          '<td class="erp-ops">' + (it.jump ? '<span class="erp-op" onclick="' +
+            (it.jump === 'mrb' ? 'if(window.BIZFLOW_UI){BIZFLOW_UI.goMrb();}else{ERP.openList("mo");}' : 'ERP.openList("' + it.jump + '")') +
+            '">去处理 →</span>' : '—') + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
     return html;
   };
 
@@ -1829,7 +2070,8 @@
       [['warehouse', 'keeper'], ['stockIn', 'operator'], ['stockOut', 'receiver'],
        ['stockCheck', 'checker'], ['moPick', 'picker'], ['pr', 'applicant'],
        ['afterSale', 'owner'], ['renovate', 'owner'], ['so', 'salesman'],
-       ['po', 'buyer']].forEach(function (p) {
+       ['po', 'buyer'], ['workReport', 'worker'], ['dispatch', 'worker'],
+       ['attendance', 'worker']].forEach(function (p) {
         var arr = [];
         try { arr = listOf(p[0]) || []; } catch (e) { arr = []; }
         arr.forEach(function (r) {
