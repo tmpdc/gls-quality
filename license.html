@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>质量管理工具授权码 · 签发器 · 格丽思</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a5c38'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='%237dd3a0' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --g1:#1a5c38; --g2:#2d7a4f; --g3:#3a9d68; --g4:#7dd3a0;
+    --bg:#f0f2f5; --card:#fff; --ink:#1a1a1a; --ink2:#555; --mut:#888; --line:#e8e8e8;
+    --err:#ff4d4f; --errbg:#fff1f0; --errbd:#ffccc7; --ok:#2d7a4f; --okbg:#eaf6ef;
+    --mono:ui-monospace,Consolas,"Courier New",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6;min-height:100vh}
+  a{color:var(--g2)}
+  /* 顶栏 */
+  header{background:linear-gradient(135deg,#1a5c38,#2d7a4f 55%,#3a9d68);color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header .logo{width:34px;height:34px;flex:0 0 34px;border-radius:9px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:18px}
+  header h1{font-size:16.5px;font-weight:600;letter-spacing:.2px}
+  header .who{font-size:12.5px;color:rgba(255,255,255,.78);margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header .who a{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.35);padding:4px 10px;border-radius:999px;font-size:12.5px}
+  header .who a:hover{background:rgba(255,255,255,.14)}
+  main{max-width:1080px;margin:0 auto;padding:16px 14px 60px}
+  .card{background:var(--card);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin:0 0 14px;overflow:hidden}
+  .card>h2{font-size:15px;font-weight:600;padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card>h2 .tag{font-size:12px;font-weight:400;color:var(--mut)}
+  .bd{padding:16px}
+  label{display:block;font-size:12.5px;color:var(--ink2);margin:0 0 6px}
+  input[type=text],input[type=date],textarea{width:100%;min-height:44px;padding:10px 12px;border:1px solid #dcdcdc;border-radius:9px;font:15px var(--sans);background:#fafafa;color:var(--ink)}
+  input:focus,textarea:focus{outline:none;border-color:var(--g2);background:#fff;box-shadow:0 0 0 3px rgba(45,122,79,.1)}
+  input.mono,textarea.mono{font-family:var(--mono);letter-spacing:.3px}
+  textarea{min-height:104px;resize:vertical;line-height:1.7}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .row>div{flex:1 1 220px;min-width:160px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button{min-height:44px;padding:0 16px;border:1px solid #dcdcdc;background:#fff;color:var(--ink);border-radius:9px;font:14.5px var(--sans);cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--g2);color:var(--g2)}
+  button.p{background:linear-gradient(135deg,var(--g2),var(--g3));border-color:transparent;color:#fff;font-weight:600}
+  button.p:hover{color:#fff;opacity:.94}
+  button.s{min-height:36px;padding:0 12px;font-size:13px}
+  button.d{color:var(--err);border-color:var(--errbd)}
+  button.d:hover{color:var(--err);background:var(--errbg);border-color:var(--err)}
+  .hint{font-size:12.5px;color:var(--mut);margin-top:8px}
+  .hint b{color:var(--ink2)}
+  .out{margin-top:12px;border:1px dashed #bfd6c7;background:#fbfdfb;border-radius:10px;padding:12px}
+  .out .code{font:15.5px/1.6 var(--mono);word-break:break-all;color:#123c2c;letter-spacing:.5px;user-select:all}
+  .out .meta{font-size:12.5px;color:var(--ink2);margin-top:6px}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;text-align:left;vertical-align:middle;word-break:break-all}
+  th{background:#f7f9f8;color:var(--ink2);font-weight:600;font-size:12.5px}
+  .ledger{list-style:none}
+  .ledger li{border-bottom:1px solid var(--line);padding:10px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .ledger li:last-child{border-bottom:0}
+  .ledger .c{font-family:var(--mono);font-size:13px;word-break:break-all;flex:1 1 300px}
+  .ledger .d{font-size:12px;color:var(--mut);flex:1 1 100%}
+  .pill{font-size:12px;padding:2px 9px;border-radius:999px;background:#e8f2ec;color:#1f6b4f;white-space:nowrap}
+  .pill.dev{background:#fdeee2;color:#96550f}
+  .empty{color:var(--mut);font-size:13px;padding:6px 0}
+  .verdict{margin-top:10px;font-size:13.5px;border-radius:10px;padding:10px 12px;background:#f4f6f5;border:1px solid var(--line)}
+  .verdict.good{background:var(--okbg);border-color:#bfe3cd;color:#14603f}
+  .verdict.bad{background:var(--errbg);border-color:var(--errbd);color:#7d1c16}
+  .chk{font-size:13px;border-radius:10px;padding:10px 13px;margin:0 0 14px}
+  .chk.ok{background:var(--okbg);border:1px solid #bfe3cd;color:#14603f}
+  .chk.no{background:var(--errbg);border:1px solid var(--errbd);color:#7d1c16}
+  .note{background:#fff8e6;border:1px solid #ffe1a6;color:#8a5b00;border-radius:10px;padding:10px 13px;font-size:12.5px;margin:0 0 14px}
+  .gate{max-width:520px;margin:40px auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.1);padding:26px 22px}
+  .gate h2{font-size:17px;margin-bottom:8px}
+  .gate p{font-size:13px;color:var(--ink2);margin-bottom:14px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1a5c38;color:#fff;padding:10px 18px;border-radius:999px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99;max-width:90vw;text-align:center}
+  .toast.on{opacity:1}
+  .hide{display:none !important}
+  footer{max-width:1080px;margin:0 auto;padding:0 14px 40px;color:var(--mut);font-size:12.5px;line-height:1.8}
+  @media (max-width:640px){
+    main{padding:12px 10px 50px}
+    th,td{font-size:12.5px;padding:8px}
+    .out .code{font-size:14px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🔑</div>
+  <h1>质量管理工具授权码 · 签发器</h1>
+  <div class="who">
+    <span id="whoText">未登录</span>
+    <a href="index.html">账号后台</a>
+    <a href="page.html">质量工作台</a>
+  </div>
+</header>
+
+<main>
+  <!-- 未登录 -->
+  <div id="gateLogin" class="gate hide">
+    <h2>请先登录再使用</h2>
+    <p>这个页面属于格丽思质量管理系统，需要先用系统账号登录。</p>
+    <div class="btns"><button class="p" onclick="location.href='index.html'">去登录</button></div>
+  </div>
+
+  <!-- 无权限 -->
+  <div id="gateRole" class="gate hide">
+    <h2>当前账号没有签发权限</h2>
+    <p>签发授权码属于系统管理类操作，只有超级管理员 / 管理员可以使用。当前账号：<b id="roleWho">—</b></p>
+    <div class="btns"><button onclick="location.href='page.html'">回质量工作台</button></div>
+  </div>
+
+  <!-- 密钥门 -->
+  <div id="gateKey" class="gate hide">
+    <h2>输入签发密钥</h2>
+    <p>出于安全考虑，<b>密钥不存在这个网页里</b>（站点是公网的，写进页面等于公开）。在你这台设备上填一次即可，勾选「记住本机」以后就不用再填。</p>
+    <label for="keyInput">签发密钥（Base64 一串，只有授权人持有）</label>
+    <input type="text" id="keyInput" class="mono" placeholder="R0xT…（本地文件《签发密钥-妥善保管.txt》里那串）" autocomplete="off">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px">
+      <input type="checkbox" id="keyRemember" checked style="width:16px;height:16px;accent-color:#2d7a4f"> 记住本机（存在这台设备的浏览器里，不上传）
+    </label>
+    <div id="keyErr" class="verdict bad hide" style="margin-top:12px"></div>
+    <div class="btns"><button class="p" id="btnKey">确认密钥</button></div>
+    <div class="hint">密钥不对时不会告诉任何提示细节，只提示「密钥不对」。忘掉了就从电脑上的《签发密钥-妥善保管.txt》复制过来。</div>
+  </div>
+
+  <!-- 主体 -->
+  <div id="app" class="hide">
+    <div id="selfChk" class="chk ok">内核自检中…</div>
+
+    <section class="card">
+      <h2>签发设置 <span class="tag">授权码名称与前缀都按系统名称命名</span></h2>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label for="sysName">系统名（下面显示的名称、前缀都按它命名）</label>
+            <input type="text" id="sysName" maxlength="24" placeholder="质量管理">
+          </div>
+          <div>
+            <label for="brand">授权标识（<span class="cname">质量管理工具授权码</span>的前缀，2~6 位字母）</label>
+            <input type="text" id="brand" class="mono" maxlength="6" placeholder="ZLGL">
+          </div>
+          <div style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="p" id="btnCfg">保存设置</button>
+          </div>
+        </div>
+        <div class="hint">名称：<b class="cname">质量管理工具授权码</b> —— 系统名「<b id="sysNow">质量管理</b>」+「工具授权码」（系统名里已带「工具」就不重复叠加）；当前前缀 <b id="brandNow">ZLGL</b>，签出来的码形如 <b id="brandEg">ZLGL2-20270301-XXXXXXXXXX</b>。
+          改设置只影响<b>以后签发</b>的码；已经发出去的老码（GLS1 / GLS2）<b>继续有效</b>，不用重新签发。</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>限时码 <span class="tag" id="tagTime">ZLGL2 · 只限到期日，一码多台，不绑设备</span></h2>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label for="expTime">到期日（这天仍可用，次日停用）</label>
+            <input type="date" id="expTime">
+          </div>
+          <div>
+            <label for="whoTime">发给谁 / 备注（只进台账，不写进码）</label>
+            <input type="text" id="whoTime" maxlength="40" placeholder="例如：张工 · 试用">
+          </div>
+          <div style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="p" id="btnTime">生成限时码</button>
+          </div>
+        </div>
+        <div class="btns">
+          <button class="s" data-quick="7">7 天</button>
+          <button class="s" data-quick="30">30 天</button>
+          <button class="s" data-quick="90">3 个月</button>
+          <button class="s" data-quick="365">1 年</button>
+          <button class="s" data-quick="1095">3 年</button>
+          <button class="s" data-quick="20291231">长期 2029-12-31</button>
+        </div>
+        <div class="out hide" id="outTime">
+          <div class="code" id="codeTime"></div>
+          <div class="meta" id="metaTime"></div>
+          <div class="btns"><button class="p s" id="copyTime">复制这个码</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>设备绑定码 <span class="tag" id="tagDev">ZLGL1 · 签发时就锁死机器码，换设备立刻失效</span></h2>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label for="mc">机器码（程序授权页上那串 12 位，只认机器本身）</label>
+            <input type="text" id="mc" class="mono" placeholder="XXXX-XXXX-XXXX" maxlength="14">
+          </div>
+          <div>
+            <label for="expDev">到期日</label>
+            <input type="date" id="expDev">
+          </div>
+          <div>
+            <label for="whoDev">发给谁 / 备注</label>
+            <input type="text" id="whoDev" maxlength="40" placeholder="例如：李工 · 办公室台式机">
+          </div>
+          <div style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="p" id="btnDev">生成设备码</button>
+          </div>
+        </div>
+        <div class="hint">机器码从哪来：让对方打开程序 → 授权页 → 复制「本机机器码」发给你（旁边有「复制机器码」按钮）。机器码只由这台机器的硬件与系统特征算出（屏幕物理分辨率、CPU 核数、系统平台、显卡型号），<b>同一台电脑换浏览器、换入口、清缓存都不变</b>，只有换设备才会变。对方若说换过浏览器，按原机器码直接重签即可。</div>
+        <div class="out hide" id="outDev">
+          <div class="code" id="codeDev"></div>
+          <div class="meta" id="metaDev"></div>
+          <div class="btns"><button class="p s" id="copyDev">复制这个码</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>批量签发 <span class="tag">一行一个人，一次签一批</span></h2>
+      <div class="bd">
+        <label for="bulk">每行格式：<b>备注, 机器码, 到期日</b>　（机器码留空就是限时码；到期日可写 2027-03-31 或 20270331）</label>
+        <textarea id="bulk" class="mono" placeholder="张工, SGM3-BKEA-SZ1Q, 2027-12-31&#10;李工, 0B57-SN4X-WYS2, 2028-06-30&#10;试用客户A, , 2026-12-31&#10;试用客户B, , 2026-12-31"></textarea>
+        <div class="btns">
+          <button class="p" id="btnBulk">批量生成</button>
+          <button class="s" id="btnBulkCopy">复制全部结果</button>
+          <button class="s" id="btnBulkCsv">导出 CSV</button>
+          <button class="s" id="btnBulkDemo">填一行示例</button>
+        </div>
+        <div id="bulkOut" class="hide" style="margin-top:12px">
+          <table>
+            <colgroup><col style="width:16%"><col style="width:34%"><col style="width:14%"><col style="width:26%"><col style="width:10%"></colgroup>
+            <thead><tr><th>类型</th><th>授权码</th><th>到期</th><th>备注 / 机器码</th><th>复制</th></tr></thead>
+            <tbody id="bulkBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>验码 <span class="tag">拿到一个码，先看它是不是真的、什么时候到期</span></h2>
+      <div class="bd">
+        <div class="row">
+          <div>
+            <label for="vin">粘贴<span class="cname">质量管理工具授权码</span></label>
+            <input type="text" id="vin" class="mono" placeholder="ZLGL2-…">
+          </div>
+          <div>
+            <label for="vmc">机器码（验设备码时才要填）</label>
+            <input type="text" id="vmc" class="mono" placeholder="可留空" maxlength="14">
+          </div>
+          <div style="flex:0 0 auto">
+            <label>&nbsp;</label>
+            <button class="p" id="btnVerify">验一下</button>
+          </div>
+        </div>
+        <div id="verdict" class="verdict hide"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>签发台账 <span class="tag">存在这台设备的浏览器里，不上云</span></h2>
+      <div class="bd">
+        <ul class="ledger" id="ledger"></ul>
+        <div class="btns">
+          <button class="s" id="btnExp">导出 CSV</button>
+          <button class="s" id="btnCopyAll">复制全部</button>
+          <button class="s d" id="btnClear">清空台账</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  限时码与设备码是两套独立的码：限时码只管到期日，可以在任意多台设备上用；设备码在签发那一刻就把机器码焊死，只在那台设备上有效。两者可同时使用，以更严的那个为准。<br>
+  本页签发的授权码名称：<b class="cname">质量管理工具授权码</b>（系统名 + 工具授权码），名称与前缀都按系统名走，可在「签发设置」里改。<br>
+  <span id="footVer">v1.0</span> · 密钥不进网页：本页只带一个校验值，用来确认你填的密钥对不对，反推不出密钥本身。
+</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   质量管理工具授权码 · 签发器（站点版）
+   与程序内核同算法：HMAC-SHA256(密钥, 品牌+类型+|+机器码+|+到期日) 前 13 字节 → 自定义 base32 取 20 位
+   本文件不含密钥，只含两个校验值：
+     KEY_VERIFY = SHA-256('gls6t.kcheck|' + base64(密钥))   —— 判断密钥填得对不对
+     SELFTEST   = SHA-256(已过期的测试码)                    —— 判断内核算得对不对（该码 2020-01-01 已过期，公开无害）
+   ============================================================ */
+var KEY_VERIFY = '36e15dd2fea2299ea4b24e6aea5a57af8dd185c993b684fa91b9a7c7d9d96647';
+var SELFTEST   = '635ff4597afe6ae7a3efa86470aad95685e31c7d6935d365ed537d2113865b0c';
+var SELFTEST_CODE_REF = 'ZLGL2-20200101-';   /* 只用于说明，签名部分不写出来 */
+
+var LIC_B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+var LIC_SYS_DEFAULT = '质量管理';
+var LIC_BRAND_MAP = { '质量管理': 'ZLGL', '质量管理工具系统': 'ZLGL', '质量管理六大核心工具系统': 'ZLGL' };
+
+var LS_KEY  = 'gls_lic_key';       /* 记住的密钥 */
+var LS_CFG  = 'gls_lic_cfg_v1';    /* 系统名 / 前缀 */
+var LS_LEDG = 'gls_lic_ledger_v1'; /* 台账 */
+
+/* ---------- SHA-256 / HMAC（纯 JS，无外部依赖） ---------- */
+function licUtf8(str){
+  var out=[],i,c,c2,cp; str=String(str==null?'':str);
+  for(i=0;i<str.length;i++){
+    c=str.charCodeAt(i);
+    if(c<0x80) out.push(c);
+    else if(c<0x800) out.push(0xc0|(c>>6),0x80|(c&63));
+    else if(c>=0xd800&&c<=0xdbff&&i+1<str.length&&str.charCodeAt(i+1)>=0xdc00&&str.charCodeAt(i+1)<=0xdfff){
+      c2=str.charCodeAt(i+1); cp=0x10000+((c-0xd800)<<10)+(c2-0xdc00);
+      out.push(0xf0|(cp>>18),0x80|((cp>>12)&63),0x80|((cp>>6)&63),0x80|(cp&63)); i++;
+    } else out.push(0xe0|(c>>12),0x80|((c>>6)&63),0x80|(c&63));
+  }
+  return out;
+}
+function licRotr(x,n){ return (x>>>n)|(x<<(32-n)); }
+function licSha256(bytes){
+  var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  var msg=bytes.slice(0),l=msg.length,bitLen=l*8,i,j;
+  msg.push(0x80);
+  while(msg.length%64!==56) msg.push(0);
+  msg.push(0,0,0,(bitLen/4294967296)&255,(bitLen>>>24)&255,(bitLen>>>16)&255,(bitLen>>>8)&255,bitLen&255);
+  var w=new Array(64);
+  for(i=0;i<msg.length;i+=64){
+    for(j=0;j<16;j++) w[j]=((msg[i+j*4]<<24)|(msg[i+j*4+1]<<16)|(msg[i+j*4+2]<<8)|msg[i+j*4+3])|0;
+    for(j=16;j<64;j++){
+      var s0=licRotr(w[j-15],7)^licRotr(w[j-15],18)^(w[j-15]>>>3);
+      var s1=licRotr(w[j-2],17)^licRotr(w[j-2],19)^(w[j-2]>>>10);
+      w[j]=(w[j-16]+s0+w[j-7]+s1)|0;
+    }
+    var a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(j=0;j<64;j++){
+      var S1=licRotr(e,6)^licRotr(e,11)^licRotr(e,25);
+      var ch=(e&f)^(~e&g);
+      var t1=(h+S1+ch+K[j]+w[j])|0;
+      var S0=licRotr(a,2)^licRotr(a,13)^licRotr(a,22);
+      var mj=(a&b)^(a&c)^(b&c);
+      var t2=(S0+mj)|0;
+      h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+    }
+    H[0]=(H[0]+a)|0;H[1]=(H[1]+b)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;
+    H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
+  }
+  var out=[];
+  for(i=0;i<8;i++) out.push((H[i]>>>24)&255,(H[i]>>>16)&255,(H[i]>>>8)&255,H[i]&255);
+  return out;
+}
+function licHex(bytes){
+  var s='',i; for(i=0;i<bytes.length;i++) s+=('0'+bytes[i].toString(16)).slice(-2);
+  return s;
+}
+function licHash(str){ return licHex(licSha256(licUtf8(str))); }
+function licHmacBytes(keyBytes,msg){
+  var block=64,i,k=keyBytes.slice(0);
+  if(k.length>block) k=licSha256(k);
+  while(k.length<block) k.push(0);
+  var ipad=[],opad=[];
+  for(i=0;i<block;i++){ ipad.push(k[i]^0x36); opad.push(k[i]^0x5c); }
+  return licSha256(opad.concat(licSha256(ipad.concat(licUtf8(msg)))));
+}
+function licB32(bytes,n){
+  var bits='',out='',i;
+  for(i=0;i<bytes.length;i++) bits+=('00000000'+bytes[i].toString(2)).slice(-8);
+  for(i=0;i+5<=bits.length&&out.length<n;i+=5) out+=LIC_B32[parseInt(bits.substr(i,5),2)];
+  return out;
+}
+
+/* ---------- 密钥 ---------- */
+var LICKEY = null;   /* Uint8 数组（47 字节） */
+function keyFromB64(b64){
+  try{
+    var s = String(b64||'').replace(/\s+/g,'');
+    if(!s) return null;
+    var bin = atob(s), arr=[], i;
+    for(i=0;i<bin.length;i++) arr.push(bin.charCodeAt(i));
+    if(arr.length < 16) return null;
+    return arr;
+  }catch(e){ return null; }
+}
+function keyCheckConst(b64){ return licHash('gls6t.kcheck|' + String(b64||'').replace(/\s+/g,'')); }
+
+/* ---------- 签发 ---------- */
+function licSign(msg){ return licB32(licHmacBytes(LICKEY,msg).slice(0,13),20); }
+function licSysName(){ return LIC_SYS_DEFAULT; }
+function licCodeName(){ var nm=licSysName(); return (nm.indexOf('工具')>=0? nm : nm+'工具')+'授权码'; }
+function licIssuerName(){ return licCodeName()+' · 签发器'; }
+function licBrandDefault(){ return LIC_BRAND_MAP[licSysName()] || 'ZLGL'; }
+function licMakeTimeCode(expiry,brand){ var b=String(brand||licBrand()).toUpperCase(); return b+'2-'+String(expiry)+'-'+licSign(b+'2|'+String(expiry)); }
+function licMakeCode(machine,expiry,brand){ var b=String(brand||licBrand()).toUpperCase(), m=normMachine(machine); return b+'1-'+String(expiry)+'-'+licSign(b+'1|'+m.toUpperCase()+'|'+String(expiry)); }
+function licNorm(code){ return String(code==null?'':code).toUpperCase().replace(/[^0-9A-Z]/g,''); }
+function licDateOk(expiry){
+  if(!/^\d{8}$/.test(String(expiry))) return false;
+  var y=Number(String(expiry).slice(0,4)),m=Number(String(expiry).slice(4,6)),d=Number(String(expiry).slice(6,8));
+  return y>=2000&&y<=2100&&m>=1&&m<=12&&d>=1&&d<=31;
+}
+function licExpiryText(e){ var s=String(e); return /^\d{8}$/.test(s)? s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8) : ''; }
+function normMachine(v){
+  var s=String(v==null?'':v).toUpperCase().replace(/[^0-9A-Z]/g,'').slice(0,12),o=[],i;
+  for(i=0;i<s.length;i+=4) o.push(s.substr(i,4));
+  return o.join('-');
+}
+function machineOk(v){ return v.replace(/-/g,'').length===12; }
+
+/* ---------- 配置 ---------- */
+function loadCfg(){
+  var c={sys:LIC_SYS_DEFAULT,brand:''};
+  try{ var o=JSON.parse(localStorage.getItem(LS_CFG)||'{}'); if(o&&typeof o==='object'){ if(o.sys) c.sys=String(o.sys); if(o.brand) c.brand=String(o.brand); } }catch(e){}
+  return c;
+}
+function saveCfg(c){ try{ localStorage.setItem(LS_CFG, JSON.stringify(c)); }catch(e){} }
+function licSysNameReal(){ return loadCfg().sys || LIC_SYS_DEFAULT; }
+function licBrand(){
+  var b=String(loadCfg().brand||'').toUpperCase().replace(/[^A-Z]/g,'');
+  if(b.length<2||b.length>6) b=(LIC_BRAND_MAP[licSysNameReal()]||'ZLGL');
+  return b;
+}
+licSysName = function(){ return licSysNameReal(); };
+
+/* ---------- 台账 ---------- */
+function loadLedger(){
+  try{ var o=JSON.parse(localStorage.getItem(LS_LEDG)||'[]'); return Array.isArray(o)? o : []; }catch(e){ return []; }
+}
+function saveLedger(list){ try{ localStorage.setItem(LS_LEDG, JSON.stringify(list)); }catch(e){ toast('本机存不下了，先导出再清空'); } }
+function record(kind,expiry,code,machine,who){
+  var list=loadLedger();
+  list.unshift({kind:kind,expiry:expiry,code:code,machine:machine||'',who:who||'',at:nowText()});
+  if(list.length>600) list=list.slice(0,600);
+  saveLedger(list); renderLedger();
+}
+
+/* ---------- 小工具 ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function toast(msg){
+  var t=$('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('on'); },1800);
+}
+function pad2(n){ return ('0'+n).slice(-2); }
+function ymd(d){ return ''+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate()); }
+function todayYmd(){ return ymd(new Date()); }
+function addDays(n){ var d=new Date(); d.setDate(d.getDate()+n); return ymd(d); }
+function dateToYmd(v){ return v? String(v).replace(/[^0-9]/g,'') : ''; }
+function nowText(){
+  var d=new Date();
+  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());
+}
+function ymdToInput(ymd8){ return /^\d{8}$/.test(ymd8)? ymd8.slice(0,4)+'-'+ymd8.slice(4,6)+'-'+ymd8.slice(6,8) : ''; }
+function copyText(txt,okMsg){
+  var done=function(){ toast(okMsg||'已复制'); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done,function(){ fallbackCopy(txt,done); });
+  } else fallbackCopy(txt,done);
+}
+function fallbackCopy(txt,done){
+  var ta=document.createElement('textarea');
+  ta.value=txt; ta.style.position='fixed'; ta.style.left='-9999px';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('复制不了，请长按选中码手动复制'); }
+  document.body.removeChild(ta);
+}
+function download(name,text){
+  try{
+    var blob=new Blob(['\ufeff'+text],{type:'text/csv;charset=utf-8'});
+    var url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },800);
+    toast('已导出 '+name);
+  }catch(e){ toast('导出失败，可改用「复制全部」'); }
+}
+function csvOf(rows){
+  var out=[],i,j;
+  for(i=0;i<rows.length;i++){
+    var line=[];
+    for(j=0;j<rows[i].length;j++) line.push('"'+String(rows[i][j]==null?'':rows[i][j]).replace(/"/g,'""')+'"');
+    out.push(line.join(','));
+  }
+  return out.join('\r\n');
+}
+
+/* ---------- 登录/权限 ---------- */
+function currentUser(){
+  try{ return JSON.parse(localStorage.getItem('gls_current_user')||'null'); }catch(e){ return null; }
+}
+function rolePerms(roleKey){
+  try{
+    var o=JSON.parse(localStorage.getItem('gls_roles_v1')||'null');
+    if(o&&o.roles){ for(var i=0;i<o.roles.length;i++){ if(o.roles[i].key===roleKey) return o.roles[i].perms||[]; } }
+  }catch(e){}
+  return null;
+}
+function canIssue(user){
+  if(!user) return false;
+  var role=user.role||'';
+  if(role==='admin'||role==='manager') return true;
+  var ps=rolePerms(role);
+  if(ps){ if(ps.indexOf('*')>=0) return true; return ps.some(function(p){ return p.indexOf('sys.')===0; }); }
+  return false;
+}
+
+/* ---------- 渲染 ---------- */
+function syncUI(){
+  var b=licBrand();
+  if($('sysName')) $('sysName').value=licSysNameReal();
+  if($('brand')) $('brand').value=b;
+  if($('sysNow')) $('sysNow').textContent=licSysNameReal();
+  if($('brandNow')) $('brandNow').textContent=b;
+  if($('brandEg')) $('brandEg').textContent=b+'2-20270301-XXXXXXXXXX';
+  if($('tagTime')) $('tagTime').textContent=b+'2 · 只限到期日，一码多台，不绑设备';
+  if($('tagDev')) $('tagDev').textContent=b+'1 · 签发时就锁死机器码，换设备立刻失效';
+  try{ document.title=licIssuerName()+' · 格丽思'; }catch(e){}
+  var cns=document.querySelectorAll('.cname'), i;
+  for(i=0;i<cns.length;i++) cns[i].textContent=licCodeName();
+}
+function renderLedger(){
+  var list=loadLedger(), h='', i, r;
+  if(!list.length){ $('ledger').innerHTML='<li class="empty">还没有签发过。上面生成一个，这里会自动留底。</li>'; return; }
+  for(i=0;i<list.length;i++){
+    r=list[i];
+    h+='<li><span class="pill'+(r.kind==='设备码'?' dev':'')+'">'+esc(r.kind)+'</span>'
+      +'<span class="c">'+esc(r.code)+'</span>'
+      +'<button class="s" data-copy="'+i+'">复制</button>'
+      +'<button class="s d" data-del="'+i+'">删掉</button>'
+      +'<span class="d">'+(r.who? esc(r.who)+' · ':'')+'到期 '+esc(licExpiryText(r.expiry))+(r.machine? ' · 锁机器码 '+esc(r.machine):' · 不绑设备')+' · 签发 '+esc(r.at)+'</span></li>';
+  }
+  $('ledger').innerHTML=h;
+}
+
+/* ---------- 自检 ---------- */
+function selfCheck(){
+  if(!LICKEY) return {ok:false,msg:'密钥未载入'};
+  var code=licMakeTimeCode('20200101','ZLGL');
+  var pass = licHash(code) === SELFTEST;
+  return {ok:pass, code:code};
+}
+
+/* ---------- 进门流程 ---------- */
+function showGate(which){
+  ['gateLogin','gateRole','gateKey','app'].forEach(function(id){ $(id).classList.add('hide'); });
+  if(which) $(which).classList.remove('hide');
+}
+function boot(){
+  var u=currentUser();
+  if(!u){ $('whoText').textContent='未登录'; showGate('gateLogin'); return; }
+  $('whoText').textContent=(u.realname||u.username||'')+' · '+({admin:'超级管理员',manager:'管理员',deptmgr:'经理',staff:'员工',guest:'游客'}[u.role]||u.role||'');
+  if(!canIssue(u)){ $('roleWho').textContent=(u.realname||u.username)+'（'+(u.role||'-')+'）'; showGate('gateRole'); return; }
+  var savedKey='';
+  try{ savedKey=localStorage.getItem(LS_KEY)||''; }catch(e){}
+  if(savedKey && keyFromB64(savedKey) && keyCheckConst(savedKey)===KEY_VERIFY){
+    LICKEY=keyFromB64(savedKey); enterApp(); return;
+  }
+  showGate('gateKey');
+}
+function enterApp(){
+  showGate('app');
+  syncUI();
+  var r=selfCheck();
+  var el=$('selfChk');
+  if(r.ok){ el.className='chk ok'; el.textContent='内核自检通过：这里算出来的码，和质量管理程序里认的完全一致。'; }
+  else { el.className='chk no'; el.textContent='内核自检没通过：密钥可能不对。先别签发，把这一步截图发我。'; }
+  if(!$('expTime').value) $('expTime').value=ymdToInput(addDays(30));
+  if(!$('expDev').value) $('expDev').value=ymdToInput(addDays(365));
+  renderLedger();
+}
+$('btnKey').onclick=function(){
+  var raw=$('keyInput').value.trim();
+  var bytes=keyFromB64(raw);
+  var err=$('keyErr');
+  if(!bytes){ err.classList.remove('hide'); err.textContent='这一串不像密钥：请把《签发密钥-妥善保管.txt》里那一整串 Base64 完整粘进来。'; return; }
+  if(keyCheckConst(raw)!==KEY_VERIFY){ err.classList.remove('hide'); err.textContent='密钥不对。请回到电脑上确认那一串有没有少字符 / 多空格。'; return; }
+  err.classList.add('hide');
+  LICKEY=bytes;
+  if($('keyRemember').checked){ try{ localStorage.setItem(LS_KEY, raw.replace(/\s+/g,'')); }catch(e){} }
+  else { try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+  toast('密钥正确，可以签发了');
+  enterApp();
+};
+$('keyInput').addEventListener('keydown',function(e){ if(e.key==='Enter') $('btnKey').click(); });
+
+/* ---------- 设置 ---------- */
+$('btnCfg').onclick=function(){
+  var c=loadCfg();
+  var sys=String($('sysName').value||'').replace(/[<>]/g,'').trim().slice(0,24) || LIC_SYS_DEFAULT;
+  var b=String($('brand').value||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,6);
+  c.sys=sys;
+  c.brand=(b.length>=2? b : (LIC_BRAND_MAP[sys]||'ZLGL'));
+  saveCfg(c);
+  syncUI();
+  toast('已保存：名称「'+licCodeName()+'」，前缀 '+licBrand());
+};
+
+/* ---------- 生成 ---------- */
+$('btnTime').onclick=function(){
+  var e=dateToYmd($('expTime').value);
+  if(!licDateOk(e)){ toast('先选一个到期日'); return; }
+  var code=licMakeTimeCode(e);
+  $('codeTime').textContent=code;
+  $('metaTime').textContent='限时码 '+licBrand()+'2 · 到期 '+licExpiryText(e)+' · 一码多台，不绑设备'+(($('whoTime').value||'')? ' · '+$('whoTime').value : '');
+  $('outTime').classList.remove('hide');
+  record('限时码',e,code,'',$('whoTime').value);
+};
+$('btnDev').onclick=function(){
+  var m=normMachine($('mc').value), e=dateToYmd($('expDev').value);
+  if(!machineOk(m)){ toast('机器码要 12 位，形如 XXXX-XXXX-XXXX'); return; }
+  if(!licDateOk(e)){ toast('先选一个到期日'); return; }
+  var code=licMakeCode(m,e);
+  $('codeDev').textContent=code;
+  $('metaDev').textContent='设备码 '+licBrand()+'1 · 到期 '+licExpiryText(e)+' · 锁机器码 '+m+'（只这台设备能用）'+(($('whoDev').value||'')? ' · '+$('whoDev').value : '');
+  $('outDev').classList.remove('hide');
+  record('设备码',e,code,m,$('whoDev').value);
+};
+$('copyTime').onclick=function(){ copyText($('codeTime').textContent,'限时码已复制'); };
+$('copyDev').onclick=function(){ copyText($('codeDev').textContent,'设备码已复制'); };
+$('mc').addEventListener('input',function(){ var v=normMachine(this.value); if(v!==this.value) this.value=v; });
+$('vmc').addEventListener('input',function(){ var v=normMachine(this.value); if(v!==this.value) this.value=v; });
+(function(){
+  var q=document.querySelectorAll('[data-quick]'), i;
+  for(i=0;i<q.length;i++) q[i].onclick=function(){
+    var v=(this.dataset.quick==='20291231')? '2029-12-31'
+        : (String(this.dataset.quick).length===4? ymdToInput(this.dataset.quick) : ymdToInput(addDays(Number(this.dataset.quick))));
+    $('expTime').value=v; toast('到期日设为 '+v);
+  };
+})();
+
+/* ---------- 批量 ---------- */
+var bulkRows=[];
+function parseBulk(text){
+  var lines=String(text||'').split(/\r?\n/), out=[], i;
+  for(i=0;i<lines.length;i++){
+    var raw=lines[i].trim();
+    if(!raw || raw.charAt(0)==='#') continue;
+    var parts=raw.split(/[,\t，]+/).map(function(x){ return x.trim(); }).filter(function(x){ return x.length>0; });
+    if(!parts.length) continue;
+    var who='', mach='', exp='';
+    if(parts.length===1){ out.push({bad:raw, reason:'缺到期日'}); continue; }
+    exp=dateToYmd(parts[parts.length-1]);
+    if(parts.length===2){ who=parts[0]; mach=''; }
+    else { who=parts[0]; mach=normMachine(parts[1]); }
+    if(!licDateOk(exp)){ out.push({bad:raw, reason:'到期日看不懂（写成 2027-03-31 或 20270331）', who:who}); continue; }
+    var hasM=mach.replace(/-/g,'').length>0;
+    if(hasM && !machineOk(mach)){ out.push({bad:raw, reason:'机器码不是 12 位', who:who}); continue; }
+    out.push({who:who, machine:hasM? mach : '', expiry:exp, kind:hasM? '设备码':'限时码'});
+  }
+  return out;
+}
+function renderBulk(items){
+  var h='', i, r, ok=0, bad=0;
+  for(i=0;i<items.length;i++){
+    r=items[i];
+    if(r.bad!==undefined){
+      bad++;
+      h+='<tr><td colspan="5" style="color:#ff4d4f">这一行没签发：'+esc(r.bad)+' —— '+esc(r.reason)+'</td></tr>';
+      continue;
+    }
+    ok++;
+    r.code = r.kind==='设备码'? licMakeCode(r.machine,r.expiry) : licMakeTimeCode(r.expiry);
+    h+='<tr><td>'+esc(r.kind)+'</td><td class="mono" style="font-family:var(--mono)">'+esc(r.code)+'</td><td>'+esc(licExpiryText(r.expiry))+'</td>'
+      +'<td>'+esc((r.who? r.who+' · ':'')+(r.machine? r.machine : '不绑设备'))+'</td>'
+      +'<td><button class="s" data-bcopy="'+i+'">复制</button></td></tr>';
+  }
+  $('bulkBody').innerHTML=h;
+  $('bulkOut').classList.remove('hide');
+  return {ok:ok,bad:bad};
+}
+$('btnBulk').onclick=function(){
+  var items=parseBulk($('bulk').value);
+  if(!items.length){ toast('先按「备注, 机器码, 到期日」写几行'); return; }
+  var r=renderBulk(items);
+  bulkRows=items.filter(function(x){ return x.bad===undefined; });
+  var i;
+  for(i=0;i<bulkRows.length;i++) record(bulkRows[i].kind, bulkRows[i].expiry, bulkRows[i].code, bulkRows[i].machine, bulkRows[i].who);
+  toast('已生成 '+r.ok+' 个'+(r.bad? '，'+r.bad+' 行有问题':''));
+};
+$('bulkBody').addEventListener('click',function(ev){
+  var t=ev.target;
+  if(t.dataset && t.dataset.bcopy!=null){
+    var idx=Number(t.dataset.bcopy);
+    var tr=t.closest('tr'), code=tr.cells[1].textContent;
+    copyText(code,'已复制 '+code.slice(0,12)+'…');
+  }
+});
+$('btnBulkCopy').onclick=function(){
+  if(!bulkRows.length){ toast('先批量生成一次'); return; }
+  var txt=[], i;
+  for(i=0;i<bulkRows.length;i++) txt.push(bulkRows[i].code+'  到期 '+licExpiryText(bulkRows[i].expiry)+(bulkRows[i].machine? '  锁 '+bulkRows[i].machine:'  不绑设备')+(bulkRows[i].who? '  '+bulkRows[i].who:''));
+  copyText(txt.join('\n'),'已复制 '+bulkRows.length+' 个码');
+};
+$('btnBulkCsv').onclick=function(){
+  if(!bulkRows.length){ toast('先批量生成一次'); return; }
+  var rows=[['类型',licCodeName(),'到期日','绑定机器码','备注','签发时间']], i;
+  for(i=0;i<bulkRows.length;i++) rows.push([bulkRows[i].kind, bulkRows[i].code, licExpiryText(bulkRows[i].expiry), bulkRows[i].machine||'不绑设备', bulkRows[i].who||'', nowText()]);
+  download('GREENIS-授权签发台账-'+todayYmd()+'.csv', csvOf(rows));
+};
+$('btnBulkDemo').onclick=function(){
+  $('bulk').value='张工, SGM3-BKEA-SZ1Q, '+ymdToInput(addDays(365))+'\n李工, 0B57-SN4X-WYS2, '+ymdToInput(addDays(365))+'\n试用客户A, , '+ymdToInput(addDays(30))+'\n试用客户B, , '+ymdToInput(addDays(30));
+  toast('已填入示例，机器码和日期都能改');
+};
+
+/* ---------- 验码 ---------- */
+$('btnVerify').onclick=function(){
+  var raw=licNorm($('vin').value), box=$('verdict');
+  var vm=normMachine($('vmc').value);
+  box.classList.remove('hide'); box.className='verdict';
+  if(!raw){ box.textContent='先粘贴一个'+licCodeName()+'。'; return; }
+  var mm=raw.match(/^([A-Z]{2,6})([12])(\d{8})([0-9A-Z]{16,24})$/);
+  if(!mm){ box.className='verdict bad'; box.textContent='格式不对：'+licCodeName()+'应为「授权标识＋1或2＋8 位到期日＋20 位签名」，例如 '+licBrand()+'2-20270301-XXXXXXXXXX。'; return; }
+  var brand=mm[1], kind=mm[2], exp=mm[3], sig=mm[4], head=brand+kind;
+  if(!licDateOk(exp)){ box.className='verdict bad'; box.textContent='到期日不合法：'+exp; return; }
+  var today=todayYmd();
+  var expNote = (exp < today)? '（已过期）' : '（还有效）';
+  if(kind==='2'){
+    if(licMakeTimeCode(exp,brand).slice(-20)===sig){
+      box.className='verdict good';
+      box.textContent='限时码（'+head+'），签名有效。到期 '+licExpiryText(exp)+expNote+'（这天仍可用），不绑设备，可多台使用。';
+    } else { box.className='verdict bad'; box.textContent='签名对不上：这个码被改过，或者是别人自己造的。'; }
+    return;
+  }
+  var target=vm.replace(/-/g,'');
+  if(!target){
+    var list=loadLedger(), i;
+    for(i=0;i<list.length;i++){ if(licNorm(list[i].code)===raw){ target=String(list[i].machine).replace(/-/g,''); break; } }
+  }
+  if(!target){
+    box.textContent='设备码（'+head+'）。格式与到期日正常（到期 '+licExpiryText(exp)+expNote+'），但要判定签名得知道它锁的机器码 —— 填上机器码再验，或看台账里有没有签发记录。';
+    return;
+  }
+  if(licMakeCode(normMachine(target),exp,brand).slice(-20)===sig){
+    box.className='verdict good';
+    box.textContent='设备码（'+head+'），签名有效。到期 '+licExpiryText(exp)+expNote+'，只锁机器码 '+normMachine(target)+' 这台设备。';
+  } else { box.className='verdict bad'; box.textContent='签名对不上：这个码不是锁 '+normMachine(target)+' 的，或者被改过。'; }
+};
+
+/* ---------- 台账交互 ---------- */
+$('btnExp').onclick=function(){
+  var list=loadLedger();
+  if(!list.length){ toast('台账是空的'); return; }
+  var rows=[['类型',licCodeName(),'到期日','绑定机器码','备注','签发时间']], i;
+  for(i=0;i<list.length;i++) rows.push([list[i].kind, list[i].code, licExpiryText(list[i].expiry), list[i].machine||'不绑设备', list[i].who||'', list[i].at]);
+  download('GREENIS-授权签发台账-'+todayYmd()+'.csv', csvOf(rows));
+};
+$('btnCopyAll').onclick=function(){
+  var list=loadLedger();
+  if(!list.length){ toast('台账是空的'); return; }
+  var txt=[], i;
+  for(i=0;i<list.length;i++) txt.push(list[i].code+'  到期 '+licExpiryText(list[i].expiry)+(list[i].machine? '  锁 '+list[i].machine:'  不绑设备')+(list[i].who? '  '+list[i].who:''));
+  copyText(txt.join('\n'),'已复制 '+list.length+' 个码');
+};
+$('btnClear').onclick=function(){
+  if(!loadLedger().length){ toast('台账已经是空的'); return; }
+  if(!confirm('清空本机台账？（只删这里的记录，不影响已经发出去的码）')) return;
+  saveLedger([]); renderLedger(); toast('台账已清空');
+};
+$('ledger').addEventListener('click',function(ev){
+  var t=ev.target, i;
+  if(t.dataset&&t.dataset.copy!=null){ i=Number(t.dataset.copy); copyText(loadLedger()[i].code,'已复制'); return; }
+  if(t.dataset&&t.dataset.del!=null){
+    i=Number(t.dataset.del);
+    if(!confirm('删掉这条签发记录？')) return;
+    var list=loadLedger(); list.splice(i,1); saveLedger(list); renderLedger(); toast('已删除');
+  }
+});
+
+/* 语言无关的启动 */
+try{ boot(); }catch(e){ console.log('boot error', e); }
+</script>
+</body>
+</html>
