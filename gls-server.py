@@ -215,6 +215,74 @@ def wecom_send(to, text, flow_id=""):
     return {"ok": False, "reason": "api_error", "msg": str(d)}
 
 
+# ---------------------------------------------------------------- 方舟联网搜索
+# key 放在同目录 gls-ark.ini，不要写死在代码里，也不要把这个 ini 提交到公网仓库。
+ARK_CONF = os.path.join(BASE, "gls-ark.ini")
+
+
+def ark_cfg():
+    """读 gls-ark.ini：[ark] api_key / model。没配就返回空。"""
+    try:
+        import configparser
+        cp = configparser.ConfigParser()
+        if not cp.read(ARK_CONF, encoding="utf-8") or not cp.has_section("ark"):
+            return {"api_key": "", "model": ""}
+        return {
+            "api_key": (cp.get("ark", "api_key", fallback="") or "").strip(),
+            "model": (cp.get("ark", "model", fallback="") or "").strip()
+                     or "doubao-seed-2-1-pro-260915",
+        }
+    except Exception:
+        return {"api_key": "", "model": "doubao-seed-2-1-pro-260915"}
+
+
+def ark_web_search(question, city="宁波"):
+    """转发到方舟 Responses API + web_search 插件。返回 {ok, answer, usage, error}。"""
+    cfg = ark_cfg()
+    if not cfg["api_key"]:
+        return {"ok": False, "error": "还没配方舟 key：请在 gls-ark.ini 里填 [ark] api_key=..."}
+    q = str(question or "").strip()
+    if not q:
+        return {"ok": False, "error": "问题不能为空"}
+    body = {
+        "model": cfg["model"],
+        "stream": False,
+        "tools": [{
+            "type": "web_search",
+            "max_keyword": 2,
+            "limit": 5,
+            "user_location": {"type": "approximate",
+                              "country": "中国", "region": "浙江", "city": city},
+        }],
+        "input": [{"role": "user",
+                   "content": [{"type": "input_text", "text": q}]}],
+    }
+    req = urllib.request.Request(
+        "https://ark.cn-beijing.volces.com/api/v3/responses",
+        data=json.dumps(body).encode("utf-8"),
+        method="POST",
+    )
+    req.add_header("Authorization", "Bearer " + cfg["api_key"])
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        msg = e.read().decode("utf-8", "replace")[:400]
+        return {"ok": False, "error": "方舟返回 HTTP %s：%s" % (e.code, msg)}
+    except Exception as e:
+        return {"ok": False, "error": "调用方舟失败：%s" % e}
+
+    answer = ""
+    for item in d.get("output", []):
+        if item.get("type") == "message":
+            for c in item.get("content", []):
+                if c.get("type") == "output_text":
+                    answer += c.get("text", "")
+    return {"ok": True, "answer": answer,
+            "usage": d.get("usage", {}), "status": d.get("status")}
+
+
 # ---------------------------------------------------------------- 访问口令
 # 内网用可以不开；一旦要做外网访问（内网穿透 / 域名），**必须**在 gls-auth.ini
 # 里填一个口令，否则那条公网链接谁拿到都能读写你们的数据。
@@ -392,6 +460,14 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "text 不能为空"})
             res = wecom_send(to, text, body.get("flowId") or "")
             print("  [企业微信] 推送「%s」→ %s" % (to, "成功" if res.get("ok") else res.get("reason")))
+            return self._json(200, res)
+
+        # 联网查标准/法规（转发方舟 web_search 插件，key 在服务端，不下发公网）
+        if path == "/api/web-search":
+            body = self._read_body()
+            q = body.get("question") or ""
+            print("  [联网搜索] 收到问题：%s" % q[:60])
+            res = ark_web_search(q, body.get("city") or "宁波")
             return self._json(200, res)
 
         if path != "/api/save":
